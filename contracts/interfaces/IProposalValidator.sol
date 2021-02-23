@@ -61,10 +61,10 @@ interface IProposalValidator {
    * @param proposalId Id of the proposal to set
    * @return true if proposal passed
    **/
-  function isBinaryProposalPassed(
-    IKyberGovernance governance,
-    uint256 proposalId
-  ) external view returns (bool);
+  function isBinaryProposalPassed(IKyberGovernance governance, uint256 proposalId)
+    external
+    view
+    returns (bool);
 
   /**
    * @dev Check whether a proposal has reached quorum
@@ -72,10 +72,10 @@ interface IProposalValidator {
    * @param proposalId Id of the proposal to verify
    * @return voting power needed for a proposal to pass
    **/
-  function isQuorumValid(
-    IKyberGovernance governance,
-    uint256 proposalId
-  ) external view returns (bool);
+  function isQuorumValid(IKyberGovernance governance, uint256 proposalId)
+    external
+    view
+    returns (bool);
 
   /**
    * @dev Check whether a proposal has enough extra FOR-votes than AGAINST-votes
@@ -83,10 +83,10 @@ interface IProposalValidator {
    * @param proposalId Id of the proposal to verify
    * @return true if enough For-Votes
    **/
-  function isVoteDifferentialValid(
-    IKyberGovernance governance,
-    uint256 proposalId
-  ) external view returns (bool);
+  function isVoteDifferentialValid(IKyberGovernance governance, uint256 proposalId)
+    external
+    view
+    returns (bool);
 
   /**
    * @dev Get proposition threshold constant value

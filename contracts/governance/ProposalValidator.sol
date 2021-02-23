@@ -65,7 +65,7 @@ contract ProposalValidator is IProposalValidator, Utils {
     IKyberGovernance governance,
     uint256 proposalId,
     address user
-  ) external pure override returns (bool) {
+  ) external override pure returns (bool) {
     // silence compilation warnings
     governance;
     proposalId;
@@ -88,7 +88,7 @@ contract ProposalValidator is IProposalValidator, Utils {
     uint256 startTime,
     uint256 endTime,
     address daoOperator
-  ) external view override returns (bool) {
+  ) external override view returns (bool) {
     // check authorization
     if (creator != daoOperator) return false;
     // check vote duration
@@ -114,7 +114,7 @@ contract ProposalValidator is IProposalValidator, Utils {
     uint256 endTime,
     string[] calldata options,
     address daoOperator
-  ) external view override returns (bool) {
+  ) external override view returns (bool) {
     // check authorization
     if (creator != daoOperator) return false;
     // check vote duration
@@ -133,8 +133,8 @@ contract ProposalValidator is IProposalValidator, Utils {
    **/
   function isBinaryProposalPassed(IKyberGovernance governance, uint256 proposalId)
     public
-    view
     override
+    view
     returns (bool)
   {
     return (isQuorumValid(governance, proposalId) &&

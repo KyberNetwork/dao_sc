@@ -26,6 +26,12 @@ contract Executor is ExecutorWithTimelock, ProposalValidator {
     uint256 minimumQuorum
   )
     ExecutorWithTimelock(admin, delay, gracePeriod, minimumDelay, maximumDelay)
-    ProposalValidator(propositionThreshold, minVoteDuration, maxVotingOptions, voteDifferential, minimumQuorum)
+    ProposalValidator(
+      propositionThreshold,
+      minVoteDuration,
+      maxVotingOptions,
+      voteDifferential,
+      minimumQuorum
+    )
   {}
 }

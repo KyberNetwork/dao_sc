@@ -466,7 +466,7 @@ contract('KyberStaking', function (accounts) {
         expectEvent(tx, 'Deposited', {
           curEpoch: new BN(id),
           staker: victor,
-          amount: mulPrecision(id * 2 + 1)
+          amount: mulPrecision(id * 2 + 1),
         });
         totalDeposited += id * 2 + 1;
         Helper.assertEqual(
@@ -888,7 +888,7 @@ contract('KyberStaking', function (accounts) {
       expectEvent(tx, 'Withdraw', {
         curEpoch: new BN(0),
         staker: victor,
-        amount: mulPrecision(50)
+        amount: mulPrecision(50),
       });
 
       Helper.assertEqual(
@@ -909,7 +909,7 @@ contract('KyberStaking', function (accounts) {
       expectEvent(tx, 'Withdraw', {
         curEpoch: new BN(1),
         staker: victor,
-        amount: mulPrecision(100)
+        amount: mulPrecision(100),
       });
 
       Helper.assertEqual(
@@ -930,7 +930,7 @@ contract('KyberStaking', function (accounts) {
       expectEvent(tx, 'Withdraw', {
         curEpoch: new BN(5),
         staker: victor,
-        amount: mulPrecision(40)
+        amount: mulPrecision(40),
       });
 
       Helper.assertEqual(
@@ -1584,7 +1584,7 @@ contract('KyberStaking', function (accounts) {
         staker: victor,
         representative: mike,
         epoch: new BN(0),
-        isDelegated: true
+        isDelegated: true,
       });
 
       await Helper.setNextBlockTimestamp(blockToTimestamp(4 * epochPeriod + startBlock));
@@ -1613,13 +1613,13 @@ contract('KyberStaking', function (accounts) {
         staker: victor,
         representative: mike,
         epoch: new BN(5),
-        isDelegated: false
+        isDelegated: false,
       });
       expectEvent(tx, 'Delegated', {
         staker: victor,
         representative: loi,
         epoch: new BN(5),
-        isDelegated: true
+        isDelegated: true,
       });
 
       Helper.assertEqual(
@@ -3625,7 +3625,7 @@ contract('KyberStaking', function (accounts) {
       expectEvent(txResult, 'WithdrawDataUpdateFailed', {
         curEpoch: new BN(epoch),
         staker: staker,
-        amount: new BN(withdrawAmount)
+        amount: new BN(withdrawAmount),
       });
     }
 
@@ -3862,16 +3862,16 @@ contract('KyberStaking', function (accounts) {
   });
 });
 
-function verifyStakerData (stakerData, stake, delegatedStake, representative) {
+function verifyStakerData(stakerData, stake, delegatedStake, representative) {
   Helper.assertEqual(stake, stakerData.stake, 'stake is wrong');
   Helper.assertEqual(delegatedStake, stakerData.delegatedStake, 'delegated stake is wrong');
   Helper.assertEqual(representative, stakerData.representative, 'representative is wrong');
 }
 
-function logInfo (message) {
+function logInfo(message) {
   console.log('       ' + message);
 }
 
-function mulPrecision (value) {
+function mulPrecision(value) {
   return precisionUnits.mul(new BN(value));
 }

@@ -154,7 +154,8 @@ contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard, PermissionA
   }
 
   /**
-   * @dev call to withdraw KNC from staking, it could affect voting point when calling withdrawHandlers handleWithdrawal
+   * @dev call to withdraw KNC from staking
+   * @dev it could affect voting point when calling withdrawHandlers handleWithdrawal
    * @param amount amount of KNC to withdraw
    */
   function withdraw(uint256 amount) external override nonReentrant {
