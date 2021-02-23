@@ -46,12 +46,13 @@ contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard, PermissionA
   event UpdateWithdrawHandler(IWithdrawHandler withdrawHandler);
 
   constructor(
-    address admin,
+    address _admin,
     IERC20 _kncToken,
     uint256 _epochPeriod,
     uint256 _startTime
-  ) PermissionAdmin(admin) {
+  ) PermissionAdmin(_admin) {
     require(_epochPeriod > 0, 'ctor: epoch period is 0');
+    require(_startTime >= block.timestamp, 'ctor: start in the past');
     require(_kncToken != IERC20(0), 'ctor: kncToken 0');
 
     epochPeriodInSeconds = _epochPeriod;
@@ -194,6 +195,7 @@ contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard, PermissionA
   function initAndReturnStakerDataForCurrentEpoch(address staker)
     external
     override
+    nonReentrant
     returns (
       uint256 stake,
       uint256 delegatedStake,
