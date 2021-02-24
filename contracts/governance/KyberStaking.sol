@@ -50,13 +50,10 @@ contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard, PermissionA
     IERC20 _kncToken,
     uint256 _epochPeriod,
     uint256 _startTime
-  ) PermissionAdmin(_admin) {
-    require(_epochPeriod > 0, 'ctor: epoch period is 0');
+  ) PermissionAdmin(_admin) EpochUtils(_epochPeriod, _startTime) {
     require(_startTime >= block.timestamp, 'ctor: start in the past');
-    require(_kncToken != IERC20(0), 'ctor: kncToken 0');
 
-    epochPeriodInSeconds = _epochPeriod;
-    firstEpochStartTime = _startTime;
+    require(_kncToken != IERC20(0), 'ctor: kncToken 0');
     kncToken = _kncToken;
   }
 

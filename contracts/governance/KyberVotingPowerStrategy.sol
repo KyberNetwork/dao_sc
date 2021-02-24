@@ -27,13 +27,11 @@ contract KyberVotingPowerStrategy is IVotingPowerStrategy, EpochUtils {
    * @dev Constructor, register tokens used for Voting and Proposition Powers.
    * @param _staking The address of the knc staking contract.
    **/
-  constructor(IKyberGovernance _governance, IKyberStaking _staking) {
+  constructor(IKyberGovernance _governance, IKyberStaking _staking)
+    EpochUtils(_staking.epochPeriodInSeconds(), _staking.firstEpochStartTime())
+  {
     staking = _staking;
     governance = _governance;
-
-    /// init epochutils
-    epochPeriodInSeconds = _staking.epochPeriodInSeconds();
-    firstEpochStartTime = _staking.firstEpochStartTime();
   }
 
   modifier onlyStaking() {
