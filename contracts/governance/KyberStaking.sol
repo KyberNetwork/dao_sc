@@ -23,21 +23,20 @@ contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard, PermissionA
   using SafeMath for uint256;
   /// TODO: should we compress uint128-uint128-address-bool
   struct StakerData {
-    uint256 stake;
-    uint256 delegatedStake;
+    uint128 stake;
+    uint128 delegatedStake;
     address representative;
+    // true/false: if data has been initialized at an epoch for a staker
+    bool hasInited;
   }
 
   IERC20 public immutable override kncToken;
 
   IWithdrawHandler public withdrawHandler;
-
   // staker data per epoch, including stake, delegated stake and representative
   mapping(uint256 => mapping(address => StakerData)) internal stakerPerEpochData;
   // latest data of a staker, including stake, delegated stake, representative
   mapping(address => StakerData) internal stakerLatestData;
-  // true/false: if data has been initialized at an epoch for a staker
-  mapping(uint256 => mapping(address => bool)) internal hasInited;
 
   // event is fired if something is wrong with withdrawal
   // even though the withdrawal is still successful
@@ -85,14 +84,8 @@ contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard, PermissionA
     // reduce delegatedStake for curRepresentative if needed
     if (curRepresentative != staker) {
       initDataIfNeeded(curRepresentative, curEpoch);
-
-      stakerPerEpochData[curEpoch + 1][curRepresentative]
-        .delegatedStake = stakerPerEpochData[curEpoch + 1][curRepresentative].delegatedStake.sub(
-        updatedStake
-      );
-      stakerLatestData[curRepresentative].delegatedStake = stakerLatestData[curRepresentative]
-        .delegatedStake
-        .sub(updatedStake);
+      decreaseDelegatedStake(stakerPerEpochData[curEpoch + 1][curRepresentative], updatedStake);
+      decreaseDelegatedStake(stakerLatestData[curRepresentative], updatedStake);
 
       emit Delegated(staker, curRepresentative, curEpoch, false);
     }
@@ -103,13 +96,9 @@ contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard, PermissionA
     // ignore if staker is delegating back to himself
     if (newRepresentative != staker) {
       initDataIfNeeded(newRepresentative, curEpoch);
-      stakerPerEpochData[curEpoch + 1][newRepresentative]
-        .delegatedStake = stakerPerEpochData[curEpoch + 1][newRepresentative].delegatedStake.add(
-        updatedStake
-      );
-      stakerLatestData[newRepresentative].delegatedStake = stakerLatestData[newRepresentative]
-        .delegatedStake
-        .add(updatedStake);
+      increaseDelegatedStake(stakerPerEpochData[curEpoch + 1][newRepresentative], updatedStake);
+      increaseDelegatedStake(stakerLatestData[newRepresentative], updatedStake);
+
       emit Delegated(staker, newRepresentative, curEpoch, true);
     }
   }
@@ -128,23 +117,15 @@ contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard, PermissionA
     require(kncToken.transferFrom(staker, address(this), amount), 'deposit: can not get token');
 
     initDataIfNeeded(staker, curEpoch);
-
-    stakerPerEpochData[curEpoch + 1][staker].stake = stakerPerEpochData[curEpoch + 1][staker]
-      .stake
-      .add(amount);
-    stakerLatestData[staker].stake = stakerLatestData[staker].stake.add(amount);
+    increaseStake(stakerPerEpochData[curEpoch + 1][staker], amount);
+    increaseStake(stakerLatestData[staker], amount);
 
     // increase delegated stake for address that staker has delegated to (if it is not staker)
     address representative = stakerPerEpochData[curEpoch + 1][staker].representative;
     if (representative != staker) {
       initDataIfNeeded(representative, curEpoch);
-      stakerPerEpochData[curEpoch + 1][representative]
-        .delegatedStake = stakerPerEpochData[curEpoch + 1][representative].delegatedStake.add(
-        amount
-      );
-      stakerLatestData[representative].delegatedStake = stakerLatestData[representative]
-        .delegatedStake
-        .add(amount);
+      increaseDelegatedStake(stakerPerEpochData[curEpoch + 1][representative], amount);
+      increaseDelegatedStake(stakerLatestData[representative], amount);
     }
 
     emit Deposited(curEpoch, staker, amount);
@@ -166,20 +147,16 @@ contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard, PermissionA
       'withdraw: latest amount staked < withdrawal amount'
     );
 
+    initDataIfNeeded(staker, curEpoch);
+    decreaseStake(stakerLatestData[staker], amount);
+
     (bool success, ) = address(this).call(
-      abi.encodeWithSignature(
-        'handleWithdrawal(address,uint256,uint256)',
-        staker,
-        amount,
-        curEpoch
-      )
+      abi.encodeWithSelector(KyberStaking.handleWithdrawal.selector, staker, amount, curEpoch)
     );
     if (!success) {
       // Note: should catch this event to check if something went wrong
       emit WithdrawDataUpdateFailed(curEpoch, staker, amount);
     }
-
-    stakerLatestData[staker].stake = stakerLatestData[staker].stake.sub(amount);
 
     // transfer KNC back to staker
     require(kncToken.transfer(staker, amount), 'withdraw: can not transfer knc');
@@ -241,7 +218,7 @@ contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard, PermissionA
     }
     uint256 i = epoch;
     while (true) {
-      if (hasInited[i][staker]) {
+      if (stakerPerEpochData[i][staker].hasInited) {
         return stakerPerEpochData[i][staker].stake;
       }
       if (i == 0) {
@@ -262,7 +239,7 @@ contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard, PermissionA
     }
     uint256 i = epoch;
     while (true) {
-      if (hasInited[i][staker]) {
+      if (stakerPerEpochData[i][staker].hasInited) {
         return stakerPerEpochData[i][staker].delegatedStake;
       }
       if (i == 0) {
@@ -283,7 +260,7 @@ contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard, PermissionA
     }
     uint256 i = epoch;
     while (true) {
-      if (hasInited[i][staker]) {
+      if (stakerPerEpochData[i][staker].hasInited) {
         return stakerPerEpochData[i][staker].representative;
       }
       if (i == 0) {
@@ -319,7 +296,7 @@ contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard, PermissionA
     }
     uint256 i = epoch;
     while (true) {
-      if (hasInited[i][staker]) {
+      if (stakerPerEpochData[i][staker].hasInited) {
         stake = stakerPerEpochData[i][staker].stake;
         delegatedStake = stakerPerEpochData[i][staker].delegatedStake;
         representative = stakerPerEpochData[i][staker].representative;
@@ -379,16 +356,18 @@ contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard, PermissionA
     uint256 curEpoch
   ) external {
     require(msg.sender == address(this), 'only staking contract');
-    initDataIfNeeded(staker, curEpoch);
-    // Note: update latest stake will be done after this function
     // update staker's data for next epoch
-    stakerPerEpochData[curEpoch + 1][staker].stake = stakerPerEpochData[curEpoch + 1][staker]
-      .stake
-      .sub(amount);
+    decreaseStake(stakerPerEpochData[curEpoch + 1][staker], amount);
+    address representative = stakerPerEpochData[curEpoch + 1][staker].representative;
+    if (representative != staker) {
+      initDataIfNeeded(representative, curEpoch);
+      decreaseDelegatedStake(stakerPerEpochData[curEpoch + 1][representative], amount);
+      decreaseDelegatedStake(stakerLatestData[representative], amount);
+    }
 
-    address representative = stakerPerEpochData[curEpoch][staker].representative;
+    representative = stakerPerEpochData[curEpoch][staker].representative;
     uint256 curStake = stakerPerEpochData[curEpoch][staker].stake;
-    uint256 lStakeBal = stakerLatestData[staker].stake.sub(amount);
+    uint256 lStakeBal = stakerLatestData[staker].stake;
     uint256 newStake = curStake.min(lStakeBal);
     uint256 reduceAmount = curStake.sub(newStake); // newStake is always <= curStake
 
@@ -396,17 +375,14 @@ contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard, PermissionA
       if (representative != staker) {
         initDataIfNeeded(representative, curEpoch);
         // staker has delegated to representative, withdraw will affect representative's delegated stakes
-        stakerPerEpochData[curEpoch][representative]
-          .delegatedStake = stakerPerEpochData[curEpoch][representative].delegatedStake.sub(
-          reduceAmount
-        );
+        decreaseDelegatedStake(stakerPerEpochData[curEpoch][representative], reduceAmount);
       }
-      stakerPerEpochData[curEpoch][staker].stake = newStake;
+      stakerPerEpochData[curEpoch][staker].stake = safeUint128(newStake);
       // call withdrawHandlers to reduce reward, if staker has delegated, then pass his representative
       if (withdrawHandler != IWithdrawHandler(0)) {
         (bool success, ) = address(withdrawHandler).call(
-          abi.encodeWithSignature(
-            'handleWithdrawal(address,uint256)',
+          abi.encodeWithSelector(
+            IWithdrawHandler.handleWithdrawal.selector,
             representative,
             reduceAmount
           )
@@ -415,17 +391,6 @@ contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard, PermissionA
           emit WithdrawDataUpdateFailed(curEpoch, staker, amount);
         }
       }
-    }
-    representative = stakerPerEpochData[curEpoch + 1][staker].representative;
-    if (representative != staker) {
-      initDataIfNeeded(representative, curEpoch);
-      stakerPerEpochData[curEpoch + 1][representative]
-        .delegatedStake = stakerPerEpochData[curEpoch + 1][representative].delegatedStake.sub(
-        amount
-      );
-      stakerLatestData[representative].delegatedStake = stakerLatestData[representative]
-        .delegatedStake
-        .sub(amount);
     }
   }
 
@@ -442,25 +407,48 @@ contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard, PermissionA
       representative = staker;
     }
 
-    uint256 ldStake = stakerLatestData[staker].delegatedStake;
-    uint256 lStakeBal = stakerLatestData[staker].stake;
+    uint128 lStakeBal = stakerLatestData[staker].stake;
+    uint128 ldStake = stakerLatestData[staker].delegatedStake;
 
-    if (!hasInited[epoch][staker]) {
-      hasInited[epoch][staker] = true;
-      StakerData storage stakerData = stakerPerEpochData[epoch][staker];
-      stakerData.representative = representative;
-      stakerData.delegatedStake = ldStake;
-      stakerData.stake = lStakeBal;
+    if (!stakerPerEpochData[epoch][staker].hasInited) {
+      stakerPerEpochData[epoch][staker] = StakerData({
+        stake: lStakeBal,
+        delegatedStake: ldStake,
+        representative: representative,
+        hasInited: true
+      });
     }
 
     // whenever stakers deposit/withdraw/delegate, the current and next epoch data need to be updated
     // as the result, we will also initialize data for staker at the next epoch
-    if (!hasInited[epoch + 1][staker]) {
-      hasInited[epoch + 1][staker] = true;
-      StakerData storage nextEpochStakerData = stakerPerEpochData[epoch + 1][staker];
-      nextEpochStakerData.representative = representative;
-      nextEpochStakerData.delegatedStake = ldStake;
-      nextEpochStakerData.stake = lStakeBal;
+    if (!stakerPerEpochData[epoch + 1][staker].hasInited) {
+      stakerPerEpochData[epoch + 1][staker] = StakerData({
+        stake: lStakeBal,
+        delegatedStake: ldStake,
+        representative: representative,
+        hasInited: true
+      });
     }
+  }
+
+  function decreaseDelegatedStake(StakerData storage stakeData, uint256 amount) internal {
+    stakeData.delegatedStake = safeUint128(uint256(stakeData.delegatedStake).sub(amount));
+  }
+
+  function increaseDelegatedStake(StakerData storage stakeData, uint256 amount) internal {
+    stakeData.delegatedStake = safeUint128(uint256(stakeData.delegatedStake).add(amount));
+  }
+
+  function increaseStake(StakerData storage stakeData, uint256 amount) internal {
+    stakeData.stake = safeUint128(uint256(stakeData.stake).add(amount));
+  }
+
+  function decreaseStake(StakerData storage stakeData, uint256 amount) internal {
+    stakeData.stake = safeUint128(uint256(stakeData.stake).sub(amount));
+  }
+
+  function safeUint128(uint256 value) internal pure returns (uint128) {
+    require(value < 2**128, 'safeUint128: overflow');
+    return uint128(value);
   }
 }
