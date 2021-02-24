@@ -479,9 +479,13 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    **/
   function getProposalVoteDataById(uint256 proposalId)
     external
-    view
     override
-    returns (uint256, uint256[] memory, string[] memory)
+    view
+    returns (
+      uint256,
+      uint256[] memory,
+      string[] memory
+    )
   {
     ProposalWithoutVote storage proposal = _proposals[proposalId].proposalData;
     return (proposal.totalVotes, proposal.voteCounts, proposal.options);

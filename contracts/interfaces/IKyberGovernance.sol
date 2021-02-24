@@ -321,7 +321,11 @@ interface IKyberGovernance {
   function getProposalVoteDataById(uint256 proposalId)
     external
     view
-    returns (uint256, uint256[] memory, string[] memory);
+    returns (
+      uint256,
+      uint256[] memory,
+      string[] memory
+    );
 
   /**
    * @dev Getter of the Vote of a voter about a proposal
@@ -340,6 +344,5 @@ interface IKyberGovernance {
    * @param proposalId id of the proposal
    * @return The current state if the proposal
    **/
-  function getProposalState(uint256 proposalId)
-    external view returns (ProposalState);
+  function getProposalState(uint256 proposalId) external view returns (ProposalState);
 }
