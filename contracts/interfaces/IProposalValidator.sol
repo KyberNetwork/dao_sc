@@ -89,12 +89,6 @@ interface IProposalValidator {
     returns (bool);
 
   /**
-   * @dev Get proposition threshold constant value
-   * @return the proposition threshold value (100 <=> 1%)
-   **/
-  function PROPOSITION_THRESHOLD() external view returns (uint256);
-
-  /**
    * @dev Get maximum vote options for a generic proposal
    * @return the maximum no. of vote options possible for a generic proposal
    **/
@@ -119,10 +113,4 @@ interface IProposalValidator {
    * @return the quorum threshold value (100 <=> 1%)
    **/
   function MINIMUM_QUORUM() external view returns (uint256);
-
-  /**
-   * @dev precision helper: 100% = 10000
-   * @return one hundred percents with our chosen precision
-   **/
-  function ONE_HUNDRED_WITH_PRECISION() external view returns (uint256);
 }

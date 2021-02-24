@@ -18,36 +18,30 @@ import {Utils} from '@kyber.network/utils-sc/contracts/Utils.sol';
 contract ProposalValidator is IProposalValidator, Utils {
   using SafeMath for uint256;
 
-  uint256 public immutable override PROPOSITION_THRESHOLD;
   uint256 public immutable override MIN_VOTING_DURATION;
   uint256 public immutable override MAX_VOTING_OPTIONS;
   uint256 public immutable override VOTE_DIFFERENTIAL;
   uint256 public immutable override MINIMUM_QUORUM;
 
-  uint256 public constant override ONE_HUNDRED_WITH_PRECISION = 10000; // Equivalent to 100%, but scaled for precision
   uint256 public constant YES_INDEX = 0;
   uint256 public constant NO_INDEX = 1;
 
   /**
    * @dev Constructor
-   * @param propositionThreshold minimum percentage of supply needed to submit a proposal
-   * - In ONE_HUNDRED_WITH_PRECISION units
    * @param minVotingDuration minimum duration in seconds of the voting period
    * @param maxVotingOptions maximum no. of vote options possible for a generic proposal
    * @param voteDifferential percentage of supply that `for` votes need to be over `against`
    *   in order for the proposal to pass
-   * - In ONE_HUNDRED_WITH_PRECISION units
+   * - In BPS
    * @param minimumQuorum minimum percentage of the supply in FOR-voting-power need for a proposal to pass
-   * - In ONE_HUNDRED_WITH_PRECISION units
+   * - In BPS
    **/
   constructor(
-    uint256 propositionThreshold,
     uint256 minVotingDuration,
     uint256 maxVotingOptions,
     uint256 voteDifferential,
     uint256 minimumQuorum
   ) {
-    PROPOSITION_THRESHOLD = propositionThreshold;
     MIN_VOTING_DURATION = minVotingDuration;
     MAX_VOTING_OPTIONS = maxVotingOptions;
     VOTE_DIFFERENTIAL = voteDifferential;
@@ -120,7 +114,7 @@ contract ProposalValidator is IProposalValidator, Utils {
     // check vote duration
     if (endTime.sub(startTime) < MIN_VOTING_DURATION) return false;
     // check options length
-    if (options.length > MAX_VOTING_OPTIONS) return false;
+    if (options.length <= 1 || options.length > MAX_VOTING_OPTIONS) return false;
 
     return strategy.validateProposalCreation(startTime, endTime);
   }
@@ -161,8 +155,7 @@ contract ProposalValidator is IProposalValidator, Utils {
 
   /**
    * @dev Check whether a binary proposal has sufficient YES_VOTES
-   * Binary proposal: YES_VOTES - NO_VOTES > VOTE_DIFFERENTIAL * voting supply
-   * Binary proposal: MOST_VOTED_OPTION - ALL_OTHER_VOTES > VOTE_DIFFERENTIAL * voting supply
+   * YES_VOTES - NO_VOTES > VOTE_DIFFERENTIAL * voting supply
    * @param governance Governance Contract
    * @param proposalId Id of the proposal to verify
    * @return true if enough YES_VOTES
@@ -175,16 +168,14 @@ contract ProposalValidator is IProposalValidator, Utils {
   {
     IKyberGovernance.ProposalWithoutVote memory proposal = governance.getProposalById(proposalId);
     if (proposal.proposalType != IKyberGovernance.ProposalType.Binary) return false;
-    return (proposal.voteCounts[YES_INDEX].mul(ONE_HUNDRED_WITH_PRECISION).div(
-      proposal.maxVotingPower
-    ) >
-      proposal.voteCounts[NO_INDEX]
-        .mul(ONE_HUNDRED_WITH_PRECISION)
-        .div(proposal.maxVotingPower)
-        .add(VOTE_DIFFERENTIAL));
+    return (
+      proposal.voteCounts[YES_INDEX].mul(BPS).div(proposal.maxVotingPower) >
+      proposal.voteCounts[NO_INDEX].mul(BPS).div(proposal.maxVotingPower).add(
+      VOTE_DIFFERENTIAL
+    ));
   }
 
   function isMinimumQuorumReached(uint256 votes, uint256 voteSupply) internal view returns (bool) {
-    return votes >= voteSupply.mul(MINIMUM_QUORUM).div(ONE_HUNDRED_WITH_PRECISION);
+    return votes >= voteSupply.mul(MINIMUM_QUORUM).div(BPS);
   }
 }
