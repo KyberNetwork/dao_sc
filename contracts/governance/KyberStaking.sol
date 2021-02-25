@@ -21,7 +21,6 @@ interface IWithdrawHandler {
 contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard, PermissionAdmin {
   using Math for uint256;
   using SafeMath for uint256;
-  /// TODO: should we compress uint128-uint128-address-bool
   struct StakerData {
     uint128 stake;
     uint128 delegatedStake;
