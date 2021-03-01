@@ -153,6 +153,9 @@ interface IKyberGovernance {
 
   event VotingPowerStrategyUnauthorized(address strategy);
 
+  /**
+   * @dev Function is triggered when users withdraw from staking and change voting power
+   */
   function handleVotingPowerChanged(
     address staker,
     uint256 newVotingPower,
@@ -244,15 +247,6 @@ interface IKyberGovernance {
     uint8 v,
     bytes32 r,
     bytes32 s
-  ) external;
-
-  /**
-   * @dev Function is triggered when users withdraw from staking and change voting power
-   */
-  function handleVotingPowerChanged(
-    address staker,
-    uint256 newVotingPower,
-    uint256[] calldata proposalIds
   ) external;
 
   /**
