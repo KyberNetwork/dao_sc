@@ -229,7 +229,7 @@ contract('KyberGovernance', function (accounts) {
         {from: daoOperator}
       );
       expectEvent(tx, 'GenericProposalCreated', {
-        id: proposalCount,
+        proposalId: proposalCount,
         creator: daoOperator,
         executor: executor.address,
         strategy: votingStrategy.address,
@@ -410,7 +410,7 @@ contract('KyberGovernance', function (accounts) {
         {from: daoOperator}
       );
       expectEvent(tx, 'BinaryProposalCreated', {
-        id: proposalCount,
+        proposalId: proposalCount,
         creator: daoOperator,
         executor: executor.address,
         strategy: votingStrategy.address,
@@ -503,7 +503,7 @@ contract('KyberGovernance', function (accounts) {
 
     it('reverts invalid proposal id', async () => {
       let proposalCount = await governance.getProposalsCount();
-      await expectRevert.unspecified(governance.cancel(proposalCount.add(new BN(1))));
+      await expectRevert(governance.cancel(proposalCount.add(new BN(1))), 'invalid proposal id');
     });
 
     it('reverts invalid sender', async () => {
@@ -714,7 +714,7 @@ contract('KyberGovernance', function (accounts) {
       Helper.assertEqual(data.canceled, true, 'wrong cancellation data');
       // check event
       expectEvent(tx, 'ProposalCanceled', {
-        id: proposalId,
+        proposalId: proposalId,
       });
     });
   });

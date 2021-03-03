@@ -226,6 +226,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    * @param proposalId id of the proposal
    **/
   function cancel(uint256 proposalId) external override {
+    require(proposalId < _proposalsCount, 'invalid proposal id');
     ProposalState state = getProposalState(proposalId);
     require(
       state != ProposalState.Executed &&
@@ -269,6 +270,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    * @param proposalId id of the proposal to queue
    **/
   function queue(uint256 proposalId) external override {
+    require(proposalId < _proposalsCount, 'invalid proposal id');
     require(
       getProposalState(proposalId) == ProposalState.Succeeded,
       'invalid state to queue'
@@ -297,6 +299,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    * @param proposalId id of the proposal to execute
    **/
   function execute(uint256 proposalId) external override payable {
+    require(proposalId < _proposalsCount, 'invalid proposal id');
     require(getProposalState(proposalId) == ProposalState.Queued, 'only queued proposals');
     ProposalWithoutVote storage proposal = _proposals[proposalId].proposalData;
     require(proposal.proposalType == ProposalType.Binary, 'only binary proposal');
@@ -583,6 +586,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
     uint256 proposalId,
     uint256 optionBitMask
   ) internal {
+    require(proposalId < _proposalsCount, 'invalid proposal id');
     require(getProposalState(proposalId) == ProposalState.Active, 'voting closed');
     ProposalWithoutVote storage proposal = _proposals[proposalId].proposalData;
     uint256 numOptions = proposal.options.length;

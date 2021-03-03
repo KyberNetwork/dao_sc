@@ -64,7 +64,7 @@ interface IKyberGovernance {
 
   /**
    * @dev emitted when a new binary proposal is created
-   * @param id Id of the binary proposal
+   * @param proposalId id of the binary proposal
    * @param creator address of the creator
    * @param executor ExecutorWithTimelock contract that will execute the proposal
    * @param strategy votingPowerStrategy contract to calculate voting power
@@ -82,7 +82,7 @@ interface IKyberGovernance {
    * @param maxVotingPower max voting power for this proposal
    **/
   event BinaryProposalCreated(
-    uint256 id,
+    uint256 proposalId,
     address indexed creator,
     IExecutorWithTimelock indexed executor,
     IVotingPowerStrategy indexed strategy,
@@ -99,7 +99,7 @@ interface IKyberGovernance {
 
   /**
    * @dev emitted when a new generic proposal is created
-   * @param id Id of the generic proposal
+   * @param proposalId id of the generic proposal
    * @param creator address of the creator
    * @param executor ExecutorWithTimelock contract that will execute the proposal
    * @param strategy votingPowerStrategy contract to calculate voting power
@@ -110,7 +110,7 @@ interface IKyberGovernance {
    * @param maxVotingPower max voting power for this proposal
    **/
   event GenericProposalCreated(
-    uint256 id,
+    uint256 proposalId,
     address indexed creator,
     IExecutorWithTimelock indexed executor,
     IVotingPowerStrategy indexed strategy,
@@ -123,36 +123,36 @@ interface IKyberGovernance {
 
   /**
    * @dev emitted when a proposal is canceled
-   * @param id Id of the proposal
+   * @param proposalId id of the proposal
    **/
-  event ProposalCanceled(uint256 id);
+  event ProposalCanceled(uint256 proposalId);
 
   /**
    * @dev emitted when a proposal is queued
-   * @param id Id of the proposal
+   * @param proposalId id of the proposal
    * @param executionTime time when proposal underlying transactions can be executed
    * @param initiatorQueueing address of the initiator of the queuing transaction
    **/
   event ProposalQueued(
-    uint256 indexed id,
+    uint256 indexed proposalId,
     uint256 executionTime,
     address indexed initiatorQueueing
   );
   /**
    * @dev emitted when a proposal is executed
-   * @param id Id of the proposal
+   * @param proposalId id of the proposal
    * @param initiatorExecution address of the initiator of the execution transaction
    **/
-  event ProposalExecuted(uint256 id, address indexed initiatorExecution);
+  event ProposalExecuted(uint256 proposalId, address indexed initiatorExecution);
   /**
    * @dev emitted when a vote is registered
-   * @param id Id of the proposal
+   * @param proposalId id of the proposal
    * @param voter address of the voter
    * @param voteOptions vote options selected by voter
    * @param votingPower Power of the voter/vote
    **/
   event VoteEmitted(
-    uint256 indexed id,
+    uint256 indexed proposalId,
     address indexed voter,
     uint32 indexed voteOptions,
     uint224 votingPower
