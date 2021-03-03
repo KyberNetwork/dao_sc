@@ -46,10 +46,10 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
     address[] memory votingPowerStrategies
   ) PermissionAdmin(admin) {
     require(daoOperator != address(0), 'invalid dao operator');
-    _daoOperator = _daoOperator;
+    _daoOperator = daoOperator;
 
-    authorizeExecutors(executors);
-    authorizeVotingPowerStrategies(votingPowerStrategies);
+    _authorizeExecutors(executors);
+    _authorizeVotingPowerStrategies(votingPowerStrategies);
   }
 
   /**
@@ -58,7 +58,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    * @param strategy voting power strategy of the proposal
    * @param executionParams data for execution, includes
    *   targets list of contracts called by proposal's associated transactions
-   *   values list of value in wei for each proposal's associated transaction
+   *   weiValues list of value in wei for each proposal's associated transaction
    *   signatures list of function signatures (can be empty) to be used when created the callData
    *   calldatas list of calldatas: if associated signature empty,
    *        calldata ready, else calldata is arguments
@@ -78,7 +78,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
   ) external override returns (uint256 proposalId) {
     require(executionParams.targets.length != 0, 'create binary invalid empty targets');
     require(
-      executionParams.targets.length == executionParams.values.length &&
+      executionParams.targets.length == executionParams.weiValues.length &&
         executionParams.targets.length == executionParams.signatures.length &&
         executionParams.targets.length == executionParams.calldatas.length &&
         executionParams.targets.length == executionParams.withDelegatecalls.length,
@@ -109,7 +109,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
     newProposalData.creator = msg.sender;
     newProposalData.executor = executor;
     newProposalData.targets = executionParams.targets;
-    newProposalData.values = executionParams.values;
+    newProposalData.weiValues = executionParams.weiValues;
     newProposalData.signatures = executionParams.signatures;
     newProposalData.calldatas = executionParams.calldatas;
     newProposalData.withDelegatecalls = executionParams.withDelegatecalls;
@@ -136,13 +136,14 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
       executor,
       strategy,
       executionParams.targets,
-      executionParams.values,
+      executionParams.weiValues,
       executionParams.signatures,
       executionParams.calldatas,
       executionParams.withDelegatecalls,
       startTime,
       endTime,
-      link
+      link,
+      newProposalData.maxVotingPower
     );
   }
 
@@ -163,11 +164,16 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
     uint256 startTime,
     uint256 endTime,
     string memory link
-  ) external override returns (uint256 proposalId) {
-    require(isExecutorAuthorized(address(executor)), 'create binary executor not authorized');
+  )
+    external override returns (uint256 proposalId)
+  {
+    require(
+      isExecutorAuthorized(address(executor)),
+      'create generic executor not authorized'
+    );
     require(
       isVotingPowerStrategyAuthorized(address(strategy)),
-      'create binary strategy not authorized'
+      'create generic strategy not authorized'
     );
     proposalId = _proposalsCount;
     require(
@@ -208,7 +214,8 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
       options,
       startTime,
       endTime,
-      link
+      link,
+      newProposalData.maxVotingPower
     );
   }
 
@@ -243,7 +250,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
       for (uint256 i = 0; i < proposal.targets.length; i++) {
         proposal.executor.cancelTransaction(
           proposal.targets[i],
-          proposal.values[i],
+          proposal.weiValues[i],
           proposal.signatures[i],
           proposal.calldatas[i],
           proposal.executionTime,
@@ -262,7 +269,10 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    * @param proposalId id of the proposal to queue
    **/
   function queue(uint256 proposalId) external override {
-    require(getProposalState(proposalId) == ProposalState.Succeeded, 'invalid state for queue');
+    require(
+      getProposalState(proposalId) == ProposalState.Succeeded,
+      'invalid state to queue'
+    );
     ProposalWithoutVote storage proposal = _proposals[proposalId].proposalData;
     require(proposal.proposalType == ProposalType.Binary, 'only binary proposal');
     uint256 executionTime = block.timestamp.add(proposal.executor.getDelay());
@@ -270,7 +280,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
       _queueOrRevert(
         proposal.executor,
         proposal.targets[i],
-        proposal.values[i],
+        proposal.weiValues[i],
         proposal.signatures[i],
         proposal.calldatas[i],
         executionTime,
@@ -292,9 +302,9 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
     require(proposal.proposalType == ProposalType.Binary, 'only binary proposal');
     proposal.executed = true;
     for (uint256 i = 0; i < proposal.targets.length; i++) {
-      proposal.executor.executeTransaction{value: proposal.values[i]}(
+      proposal.executor.executeTransaction{value: proposal.weiValues[i]}(
         proposal.targets[i],
-        proposal.values[i],
+        proposal.weiValues[i],
         proposal.signatures[i],
         proposal.calldatas[i],
         proposal.executionTime,
@@ -380,33 +390,44 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
   }
 
   /**
+  * @dev Transfer dao operator
+  * @param newDaoOperator new dao operator
+  **/
+  function transferDaoOperator(address newDaoOperator) external {
+    require(msg.sender == _daoOperator, 'only dao operator');
+    require(newDaoOperator != address(0), 'invalid dao operator');
+    _daoOperator = newDaoOperator;
+    emit DaoOperatorTransferred(newDaoOperator);
+  }
+
+  /**
    * @dev Add new addresses to the list of authorized executors
    * @param executors list of new addresses to be authorized executors
    **/
-  function authorizeExecutors(address[] memory executors) public override onlyAdmin {
-    for (uint256 i = 0; i < executors.length; i++) {
-      _authorizeExecutor(executors[i]);
-    }
+  function authorizeExecutors(address[] memory executors)
+    public override onlyAdmin
+  {
+    _authorizeExecutors(executors);
   }
 
   /**
    * @dev Remove addresses to the list of authorized executors
    * @param executors list of addresses to be removed as authorized executors
    **/
-  function unauthorizeExecutors(address[] memory executors) public override onlyAdmin {
-    for (uint256 i = 0; i < executors.length; i++) {
-      _unauthorizeExecutor(executors[i]);
-    }
+  function unauthorizeExecutors(address[] memory executors)
+    public override onlyAdmin
+  {
+    _unauthorizeExecutors(executors);
   }
 
   /**
    * @dev Add new addresses to the list of authorized strategies
    * @param strategies list of new addresses to be authorized strategies
    **/
-  function authorizeVotingPowerStrategies(address[] memory strategies) public override onlyAdmin {
-    for (uint256 i = 0; i < strategies.length; i++) {
-      _authorizedVotingPowerStrategy(strategies[i]);
-    }
+  function authorizeVotingPowerStrategies(address[] memory strategies)
+    public override onlyAdmin
+  {
+    _authorizeVotingPowerStrategies(strategies);
   }
 
   /**
@@ -418,9 +439,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
     override
     onlyAdmin
   {
-    for (uint256 i = 0; i < strategies.length; i++) {
-      _unauthorizedVotingPowerStrategy(strategies[i]);
-    }
+    _unauthorizedVotingPowerStrategies(strategies);
   }
 
   /**
@@ -600,24 +619,32 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
     emit VoteEmitted(proposalId, voter, _safeUint32(optionBitMask), _safeUint224(votingPower));
   }
 
-  function _authorizeExecutor(address executor) internal {
-    _authorizedExecutors[executor] = true;
-    emit ExecutorAuthorized(executor);
+  function _authorizeExecutors(address[] memory executors) internal {
+    for(uint256 i = 0; i < executors.length; i++) {
+      _authorizedExecutors[executors[i]] = true;
+      emit ExecutorAuthorized(executors[i]);
+    }
   }
 
-  function _unauthorizeExecutor(address executor) internal {
-    _authorizedExecutors[executor] = false;
-    emit ExecutorUnauthorized(executor);
+  function _unauthorizeExecutors(address[] memory executors) internal {
+    for(uint256 i = 0; i < executors.length; i++) {
+      _authorizedExecutors[executors[i]] = false;
+      emit ExecutorUnauthorized(executors[i]);
+    }
   }
 
-  function _authorizedVotingPowerStrategy(address strategy) internal {
-    _authorizedVotingPowerStrategies[strategy] = true;
-    emit VotingPowerStrategyAuthorized(strategy);
+  function _authorizeVotingPowerStrategies(address[] memory strategies) internal {
+    for(uint256 i = 0; i < strategies.length; i++) {
+      _authorizedVotingPowerStrategies[strategies[i]] = true;
+      emit VotingPowerStrategyAuthorized(strategies[i]);
+    }
   }
 
-  function _unauthorizedVotingPowerStrategy(address strategy) internal {
-    _authorizedVotingPowerStrategies[strategy] = false;
-    emit VotingPowerStrategyUnauthorized(strategy);
+  function _unauthorizedVotingPowerStrategies(address[] memory strategies) internal {
+    for(uint256 i = 0; i < strategies.length; i++) {
+      _authorizedVotingPowerStrategies[strategies[i]] = false;
+      emit VotingPowerStrategyUnauthorized(strategies[i]);
+    }
   }
 
   function _safeUint224(uint256 value) internal pure returns (uint224) {

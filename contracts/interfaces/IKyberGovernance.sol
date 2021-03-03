@@ -33,7 +33,7 @@ interface IKyberGovernance {
     IExecutorWithTimelock executor;
     IVotingPowerStrategy strategy;
     address[] targets;
-    uint256[] values;
+    uint256[] weiValues;
     string[] signatures;
     bytes[] calldatas;
     bool[] withDelegatecalls;
@@ -56,7 +56,7 @@ interface IKyberGovernance {
 
   struct BinaryProposalParams {
     address[] targets;
-    uint256[] values;
+    uint256[] weiValues;
     string[] signatures;
     bytes[] calldatas;
     bool[] withDelegatecalls;
@@ -69,7 +69,7 @@ interface IKyberGovernance {
    * @param executor ExecutorWithTimelock contract that will execute the proposal
    * @param strategy votingPowerStrategy contract to calculate voting power
    * @param targets list of contracts called by proposal's associated transactions
-   * @param values list of value in wei for each propoposal's associated transaction
+   * @param weiValues list of value in wei for each propoposal's associated transaction
    * @param signatures list of function signatures (can be empty) to be used
    *     when created the callData
    * @param calldatas list of calldatas: if associated signature empty,
@@ -79,6 +79,7 @@ interface IKyberGovernance {
    * @param startTime timestamp when vote starts
    * @param endTime timestamp when vote ends
    * @param link URL link of the proposal
+   * @param maxVotingPower max voting power for this proposal
    **/
   event BinaryProposalCreated(
     uint256 id,
@@ -86,13 +87,14 @@ interface IKyberGovernance {
     IExecutorWithTimelock indexed executor,
     IVotingPowerStrategy indexed strategy,
     address[] targets,
-    uint256[] values,
+    uint256[] weiValues,
     string[] signatures,
     bytes[] calldatas,
     bool[] withDelegatecalls,
     uint256 startTime,
     uint256 endTime,
-    string link
+    string link,
+    uint256 maxVotingPower
   );
 
   /**
@@ -105,6 +107,7 @@ interface IKyberGovernance {
    * @param startTime timestamp when vote starts
    * @param endTime timestamp when vote ends
    * @param link URL link of the proposal
+   * @param maxVotingPower max voting power for this proposal
    **/
   event GenericProposalCreated(
     uint256 id,
@@ -114,7 +117,8 @@ interface IKyberGovernance {
     string[] options,
     uint256 startTime,
     uint256 endTime,
-    string link
+    string link,
+    uint256 maxVotingPower
   );
 
   /**
@@ -129,7 +133,11 @@ interface IKyberGovernance {
    * @param executionTime time when proposal underlying transactions can be executed
    * @param initiatorQueueing address of the initiator of the queuing transaction
    **/
-  event ProposalQueued(uint256 id, uint256 executionTime, address indexed initiatorQueueing);
+  event ProposalQueued(
+    uint256 indexed id,
+    uint256 executionTime,
+    address indexed initiatorQueueing
+  );
   /**
    * @dev emitted when a proposal is executed
    * @param id Id of the proposal
@@ -143,15 +151,22 @@ interface IKyberGovernance {
    * @param voteOptions vote options selected by voter
    * @param votingPower Power of the voter/vote
    **/
-  event VoteEmitted(uint256 id, address indexed voter, uint32 voteOptions, uint224 votingPower);
+  event VoteEmitted(
+    uint256 indexed id,
+    address indexed voter,
+    uint32 indexed voteOptions,
+    uint224 votingPower
+  );
 
-  event ExecutorAuthorized(address executor);
+  event DaoOperatorTransferred(address indexed newDaoOperator);
 
-  event ExecutorUnauthorized(address executor);
+  event ExecutorAuthorized(address indexed executor);
 
-  event VotingPowerStrategyAuthorized(address strategy);
+  event ExecutorUnauthorized(address indexed executor);
 
-  event VotingPowerStrategyUnauthorized(address strategy);
+  event VotingPowerStrategyAuthorized(address indexed strategy);
+
+  event VotingPowerStrategyUnauthorized(address indexed strategy);
 
   /**
    * @dev Function is triggered when users withdraw from staking and change voting power
@@ -168,7 +183,7 @@ interface IKyberGovernance {
    * @param strategy voting power strategy of the proposal
    * @param executionParams data for execution, includes
    *   targets list of contracts called by proposal's associated transactions
-   *   values list of value in wei for each proposal's associated transaction
+   *   weiValues list of value in wei for each proposal's associated transaction
    *   signatures list of function signatures (can be empty)
    *        to be used when created the callData
    *   calldatas list of calldatas: if associated signature empty,
