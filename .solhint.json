@@ -12,6 +12,7 @@
     "compiler-version": ["warn", "0.7.6"],
     "const-name-snakecase": "error",
     "func-name-mixedcase": "off",
+    "func-visibility": ["warn",{"ignoreConstructors":true}],
     "ordering": "error",
     "imports-on-top": "error",
     "mark-callable-contracts": "off",
