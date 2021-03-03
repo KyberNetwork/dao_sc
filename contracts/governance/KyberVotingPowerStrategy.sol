@@ -83,7 +83,7 @@ contract KyberVotingPowerStrategy is IVotingPowerStrategy, EpochUtils {
     return representative == voter ? stake.add(dStake) : dStake;
   }
 
-  function handleWithdraw(
+  function handleWithdrawal(
     address user,
     uint256 /*reduceAmount*/
   ) external override onlyStaking {
@@ -141,5 +141,9 @@ contract KyberVotingPowerStrategy is IVotingPowerStrategy, EpochUtils {
 
   function getMaxVotingPower() external override view returns (uint256) {
     return staking.kncToken().totalSupply();
+  }
+
+  function getListProposalIds(uint256 epoch) external view returns (uint256[] memory proposalIds) {
+    return epochProposals[epoch];
   }
 }

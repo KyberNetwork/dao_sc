@@ -8,11 +8,8 @@ import {ReentrancyGuard} from '@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
 
 import {IKyberStaking} from '../interfaces/IKyberStaking.sol';
+import {IWithdrawHandler} from '../interfaces/IWithdrawHandler.sol';
 import {EpochUtils} from '../misc/EpochUtils.sol';
-
-interface IWithdrawHandler {
-  function handleWithdrawal(address staker, uint256 reduceAmount) external;
-}
 
 /**
  * @notice   This contract is using SafeMath for uint, which is inherited from EpochUtils

@@ -2,7 +2,9 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-interface IVotingPowerStrategy {
+import {IWithdrawHandler} from './IWithdrawHandler.sol';
+
+interface IVotingPowerStrategy is IWithdrawHandler {
   /**
    * @dev call by governance when create a proposal
    */
@@ -27,11 +29,6 @@ interface IVotingPowerStrategy {
     uint256 proposalId,
     uint256 choice
   ) external returns (uint256 votingPower);
-
-  /**
-   * @dev handle the case when user withdraw from kyberStaking
-   */
-  function handleWithdraw(address user, uint256 reduceAmount) external;
 
   /**
    * @dev get voter's voting power given timestamp
