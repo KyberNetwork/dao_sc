@@ -2,14 +2,14 @@
 pragma solidity 0.7.6;
 
 import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
-import {Utils} from "@kyber.network/utils-sc/contracts/Utils.sol";
-import {IERC20Ext} from "@kyber.network/utils-sc/contracts/IERC20Ext.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Utils} from '@kyber.network/utils-sc/contracts/Utils.sol';
+import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
+import {ReentrancyGuard} from '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import {ILiquidationStrategy} from "../../interfaces/ILiquidationStrategy.sol";
-import {ILiquidationCallback} from "../../interfaces/ILiquidationCallback.sol";
-import {ITreasuryPool} from "../../interfaces/ITreasuryPool.sol";
+import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
+import {ILiquidationStrategy} from '../../interfaces/ILiquidationStrategy.sol';
+import {ILiquidationCallback} from '../../interfaces/ILiquidationCallback.sol';
+import {ITreasuryPool} from '../../interfaces/ITreasuryPool.sol';
 
 contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, ReentrancyGuard {
 

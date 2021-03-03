@@ -2,9 +2,9 @@
 pragma solidity 0.7.6;
 
 
-import {LiquidationStrategy} from "./LiquidationStrategy.sol";
-import {IPriceOracle} from "../../interfaces/IPriceOracle.sol";
-import {IERC20Ext} from "@kyber.network/utils-sc/contracts/IERC20Ext.sol";
+import {LiquidationStrategy} from './LiquidationStrategy.sol';
+import {IPriceOracle} from '../../interfaces/IPriceOracle.sol';
+import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 
 
 /// Liquidation strategy that uses Price Oracle to liquidate tokens

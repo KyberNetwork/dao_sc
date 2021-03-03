@@ -2,7 +2,7 @@
 pragma solidity 0.7.6;
 
 
-import {IERC20Ext} from "@kyber.network/utils-sc/contracts/IERC20Ext.sol";
+import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 
 interface ITreasuryPool {
   function authorizeStrategies(address[] calldata _strategies) external;

@@ -2,11 +2,11 @@
 pragma solidity 0.7.6;
 
 
-import {Utils} from "@kyber.network/utils-sc/contracts/Utils.sol";
+import {Utils} from '@kyber.network/utils-sc/contracts/Utils.sol';
 import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
-import {IERC20Ext} from "@kyber.network/utils-sc/contracts/IERC20Ext.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import {ITreasuryPool} from "../../interfaces/ITreasuryPool.sol";
+import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
+import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
+import {ITreasuryPool} from '../../interfaces/ITreasuryPool.sol';
 
 contract TreasuryPool is ITreasuryPool, PermissionAdmin, Utils {
   using SafeERC20 for IERC20Ext;
@@ -44,7 +44,7 @@ contract TreasuryPool is ITreasuryPool, PermissionAdmin, Utils {
     uint256[] calldata _amounts,
     address payable _recipient
   ) external override {
-    require(_isAuthorizedStrategy[msg.sender], "not authorized")
+    require(_isAuthorizedStrategy[msg.sender], 'not authorized');
     require(_tokens.length == _amounts.length, 'invalid lengths');
     for(uint256 i = 0; i < _tokens.length; i++) {
       _transferToken(_tokens[i], _amounts[i], _recipient);
@@ -87,7 +87,7 @@ contract TreasuryPool is ITreasuryPool, PermissionAdmin, Utils {
     address payable _recipient
   ) internal {
     if (_token == ETH_TOKEN_ADDRESS) {
-      (bool success, ) = _recipient.call{ value: _amount }("");
+      (bool success, ) = _recipient.call{ value: _amount }('');
         require(success, 'transfer eth failed');
     } else {
       _token.safeTransfer(_recipient, _amount);
