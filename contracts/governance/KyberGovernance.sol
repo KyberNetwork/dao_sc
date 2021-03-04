@@ -276,7 +276,8 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
       'invalid state to queue'
     );
     ProposalWithoutVote storage proposal = _proposals[proposalId].proposalData;
-    require(proposal.proposalType == ProposalType.Binary, 'only binary proposal');
+    // generic proposal does not have Succeeded state
+    assert(proposal.proposalType == ProposalType.Binary);
     uint256 executionTime = block.timestamp.add(proposal.executor.getDelay());
     for (uint256 i = 0; i < proposal.targets.length; i++) {
       _queueOrRevert(
@@ -302,7 +303,8 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
     require(proposalId < _proposalsCount, 'invalid proposal id');
     require(getProposalState(proposalId) == ProposalState.Queued, 'only queued proposals');
     ProposalWithoutVote storage proposal = _proposals[proposalId].proposalData;
-    require(proposal.proposalType == ProposalType.Binary, 'only binary proposal');
+    // generic proposal does not have Queued state
+    assert(proposal.proposalType == ProposalType.Binary);
     proposal.executed = true;
     for (uint256 i = 0; i < proposal.targets.length; i++) {
       proposal.executor.executeTransaction{value: proposal.weiValues[i]}(
