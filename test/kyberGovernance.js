@@ -922,7 +922,206 @@ contract('KyberGovernance', function (accounts) {
     });
   });
 
-  describe('#test execute proposals', async () => {});
+  describe('#test execute proposals', async () => {
+    beforeEach('setup', async () => {
+      governance = await KyberGovernance.new(
+        admin,
+        daoOperator,
+        [validator.address, executor.address],
+        [votingStrategy.address]
+      );
+    });
+
+    it('reverts invalid proposal id', async () => {
+      let proposalCount = await governance.getProposalsCount();
+      await expectRevert(
+        governance.execute(proposalCount),
+        'invalid proposal id'
+      );
+    });
+
+    // always reverts for generic proposal
+    it('generic proposal - reverts invalid state to execute', async () => {
+      let currentTime = new BN(await Helper.getCurrentBlockTime());
+      let startTime = currentTime.add(new BN(30));
+      let endTime = startTime.add(new BN(60));
+      let proposalId = await createGenericProposal(
+        executor.address, votingStrategy.address,
+        ["option 1", "option 2"],
+        startTime, endTime,
+        "link to desc",
+        { from: daoOperator }
+      );
+      Helper.assertEqual(ProposalState.Pending, await governance.getProposalState(proposalId));
+      await expectRevert(
+        governance.execute(proposalId),
+        'only queued proposals'
+      );
+      await Helper.mineNewBlockAfter(30);
+
+      Helper.assertEqual(ProposalState.Active, await governance.getProposalState(proposalId));
+      await expectRevert(
+        governance.execute(proposalId),
+        'only queued proposals'
+      );
+      await Helper.mineNewBlockAfter(60);
+      Helper.assertEqual(ProposalState.Finalized, await governance.getProposalState(proposalId));
+      await expectRevert(
+        governance.execute(proposalId),
+        'only queued proposals'
+      );
+
+      currentTime = new BN(await Helper.getCurrentBlockTime());
+      startTime = currentTime.add(new BN(30));
+      endTime = startTime.add(new BN(60));
+      proposalId = await createGenericProposal(
+        executor.address, votingStrategy.address,
+        ["option 1", "option 2"],
+        startTime, endTime,
+        "link to desc",
+        { from: daoOperator }
+      );
+      await governance.cancel(proposalId, { from: daoOperator });
+      Helper.assertEqual(ProposalState.Canceled, await governance.getProposalState(proposalId));
+      await expectRevert(
+        governance.execute(proposalId),
+        'only queued proposals'
+      );
+    });
+
+    // only proposals that are queued
+    it('binary proposal - reverts invalid state to execute', async () => {
+      let currentTime = new BN(await Helper.getCurrentBlockTime());
+      let startTime = currentTime.add(new BN(30));
+      let endTime = startTime.add(new BN(60));
+      let proposalId = await createBinaryProposal(
+        executor.address, votingStrategy.address,
+        targets, [0], signatures, calldatas, withDelegatecalls,
+        startTime, endTime, "link to desc"
+      );
+      // can not execute for pending proposal
+      Helper.assertEqual(ProposalState.Pending, await governance.getProposalState(proposalId));
+      await expectRevert(
+        governance.execute(proposalId),
+        'only queued proposals'
+      );
+      await Helper.mineNewBlockAfter(30);
+
+      Helper.assertEqual(ProposalState.Active, await governance.getProposalState(proposalId));
+      await expectRevert(
+        governance.execute(proposalId),
+        'only queued proposals'
+      );
+      // delay to end
+      await Helper.mineNewBlockAfter(60);
+
+      await executor.setData(true, true, false); // set proposal is not passed
+      Helper.assertEqual(ProposalState.Failed, await governance.getProposalState(proposalId));
+      await expectRevert(
+        governance.execute(proposalId),
+        'only queued proposals'
+      );
+
+      await governance.cancel(proposalId, { from: daoOperator });
+      Helper.assertEqual(ProposalState.Canceled, await governance.getProposalState(proposalId));
+      await expectRevert(
+        governance.execute(proposalId),
+        'only queued proposals'
+      );
+
+      // can not execute executed proposal
+      currentTime = new BN(await Helper.getCurrentBlockTime());
+      proposalId = await createBinaryProposal(
+        executor.address, votingStrategy.address,
+        targets, [0], signatures, calldatas, withDelegatecalls,
+        currentTime, currentTime, "link to desc"
+      );
+
+      await executor.setData(true, true, true); // set proposal is passed
+      await governance.queue(proposalId); // can queue the proposal
+      await governance.execute(proposalId); // can execute the proposal
+      Helper.assertEqual(ProposalState.Executed, await governance.getProposalState(proposalId));
+      await expectRevert(
+        governance.execute(proposalId),
+        'only queued proposals'
+      );
+
+      // can not queue expired proposal
+      currentTime = new BN(await Helper.getCurrentBlockTime());
+      proposalId = await createBinaryProposal(
+        executor.address, votingStrategy.address,
+        targets, [0], signatures, calldatas, withDelegatecalls,
+        currentTime, currentTime, "link to desc"
+      );
+
+      await executor.setData(true, true, true); // set proposal is passed
+      await governance.queue(proposalId); // can queue the proposal
+      await executor.setExecutionData(false, false, false, false, true, 0);
+      Helper.assertEqual(ProposalState.Expired, await governance.getProposalState(proposalId));
+      await expectRevert(
+        governance.execute(proposalId),
+        'only queued proposals'
+      );
+      await executor.setExecutionData(true, true, true, true, true, 0);
+    });
+
+    it('reverts executor execute tx failed ', async () => {
+      // can not queue expired proposal
+      let currentTime = new BN(await Helper.getCurrentBlockTime());
+      let proposalId = await createBinaryProposal(
+        executor.address, votingStrategy.address,
+        targets, [new BN(1)], signatures, calldatas, withDelegatecalls,
+        currentTime, currentTime, "link to desc"
+      );
+
+      await executor.setData(true, true, true); // set proposal is passed
+      await executor.setExecutionData(false, false, false, false, false, 30);
+      await governance.queue(proposalId);
+      // wei value > 0 while governance doens't have any eth
+      await expectRevert.unspecified(
+        governance.execute(proposalId)
+      );
+
+      currentTime = new BN(await Helper.getCurrentBlockTime());
+      proposalId = await createBinaryProposal(
+        executor.address, votingStrategy.address,
+        targets, [0], signatures, calldatas, withDelegatecalls,
+        currentTime, currentTime, "link to desc"
+      );
+
+      await executor.setData(true, true, true); // set proposal is passed
+      await executor.setExecutionData(false, true, false, false, false, 30);
+      await governance.queue(proposalId);
+      // executor reverts when execute tx
+      await expectRevert.unspecified(
+        governance.execute(proposalId)
+      );
+      await executor.setExecutionData(false, false, false, false, false, 30);
+    });
+
+    it('execute records correct data and event', async () => {
+      let currentTime = new BN(await Helper.getCurrentBlockTime());
+      let proposalId = await createBinaryProposal(
+        executor.address, votingStrategy.address,
+        targets, [0], signatures, calldatas, withDelegatecalls,
+        currentTime, currentTime, "link to desc"
+      );
+
+      await executor.setData(true, true, true); // set proposal is passed
+      let delay = 30;
+      await executor.setExecutionData(false, false, false, false, false, delay);
+      await governance.queue(proposalId, { from: accounts[5] }); // can queue the proposal
+      let tx = await governance.execute(proposalId, { from: accounts[6] });
+      expectEvent(tx, "ProposalExecuted", {
+        proposalId: proposalId,
+        initiatorExecution: accounts[6]
+      });
+
+      Helper.assertEqual(ProposalState.Executed, await governance.getProposalState(proposalId));
+      let data = await governance.getProposalById(proposalId);
+      Helper.assertEqual(data.executed, true);
+    });
+  });
 
   describe('#test vote', async () => {});
 });

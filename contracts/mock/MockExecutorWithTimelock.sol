@@ -96,8 +96,8 @@ contract MockExecutorWithTimelock is IExecutorWithTimelock, MockProposalValidato
     data;
     executionTime;
     withDelegatecall;
-    if (isQueueTransactionRevert) revert();
-    isQueueTransactionRevert = false; // silence the warning
+    if (isExecuteTransactionRevert) revert();
+    isExecuteTransactionRevert = false; // silence the warning
     return new bytes(0);
   }
 
