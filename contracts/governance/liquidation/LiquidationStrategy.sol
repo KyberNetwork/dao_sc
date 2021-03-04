@@ -9,7 +9,7 @@ import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 import {ILiquidationStrategy} from '../../interfaces/ILiquidationStrategy.sol';
 import {ILiquidationCallback} from '../../interfaces/ILiquidationCallback.sol';
-import {ITreasuryPool} from '../../interfaces/ITreasuryPool.sol';
+import {IPool} from '../../interfaces/IPool.sol';
 
 contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, ReentrancyGuard {
 
@@ -26,7 +26,7 @@ contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, Re
   }
 
   LiquidationSchedule public liquidationSchedule;
-  ITreasuryPool public feePool;
+  IPool public feePool;
   address payable public treasuryPool;
   // list of tokens that can be liquidate to
   mapping(address => bool) public whitelistedTokens;
@@ -97,7 +97,7 @@ contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, Re
     uint256 minReturn,
     bytes memory txData
   )
-    public override virtual onlyWhenLiquidationEnabled nonReentrant
+    internal virtual onlyWhenLiquidationEnabled nonReentrant
     returns (uint256 destAmount)
   {
     require(
@@ -137,7 +137,7 @@ contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, Re
 
   function _setFeePool(address _feePool) internal {
     require(_feePool != address(0), 'invalid fee pool');
-    feePool = ITreasuryPool(_feePool);
+    feePool = IPool(_feePool);
     emit FeePoolSet(_feePool);
   }
 
