@@ -14,6 +14,7 @@ let kncToken;
 let governance;
 let admin;
 let votingPowerStrategy;
+let stakingContract;
 
 const blockTime = 16;
 const MAX_PROPOSAL_PER_EPOCH = 10;
@@ -113,14 +114,14 @@ contract('VotingPowerStrategy', (accounts) => {
         await votingPowerStrategy.handleProposalCreation(
           i,
           blockToTimestamp(startBlock + epochPeriod),
-          blockToTimestamp(startBlock + epochPeriod) - 1,
+          blockToTimestamp(startBlock + epochPeriod * 2) - 1,
           {from: governance}
         );
       }
       assert.isFalse(
         await votingPowerStrategy.validateProposalCreation(
-          blockToTimestamp(startBlock),
-          blockToTimestamp(startBlock + epochPeriod) - 1
+          blockToTimestamp(startBlock + epochPeriod),
+          blockToTimestamp(startBlock + epochPeriod * 2) - 1
         )
       );
     });
@@ -240,7 +241,8 @@ contract('VotingPowerStrategy', (accounts) => {
       blockToTimestamp(startBlock) + 1,
       blockToTimestamp(startBlock + epochPeriod) - 1
     );
-    //
+    // revert if not call from staking contract
+    await expectRevert(votingPowerStrategy.handleWithdrawal(victor, Helper.precisionUnits), 'only staking');
     let result = await stakingContract.withdraw(Helper.precisionUnits, {from: victor});
     expectEvent.notEmitted(result, 'WithdrawDataUpdateFailed');
     await expectEvent.inTransaction(result.tx, mockGovernance, 'VotingPowerChanged', {
@@ -256,5 +258,13 @@ contract('VotingPowerStrategy', (accounts) => {
       newVotingPower: Helper.precisionUnits.mul(new BN(5)),
       proposalIds: ['5'],
     });
+  });
+
+  it('getMaxVotingPower', async () => {
+    votingPowerStrategy = await VotingPowerStrategy.new(governance, stakingContract.address);
+    Helper.assertEqual(await votingPowerStrategy.getMaxVotingPower(), await kncToken.totalSupply());
+
+    await kncToken.burn(Helper.precisionUnits.mul(new BN(10)));
+    Helper.assertEqual(await votingPowerStrategy.getMaxVotingPower(), await kncToken.totalSupply());
   });
 });

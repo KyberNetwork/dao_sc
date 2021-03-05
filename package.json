@@ -11,7 +11,7 @@
     "t": "./test.sh",
     "compile": "./compile.sh",
     "c": "printf 'yes' | ./compile.sh",
-    "coverage": "./coverage.sh",
+    "coverage": "hardhat coverage",
     "lint": "./lint.sh"
   },
   "repository": {

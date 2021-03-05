@@ -3,6 +3,7 @@ pragma solidity 0.7.6;
 
 import {Math} from '@openzeppelin/contracts/math/Math.sol';
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
+import {SafeCast} from '@openzeppelin/contracts/utils/SafeCast.sol';
 import {IERC20} from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import {ReentrancyGuard} from '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
@@ -373,7 +374,7 @@ contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard, PermissionA
         // staker has delegated to representative, withdraw will affect representative's delegated stakes
         decreaseDelegatedStake(stakerPerEpochData[curEpoch][representative], reduceAmount);
       }
-      stakerPerEpochData[curEpoch][staker].stake = safeUint128(newStake);
+      stakerPerEpochData[curEpoch][staker].stake = SafeCast.toUint128(newStake);
       // call withdrawHandlers to reduce reward, if staker has delegated, then pass his representative
       if (withdrawHandler != IWithdrawHandler(0)) {
         (bool success, ) = address(withdrawHandler).call(
@@ -428,23 +429,18 @@ contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard, PermissionA
   }
 
   function decreaseDelegatedStake(StakerData storage stakeData, uint256 amount) internal {
-    stakeData.delegatedStake = safeUint128(uint256(stakeData.delegatedStake).sub(amount));
+    stakeData.delegatedStake = SafeCast.toUint128(uint256(stakeData.delegatedStake).sub(amount));
   }
 
   function increaseDelegatedStake(StakerData storage stakeData, uint256 amount) internal {
-    stakeData.delegatedStake = safeUint128(uint256(stakeData.delegatedStake).add(amount));
+    stakeData.delegatedStake = SafeCast.toUint128(uint256(stakeData.delegatedStake).add(amount));
   }
 
   function increaseStake(StakerData storage stakeData, uint256 amount) internal {
-    stakeData.stake = safeUint128(uint256(stakeData.stake).add(amount));
+    stakeData.stake = SafeCast.toUint128(uint256(stakeData.stake).add(amount));
   }
 
   function decreaseStake(StakerData storage stakeData, uint256 amount) internal {
-    stakeData.stake = safeUint128(uint256(stakeData.stake).sub(amount));
-  }
-
-  function safeUint128(uint256 value) internal pure returns (uint128) {
-    require(value < 2**128, 'safeUint128: overflow');
-    return uint128(value);
+    stakeData.stake = SafeCast.toUint128(uint256(stakeData.stake).sub(amount));
   }
 }
