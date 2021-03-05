@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.7.6;
 
-import '../governance/KyberStaking.sol';
+import '../staking/KyberStaking.sol';
 
 contract MockKyberStaking is KyberStaking {
   constructor(
