@@ -12,6 +12,7 @@ contract MockVotingPowerStrategy is IVotingPowerStrategy {
   uint256 public maxVotingPower;
   bool public isProposalCreationRevert = false;
   bool public isProposalCancellationRevert = false;
+  bool public isHandleVoteRevert = false;
 
   constructor() {}
 
@@ -23,9 +24,14 @@ contract MockVotingPowerStrategy is IVotingPowerStrategy {
     maxVotingPower = amount;
   }
 
-  function setRevertStates(bool _isProposalCreationRevert, bool _isProposalCancellationRevert) external {
+  function setRevertStates(
+    bool _isProposalCreationRevert,
+    bool _isProposalCancellationRevert,
+    bool _isVoteRevert
+  ) external {
     isProposalCreationRevert = _isProposalCreationRevert;
     isProposalCancellationRevert = _isProposalCancellationRevert;
+    isHandleVoteRevert = _isVoteRevert;
   }
 
   function handleProposalCreation(
@@ -56,7 +62,8 @@ contract MockVotingPowerStrategy is IVotingPowerStrategy {
     voter;
     proposalId;
     choice;
-    isProposalCancellationRevert = true; // silence the warning
+    if (isHandleVoteRevert) { revert(); }
+    isHandleVoteRevert = false; // silence the warning
     votingPower = votingPowers[voter];
   }
 

@@ -2,7 +2,6 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import {Ownable} from '@openzeppelin/contracts/access/Ownable.sol';
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
 import {IKyberGovernance} from '../interfaces/IKyberGovernance.sol';
@@ -537,7 +536,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    * @return The current state if the proposal
    **/
   function getProposalState(uint256 proposalId) public override view returns (ProposalState) {
-    require(_proposalsCount >= proposalId, 'invalid proposal id');
+    require(proposalId < _proposalsCount, 'invalid proposal id');
     ProposalWithoutVote storage proposal = _proposals[proposalId].proposalData;
     if (proposal.canceled) {
       return ProposalState.Canceled;
