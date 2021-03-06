@@ -2,46 +2,52 @@
 
 ## Architecture
 
-![governance-v2-architecture](./gov-v2-architecture.jpg)
+![kyber-gov-architecture](./kyber-gov-architecture.png)
 
-### AaveGovernanceV2
-- voting delay (time between a proposal is submitted and the voting is opened): 0 blocks, as for us this process is done beforehand in the governance forum
-- guardian: Aave Guardian multisig
+### General Information
+The overall architecture is based off Aave's governance model with some notable modifications:
+- enabling the creation and voting on multi-option (generic) proposals
+- pulling voting power from the KyberStaking contract instead of a token contract
+- permissioned roles like `owner` & `guardian` have been replaced by `admin` and `daoOperator` with new authorization scopes
+- block timestamps utilised instead of block numbers
+
+### KyberGovernance
+Handles the queueing, creation, cancellation and vote submissions for binary and generic proposals.
 - executors whitelisted: Executor (short) and Executor (long)
-- owner (entity able to change the strategy, voting delay and authorize/unauthorize executors): Executor 2, the long timelock 
+- admin (able to authorize/unauthorize executors and voting strategies): Executor (long)
+- daoOperator (able to create and cancel proposals): Kyber multisig
 
 ### Executor (short)
-It will control the whole Aave protocol v1, the token distributor used in v1, the contract collecting the fees of v1, the Reserve Ecosystem of AAVE and any change in this timelock itself
-- admin (the only address enable to interact with this executor): Aave Governance v2
-- delay (time between a proposals passes and its actions get executed): 1 day
-- grace period (time after the delay during which the proposal can be executed): 5 days
-- proposition threshold: 0.5%
-- voting duration: 3 days
-- vote differential: 0.5%
-- quorum: 2%
+- admin (the only address enable to interact with this executor): KyberGovernance
+- delay (time between a proposals passes and its actions get executed): TBD
+- grace period (time after the delay during which the proposal can be executed): TBD
+- proposition threshold: TBD
+- voting duration: TBD
+- vote differential: TBD
+- quorum: TBD
 
 ### Executor (long)
-It will control the upgradeability of the AAVE token, the stkAAVE, any change in the parameters of the Governance v2 and any change in the parameters of this timelock itself
-- admin: Aave Governance v2
-- delay: 7 days
-- grace period: 5 days
-- proposition threshold: 2%
-- voting duration: 10 days
-- vote differential: 15%
-- quorum: 20%
+Controls upgradeability of the new KNC token contract, and any change in key parameters of KyberGoverance or itself
+- admin: KyberGovernance
+- delay: TBD
+- grace period: TBD
+- proposition threshold: TBD
+- voting duration: TBD
+- vote differential: TBD
+- quorum: TBD
 
-### Governance strategy (the contract determining how the voting/proposition powers are calculated)
-- Based on AAVE+stkAAVE
-- Voting and proposition power are: balanceOfAAVE + delegationReceivedOfAAVE + balanceOfstkAAVE + delegationReceivedOfstkAAVE (with delegation being voting or proposition depending on the case)
-- Total voting and proposition supply: AAVE supply
+### KyberVotingPowerStrategy
+Calculates voting power from KNC stakes in KyberStaking. Also handles epoch validation checks for proposal creations. Will call KyberGovernance to modify vote counts due to KNC staking withdrawals.
+- maxVotingPower: total KNC supply at time of proposal creation
 
-
+### ProposalValidator (inherited by executors)
+Validates the creation and cancellation of proposals. Also determines resolutions to binary proposals.
 ## Setup
 1. Clone this repo
 2. `yarn install`
 
 ## Compilation
-`yarn compile` to compile contracts for all solidity versions.
+`yarn c` to compile contracts for all solidity versions.
 
 ## Contract Deployment / Interactions
 
@@ -53,16 +59,16 @@ INFURA_API_KEY=********************************
 ```
 
 ## Testing with Hardhat
-1. If contracts have not been compiled, run `yarn compile`. This step can be skipped subsequently.
+1. If contracts have not been compiled, run `yarn c`. This step can be skipped subsequently.
 2. Run `yarn test`
 3. Use `./tst.sh -f` for running a specific test file.
 
 ### Example Commands
 - `yarn test` (Runs all tests)
-- `./tst.sh -f ./test/kyberDao.js` (Test only kyberDao.js)
+- `./tst.sh -f ./test/kyberGovernance.js` (Test only kyberGovernance.js)
 
 ### Example
-`yarn hardhat test --no-compile ./test/kyberDao.js`
+`yarn hardhat test ./test/kyberGovernance.js`
 
 ## Coverage
 `yarn coverage` (Runs coverage for all applicable files)
