@@ -270,6 +270,7 @@ contract('RewardsDistributor', function (accounts) {
           rewardsDistributor.claim(
             cycle.add(new BN(1)),
             userClaim.index,
+            account,
             tokenAddresses,
             userClaim.cumulativeAmounts,
             userClaim.proof
@@ -285,6 +286,7 @@ contract('RewardsDistributor', function (accounts) {
           rewardsDistributor.claim(
             cycle,
             userClaim.index,
+            admin,
             tokenAddresses,
             userClaim.cumulativeAmounts,
             userClaim.proof
@@ -301,6 +303,7 @@ contract('RewardsDistributor', function (accounts) {
           await rewardsDistributor.claim(
             cycle,
             userClaim.index,
+            account,
             tokenAddresses,
             userClaim.cumulativeAmounts,
             userClaim.proof,
@@ -403,6 +406,7 @@ contract('RewardsDistributor', function (accounts) {
           rewardsDistributor.claim(
             cycle,
             userClaim.index,
+            account,
             tokenAddresses,
             userClaim.cumulativeAmounts,
             userClaim.proof,
@@ -441,6 +445,7 @@ contract('RewardsDistributor', function (accounts) {
           rewardsDistributor.claim(
             cycle,
             userClaim.index,
+            account,
             tempTokenAddresses,
             userClaim.cumulativeAmounts,
             userClaim.proof,
@@ -479,6 +484,7 @@ contract('RewardsDistributor', function (accounts) {
             rewardsDistributor.address,
             cycle,
             userClaim.index,
+            account,
             [ethAddress],
             userClaim.cumulativeAmounts,
             userClaim.proof
@@ -559,6 +565,7 @@ async function generateAndClaimRewards(
     await rewardsDistributor.claim(
       cycle,
       userClaim.index,
+      account,
       tokenAddresses,
       userClaim.cumulativeAmounts,
       userClaim.proof,

@@ -5,10 +5,10 @@ pragma abicoder v2;
 import {ReentrancyGuard} from '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
+import {MerkleProof} from '@openzeppelin/contracts/cryptography/MerkleProof.sol';
 import {IERC20Ext} from "@kyber.network/utils-sc/contracts/IERC20Ext.sol";
 import {Utils} from '@kyber.network/utils-sc/contracts/Utils.sol';
 import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
-import {MerkleProof} from '../../misc/MerkleProof.sol';
 import {IPool} from '../../interfaces/IPool.sol';
 
 contract RewardsDistributor is PermissionAdmin, ReentrancyGuard, Utils {
@@ -28,7 +28,7 @@ contract RewardsDistributor is PermissionAdmin, ReentrancyGuard, Utils {
     mapping(address => mapping(IERC20Ext => uint256)) public claimedAmounts;
 
     event TreasuryPoolSet(IPool indexed treasuryPool);
-    event Claimed(uint256 indexed cycle, address indexed user, IERC20Ext token, uint256 claimAmount);
+    event Claimed(uint256 indexed cycle, address indexed user, IERC20Ext[] tokens, uint256[] claimAmounts);
     event RootUpdated(uint256 indexed cycle, bytes32 root, string contentHash);
 
     constructor(address admin, IPool _treasuryPool) PermissionAdmin(admin) {
@@ -58,6 +58,7 @@ contract RewardsDistributor is PermissionAdmin, ReentrancyGuard, Utils {
     function claim(
         uint256 cycle,
         uint256 index,
+        address user,
         IERC20Ext[] calldata tokens,
         uint256[] calldata cumulativeAmounts,
         bytes32[] calldata merkleProof
@@ -65,7 +66,7 @@ contract RewardsDistributor is PermissionAdmin, ReentrancyGuard, Utils {
         require(cycle == merkleData.cycle, 'incorrect cycle');
 
         // verify the merkle proof
-        bytes32 node = keccak256(abi.encodePacked(cycle, index, msg.sender, tokens, cumulativeAmounts));
+        bytes32 node = keccak256(abi.encodePacked(cycle, index, user, tokens, cumulativeAmounts));
         require(MerkleProof.verify(merkleProof, merkleData.root, node), 'invalid proof');
 
         claimAmounts = new uint256[](tokens.length);
@@ -75,19 +76,19 @@ contract RewardsDistributor is PermissionAdmin, ReentrancyGuard, Utils {
             // if none claimable, skip
             if (cumulativeAmounts[i] == 0) continue;
 
-            uint256 claimable = cumulativeAmounts[i].sub(claimedAmounts[msg.sender][tokens[i]]);
+            uint256 claimable = cumulativeAmounts[i].sub(claimedAmounts[user][tokens[i]]);
             if (claimable == 0) continue;
 
-            claimedAmounts[msg.sender][tokens[i]] = cumulativeAmounts[i];
+            claimedAmounts[user][tokens[i]] = cumulativeAmounts[i];
             claimAmounts[i] = claimable;
             if (tokens[i] == ETH_TOKEN_ADDRESS) {
-                (bool success, ) = msg.sender.call{ value: claimable }('');
+                (bool success, ) = user.call{ value: claimable }('');
                 require(success, 'eth transfer failed');
             } else {
-                tokens[i].safeTransfer(msg.sender, claimable);
+                tokens[i].safeTransfer(user, claimable);
             }
-            emit Claimed(cycle, msg.sender, tokens[i], claimable);
         }
+        emit Claimed(cycle, user, tokens, claimAmounts);
     }
 
     // @notice Propose a new root and content hash, only by admin
@@ -134,7 +135,7 @@ contract RewardsDistributor is PermissionAdmin, ReentrancyGuard, Utils {
         address account,
         IERC20Ext[] calldata tokens,
         uint256[] calldata cumulativeAmounts
-    ) public pure returns (bytes memory encodedData, bytes32 encodedDataHash) {
+    ) external pure returns (bytes memory encodedData, bytes32 encodedDataHash) {
         encodedData = abi.encodePacked(cycle, index, account, tokens, cumulativeAmounts);
         encodedDataHash = keccak256(encodedData);
     }

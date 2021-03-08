@@ -8,10 +8,11 @@ contract BadRewardsClaimer {
     RewardsDistributor _rewardsDistributor,
     uint256 cycle,
     uint256 index,
+    address user,
     IERC20Ext[] calldata tokens,
     uint256[] calldata cumulativeAmounts,
     bytes32[] calldata merkleProof
   ) external {
-    _rewardsDistributor.claim(cycle, index, tokens, cumulativeAmounts, merkleProof);
+    _rewardsDistributor.claim(cycle, index, user, tokens, cumulativeAmounts, merkleProof);
   }
 }
