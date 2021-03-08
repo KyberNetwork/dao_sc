@@ -158,6 +158,22 @@ interface IKyberGovernance {
     uint224 votingPower
   );
 
+  /**
+   * @dev emitted when a vote is registered
+   * @param proposalId id of the proposal
+   * @param voter address of the voter
+   * @param voteOptions vote options selected by voter
+   * @param oldVotingPower Old power of the voter/vote
+   * @param newVotingPower New power of the voter/vote
+   **/
+  event VotingPowerChanged(
+    uint256 indexed proposalId,
+    address indexed voter,
+    uint32 indexed voteOptions,
+    uint224 oldVotingPower,
+    uint224 newVotingPower
+  );
+
   event DaoOperatorTransferred(address indexed newDaoOperator);
 
   event ExecutorAuthorized(address indexed executor);

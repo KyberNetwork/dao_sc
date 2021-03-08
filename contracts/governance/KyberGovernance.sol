@@ -359,25 +359,26 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
   }
 
   /**
-   * @dev Function to handle voting power changed for a staker
+   * @dev Function to handle voting power changed for a voter
    *  caller must be the voting power strategy of the proposal
-   * @param staker address that has changed the voting power
+   * @param voter address that has changed the voting power
    * @param newVotingPower new voting power of that address,
    *   old voting power can be taken from records
    * @param proposalIds list proposal ids that belongs to this voting power strategy
    *   should update the voteCound of the active proposals in the list
    **/
   function handleVotingPowerChanged(
-    address staker,
+    address voter,
     uint256 newVotingPower,
     uint256[] calldata proposalIds
   ) external override {
+    uint224 safeNewVotingPower = _safeUint224(newVotingPower);
     for (uint256 i = 0; i < proposalIds.length; i++) {
       // only update for active proposals
       if (getProposalState(proposalIds[i]) != ProposalState.Active) continue;
       ProposalWithoutVote storage proposal = _proposals[proposalIds[i]].proposalData;
       require(address(proposal.strategy) == msg.sender, 'invalid voting power strategy');
-      Vote memory vote = _proposals[proposalIds[i]].votes[staker];
+      Vote memory vote = _proposals[proposalIds[i]].votes[voter];
       if (vote.optionBitMask == 0) continue; // not voted yet
       uint256 oldVotingPower = uint256(vote.votingPower);
       // update totalVotes of the proposal
@@ -388,8 +389,15 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
           proposal.voteCounts[j] = proposal.voteCounts[j].add(newVotingPower).sub(oldVotingPower);
         }
       }
-      // update voting power of the staker
-      _proposals[proposalIds[i]].votes[staker].votingPower = _safeUint224(newVotingPower);
+      // update voting power of the voter
+      _proposals[proposalIds[i]].votes[voter].votingPower = safeNewVotingPower;
+      emit VotingPowerChanged(
+        proposalIds[i],
+        voter,
+        vote.optionBitMask,
+        vote.votingPower,
+        safeNewVotingPower
+      );
     }
   }
 

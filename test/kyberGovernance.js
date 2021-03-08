@@ -1145,17 +1145,17 @@ contract('KyberGovernance', function (accounts) {
     totalVotes,
     options,
     voteCounts,
-    user,
-    userVotingPower,
-    userVoteOption
+    voter,
+    voterVotingPower,
+    voterVoteOption
   ) => {
     let voteData = await governance.getProposalVoteDataById(proposalId);
     Helper.assertEqual(totalVotes, voteData[0], 'wrong total votes');
     Helper.assertEqualArray(voteCounts, voteData[1], 'wrong vote count for each option');
     Helper.assertEqualArray(options, voteData[2], 'wrong options data');
-    let userVoteData = await governance.getVoteOnProposal(proposalId, user);
-    Helper.assertEqual(userVotingPower, userVoteData.votingPower, "wrong user's voting power");
-    Helper.assertEqual(userVoteOption, userVoteData.optionBitMask, "wrong user's voting options");
+    let voterVoteData = await governance.getVoteOnProposal(proposalId, voter);
+    Helper.assertEqual(voterVotingPower, voterVoteData.votingPower, "wrong voter's voting power");
+    Helper.assertEqual(voterVoteOption, voterVoteData.optionBitMask, "wrong voter's voting options");
   };
 
   describe('#test vote', async () => {
@@ -1303,11 +1303,11 @@ contract('KyberGovernance', function (accounts) {
         'link to desc'
       );
 
-      let user = accounts[5];
-      let userVotingPower = new BN(2).pow(new BN(224));
-      await votingStrategy.setVotingPower(user, userVotingPower);
-      await expectRevert(governance.submitVote(proposalId, 1, {from: user}), 'value is too big (uint224)');
-      await votingStrategy.setVotingPower(user, 0);
+      let voter = accounts[5];
+      let voterVotingPower = new BN(2).pow(new BN(224));
+      await votingStrategy.setVotingPower(voter, voterVotingPower);
+      await expectRevert(governance.submitVote(proposalId, 1, {from: voter}), 'value is too big (uint224)');
+      await votingStrategy.setVotingPower(voter, 0);
     });
 
     it('reverts voting options is bigger than uint32', async () => {
@@ -1325,11 +1325,11 @@ contract('KyberGovernance', function (accounts) {
         'link to desc'
       );
 
-      let user = accounts[5];
-      let userVotingPower = new BN(2).pow(new BN(20));
-      await votingStrategy.setVotingPower(user, userVotingPower);
+      let voter = accounts[5];
+      let voterVotingPower = new BN(2).pow(new BN(20));
+      await votingStrategy.setVotingPower(voter, voterVotingPower);
       await expectRevert(
-        governance.submitVote(proposalId, new BN(2).pow(new BN(32)), {from: user}),
+        governance.submitVote(proposalId, new BN(2).pow(new BN(32)), {from: voter}),
         'value is too big (uint32)'
       );
     });
@@ -1347,23 +1347,23 @@ contract('KyberGovernance', function (accounts) {
         'link to desc'
       );
 
-      let user = accounts[5];
-      let userVotingPower = new BN(10).pow(new BN(20));
-      await votingStrategy.setVotingPower(user, userVotingPower);
-      Helper.assertEqual(userVotingPower, await votingStrategy.getVotingPower(user, currentTime));
+      let voter = accounts[5];
+      let voterVotingPower = new BN(10).pow(new BN(20));
+      await votingStrategy.setVotingPower(voter, voterVotingPower);
+      Helper.assertEqual(voterVotingPower, await votingStrategy.getVotingPower(voter, currentTime));
 
-      let totalVotes = userVotingPower;
+      let totalVotes = voterVotingPower;
       let oldOptions = 0;
       for (let i = 1; i < 2 ** voteCounts.length; i++) {
-        let tx = await governance.submitVote(proposalId, i, {from: user});
+        let tx = await governance.submitVote(proposalId, i, {from: voter});
         expectEvent(tx, 'VoteEmitted', {
           proposalId: proposalId,
-          voter: user,
+          voter: voter,
           voteOptions: new BN(i),
-          votingPower: userVotingPower,
+          votingPower: voterVotingPower,
         });
-        voteCounts = updateVoteCounts(voteCounts, oldOptions, i, userVotingPower);
-        await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, user, userVotingPower, i);
+        voteCounts = updateVoteCountsOnOptionChanges(voteCounts, oldOptions, i, voterVotingPower);
+        await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter, voterVotingPower, i);
         oldOptions = i;
       }
     });
@@ -1385,30 +1385,273 @@ contract('KyberGovernance', function (accounts) {
         'link to desc'
       );
 
-      let user = accounts[5];
-      let userVotingPower = new BN(10).pow(new BN(20));
-      await votingStrategy.setVotingPower(user, userVotingPower);
-      Helper.assertEqual(userVotingPower, await votingStrategy.getVotingPower(user, currentTime));
+      let voter = accounts[5];
+      let voterVotingPower = new BN(10).pow(new BN(20));
+      await votingStrategy.setVotingPower(voter, voterVotingPower);
+      Helper.assertEqual(voterVotingPower, await votingStrategy.getVotingPower(voter, currentTime));
 
-      let totalVotes = userVotingPower;
+      let totalVotes = voterVotingPower;
       let oldOptions = 0;
       for (let i = 1; i <= 2; i++) {
-        let tx = await governance.submitVote(proposalId, i, {from: user});
+        let tx = await governance.submitVote(proposalId, i, {from: voter});
         expectEvent(tx, 'VoteEmitted', {
           proposalId: proposalId,
-          voter: user,
+          voter: voter,
           voteOptions: new BN(i),
-          votingPower: userVotingPower,
+          votingPower: voterVotingPower,
         });
-        voteCounts = updateVoteCounts(voteCounts, oldOptions, i, userVotingPower);
-        await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, user, userVotingPower, i);
+        voteCounts = updateVoteCountsOnOptionChanges(voteCounts, oldOptions, i, voterVotingPower);
+        await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter, voterVotingPower, i);
         oldOptions = i;
       }
     });
   });
+
+  describe('#test handle voting power changes', async () => {
+    beforeEach('setup', async () => {
+      governance = await KyberGovernance.new(
+        admin,
+        daoOperator,
+        [validator.address, executor.address],
+        [votingStrategy.address]
+      );
+    });
+
+    it('reverts invalid proposal id', async () => {
+      let proposalCount = await governance.getProposalsCount();
+      let voter = accounts[0];
+      await expectRevert(
+        governance.handleVotingPowerChanged(voter, new BN(0), [proposalCount], {from: voter}),
+        'invalid proposal id'
+      );
+    });
+
+    it('no updates for proposal that is not active', async () => {
+      let currentTime = new BN(await Helper.getCurrentBlockTime());
+      let options = ['option 1', 'option 2', 'option 3'];
+      let voteCounts = [new BN(0), new BN(0), new BN(0)];
+
+      let voter = accounts[5];
+      let voterVotingPower = new BN(10).pow(new BN(20));
+      await votingStrategy.setVotingPower(voter, voterVotingPower);
+
+      let proposalId = await createGenericProposal(
+        executor.address,
+        votingStrategy.address,
+        options,
+        currentTime.add(new BN(20)),
+        currentTime.add(new BN(60)),
+        'link to desc'
+      );
+      await checkVoteDataChange(proposalId, 0, options, voteCounts, voter, 0, 0);
+      Helper.assertEqual(ProposalState.Pending, await governance.getProposalState(proposalId));
+      let newVotingPower = voterVotingPower.div(new BN(2));
+      await governance.handleVotingPowerChanged(voter, newVotingPower, [proposalId]);
+      // no data should be recorded
+      await checkVoteDataChange(proposalId, 0, options, voteCounts, voter, 0, 0);
+
+      await Helper.mineNewBlockAfter(20);
+      Helper.assertEqual(ProposalState.Active, await governance.getProposalState(proposalId));
+      let voteOption = 1;
+      await governance.submitVote(proposalId, voteOption, {from: voter});
+      voteCounts = updateVoteCountsOnOptionChanges(voteCounts, 0, voteOption, voterVotingPower);
+      await checkVoteDataChange(
+        proposalId,
+        voterVotingPower,
+        options,
+        voteCounts,
+        voter,
+        voterVotingPower,
+        voteOption
+      );
+      await Helper.mineNewBlockAfter(60);
+
+      Helper.assertEqual(ProposalState.Finalized, await governance.getProposalState(proposalId));
+      await governance.handleVotingPowerChanged(voter, newVotingPower, [proposalId]);
+      // no changes
+      await checkVoteDataChange(
+        proposalId,
+        voterVotingPower,
+        options,
+        voteCounts,
+        voter,
+        voterVotingPower,
+        voteOption
+      );
+    });
+
+    it('reverts invalid voting power strategy of a proposal', async () => {
+      let newVotingStrategy = await MockVotingPowerStrategy.new();
+      governance = await KyberGovernance.new(
+        admin,
+        daoOperator,
+        [validator.address, executor.address],
+        [votingStrategy.address, newVotingStrategy.address]
+      );
+      let currentTime = new BN(await Helper.getCurrentBlockTime());
+      let proposalId1 = await createGenericProposal(
+        executor.address,
+        newVotingStrategy.address,
+        ['op1', 'op2'],
+        currentTime,
+        currentTime.add(new BN(50)),
+        'link to desc'
+      );
+      let proposalId2 = await createBinaryProposal(
+        executor.address,
+        votingStrategy.address,
+        targets,
+        weiValues,
+        signatures,
+        calldatas,
+        withDelegatecalls,
+        currentTime,
+        currentTime.add(new BN(50)),
+        'link to desc'
+      );
+      let newVotingPower = new BN(10).pow(new BN(20));
+      await expectRevert(
+        newVotingStrategy.callbackWithdrawal(governance.address, voter, newVotingPower, [proposalId1, proposalId2]),
+        'invalid voting power strategy'
+      );
+      await expectRevert(
+        votingStrategy.callbackWithdrawal(governance.address, voter, newVotingPower, [proposalId1, proposalId2]),
+        'invalid voting power strategy'
+      );
+      await expectRevert(
+        governance.handleVotingPowerChanged(voter, newVotingPower, [proposalId1, proposalId2]),
+        'invalid voting power strategy'
+      );
+      await votingStrategy.callbackWithdrawal(governance.address, voter, newVotingPower, [proposalId2]);
+      await newVotingStrategy.callbackWithdrawal(governance.address, voter, newVotingPower, [proposalId1]);
+      governance = await KyberGovernance.new(
+        admin,
+        daoOperator,
+        [validator.address, executor.address],
+        [votingStrategy.address]
+      );
+    });
+
+    it('no changes when voter has not voted yet', async () => {
+      let voter1 = accounts[4];
+      let voter1VotingPower = new BN(10).pow(new BN(20));
+      await votingStrategy.setVotingPower(voter1, voter1VotingPower);
+      let voter2 = accounts[5];
+
+      let currentTime = new BN(await Helper.getCurrentBlockTime());
+      let options = ['opton1', 'option2'];
+      let voteCounts = [new BN(0), new BN(0)];
+      let proposalId = await createGenericProposal(
+        executor.address,
+        votingStrategy.address,
+        options,
+        currentTime,
+        currentTime.add(new BN(50)),
+        'link to desc'
+      );
+      await governance.submitVote(proposalId, 1, {from: voter1});
+      let totalVotes = voter1VotingPower;
+      voteCounts = updateVoteCountsOnOptionChanges(voteCounts, 0, 1, voter1VotingPower);
+
+      await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter1, voter1VotingPower, 1);
+      await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter2, 0, 0);
+
+      let newVotingPower = new BN(10).pow(new BN(10));
+      await votingStrategy.callbackWithdrawal(governance.address, voter2, newVotingPower, [proposalId]);
+      // no changes
+      await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter1, voter1VotingPower, 1);
+      await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter2, 0, 0);
+
+      await votingStrategy.callbackWithdrawal(governance.address, voter1, newVotingPower, [proposalId]);
+      totalVotes = newVotingPower;
+      voteCounts = updateVoteCountsOnVotingPowerChanges(voteCounts, 1, voter1VotingPower, newVotingPower);
+      await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter1, newVotingPower, 1);
+      await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter2, 0, 0);
+    });
+
+    it('no changes when voter has not voted yet', async () => {
+      let voter1 = accounts[4];
+      let voter1VotingPower = new BN(10).pow(new BN(20));
+      await votingStrategy.setVotingPower(voter1, voter1VotingPower);
+      let voter2 = accounts[5];
+
+      let currentTime = new BN(await Helper.getCurrentBlockTime());
+      let options = ['opton1', 'option2'];
+      let voteCounts = [new BN(0), new BN(0)];
+      let proposalId = await createGenericProposal(
+        executor.address,
+        votingStrategy.address,
+        options,
+        currentTime,
+        currentTime.add(new BN(50)),
+        'link to desc'
+      );
+      await governance.submitVote(proposalId, 1, {from: voter1});
+      let totalVotes = voter1VotingPower;
+      voteCounts = updateVoteCountsOnOptionChanges(voteCounts, 0, 1, voter1VotingPower);
+
+      await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter1, voter1VotingPower, 1);
+      await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter2, 0, 0);
+
+      let newVotingPower = new BN(10).pow(new BN(10));
+      await votingStrategy.callbackWithdrawal(governance.address, voter2, newVotingPower, [proposalId]);
+      // no changes
+      await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter1, voter1VotingPower, 1);
+      await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter2, 0, 0);
+
+      await votingStrategy.callbackWithdrawal(governance.address, voter1, newVotingPower, [proposalId]);
+      totalVotes = newVotingPower;
+      voteCounts = updateVoteCountsOnVotingPowerChanges(voteCounts, 1, voter1VotingPower, newVotingPower);
+      await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter1, newVotingPower, 1);
+      await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter2, 0, 0);
+    });
+
+    it('vote data changes correctly', async () => {
+      let voter1 = accounts[4];
+      let voter1VotingPower = new BN(10).pow(new BN(20));
+      await votingStrategy.setVotingPower(voter1, voter1VotingPower);
+      let voter2 = accounts[5];
+      let voter2VotingPower = new BN(10).pow(new BN(19));
+      await votingStrategy.setVotingPower(voter2, voter2VotingPower);
+
+      let currentTime = new BN(await Helper.getCurrentBlockTime());
+      let options = ['opton1', 'option2'];
+      let voteCounts = [new BN(0), new BN(0)];
+      let proposalId = await createGenericProposal(
+        executor.address,
+        votingStrategy.address,
+        options,
+        currentTime,
+        currentTime.add(new BN(50)),
+        'link to desc'
+      );
+      await governance.submitVote(proposalId, 1, {from: voter1});
+      await governance.submitVote(proposalId, 2, {from: voter2});
+      let totalVotes = voter1VotingPower.add(voter2VotingPower);
+      voteCounts = updateVoteCountsOnOptionChanges(voteCounts, 0, 1, voter1VotingPower);
+      voteCounts = updateVoteCountsOnOptionChanges(voteCounts, 0, 2, voter2VotingPower);
+
+      await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter1, voter1VotingPower, 1);
+      await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter2, voter2VotingPower, 2);
+
+      let newVotingPower1 = new BN(10).pow(new BN(10));
+      let tx = await votingStrategy.callbackWithdrawal(governance.address, voter1, newVotingPower1, [proposalId]);
+
+      totalVotes = totalVotes.sub(voter1VotingPower).add(newVotingPower1);
+      voteCounts = updateVoteCountsOnVotingPowerChanges(voteCounts, 1, voter1VotingPower, newVotingPower1);
+      await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter1, newVotingPower1, 1);
+      await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter2, voter2VotingPower, 2);
+
+      let newVotingPower2 = new BN(10).pow(new BN(12));
+      tx = await votingStrategy.callbackWithdrawal(governance.address, voter2, newVotingPower2, [proposalId]);
+      totalVotes = totalVotes.sub(voter2VotingPower).add(newVotingPower2);
+      voteCounts = updateVoteCountsOnVotingPowerChanges(voteCounts, 2, voter2VotingPower, newVotingPower2);
+      await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter2, newVotingPower2, 2);
+    });
+  });
 });
 
-function updateVoteCounts(voteCounts, oldOptions, newOptions, votingPower) {
+function updateVoteCountsOnOptionChanges(voteCounts, oldOptions, newOptions, votingPower) {
   for (let i = 0; i < 2 ** voteCounts.length; i++) {
     let hasVoted = (oldOptions & (2 ** i)) == 2 ** i;
     let isVoting = (newOptions & (2 ** i)) == 2 ** i;
@@ -1416,6 +1659,16 @@ function updateVoteCounts(voteCounts, oldOptions, newOptions, votingPower) {
       voteCounts[i] = voteCounts[i].sub(new BN(votingPower));
     } else if (!hasVoted && isVoting) {
       voteCounts[i] = voteCounts[i].add(new BN(votingPower));
+    }
+  }
+  return voteCounts;
+}
+
+function updateVoteCountsOnVotingPowerChanges(voteCounts, optionBitMask, oldVotingPower, newVotingPower) {
+  for (let i = 0; i < 2 ** voteCounts.length; i++) {
+    let hasVoted = (optionBitMask & (2 ** i)) == 2 ** i;
+    if (hasVoted) {
+      voteCounts[i] = voteCounts[i].sub(new BN(oldVotingPower)).add(new BN(newVotingPower));
     }
   }
   return voteCounts;
