@@ -1,6 +1,6 @@
 const DefaultProposalValidator = artifacts.require('DefaultProposalValidator.sol');
 const SimpleKyberGovernance = artifacts.require('MockSimpleKyberGovernance.sol');
-const VotingPowerStrategy = artifacts.require('MockKyberVotingPowerStrategy.sol');
+const VotingPowerStrategy = artifacts.require('MockVotingPowerStrategy2.sol');
 
 const Helper = require('./helper.js');
 const {zeroBN} = require('./helper.js');

@@ -4,17 +4,16 @@ pragma abicoder v2;
 
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 
-import {IVotingPowerStrategy} from '../interfaces/IVotingPowerStrategy.sol';
-import {IKyberGovernance} from '../interfaces/IKyberGovernance.sol';
-import {IKyberStaking} from '../interfaces/IKyberStaking.sol';
-import {EpochUtils} from '../misc/EpochUtils.sol';
+import {IVotingPowerStrategy} from '../../interfaces/IVotingPowerStrategy.sol';
+import {IKyberGovernance} from '../../interfaces/IKyberGovernance.sol';
+import {IKyberStaking} from '../../interfaces/IKyberStaking.sol';
+import {EpochUtils} from '../../misc/EpochUtils.sol';
 
 /**
- * @title Governance Strategy contract
- * @dev Smart contract containing logic to measure users' relative power to propose and vote.
- * @author Aave
+ * @title Voting Power Strategy contract based on epoch mechanism
+ * @dev Smart contract containing logic to measure users' relative power to vote.
  **/
-contract KyberVotingPowerStrategy is IVotingPowerStrategy, EpochUtils {
+contract EpochVotingPowerStrategy is IVotingPowerStrategy, EpochUtils {
   using SafeMath for uint256;
 
   uint256 public constant MAX_PROPOSAL_PER_EPOCH = 10;
@@ -25,6 +24,7 @@ contract KyberVotingPowerStrategy is IVotingPowerStrategy, EpochUtils {
 
   /**
    * @dev Constructor, register tokens used for Voting and Proposition Powers.
+   * @param _governance The address of governance contract.
    * @param _staking The address of the knc staking contract.
    **/
   constructor(IKyberGovernance _governance, IKyberStaking _staking)
@@ -44,7 +44,10 @@ contract KyberVotingPowerStrategy is IVotingPowerStrategy, EpochUtils {
     _;
   }
 
-  /// @dev endTime: furture usage
+  /**
+   * @dev stores proposalIds per epoch mapping, so when user withdraw,
+   * voting power strategy is aware of which proposals is affected
+   */
   function handleProposalCreation(
     uint256 proposalId,
     uint256 startTime,
@@ -55,6 +58,10 @@ contract KyberVotingPowerStrategy is IVotingPowerStrategy, EpochUtils {
     epochProposals[epoch].push(proposalId);
   }
 
+  /**
+   * @dev remove proposalId from proposalIds per epoch mapping, so when user withdraw,
+   * voting power strategy is aware of which proposals is affected
+   */
   function handleProposalCancellation(uint256 proposalId) external override onlyGovernance {
     IKyberGovernance.ProposalWithoutVote memory proposal = governance.getProposalById(proposalId);
     uint256 epoch = getEpochNumber(proposal.startTime);
@@ -62,7 +69,7 @@ contract KyberVotingPowerStrategy is IVotingPowerStrategy, EpochUtils {
     uint256[] storage proposalIds = epochProposals[epoch];
     for (uint256 i = 0; i < proposalIds.length; i++) {
       if (proposalIds[i] == proposalId) {
-        // remove this campaign id out of list
+        // remove this proposalId out of list
         proposalIds[i] = proposalIds[proposalIds.length - 1];
         proposalIds.pop();
         break;
@@ -70,9 +77,11 @@ contract KyberVotingPowerStrategy is IVotingPowerStrategy, EpochUtils {
     }
   }
 
-  /// @dev assume that governance check start and end time
-  /// @dev proposalId, choice: unused param for future use
-  /// call to init data if needed, and return voter's voting power
+  /**
+   * @dev assume that governance check start and end time
+   * @dev call to init data if needed, and return voter's voting power
+   * @dev proposalId, choice: unused param for future usage
+   */
   function handleVote(
     address voter,
     uint256, /*proposalId*/
@@ -83,6 +92,10 @@ contract KyberVotingPowerStrategy is IVotingPowerStrategy, EpochUtils {
     return representative == voter ? stake.add(dStake) : dStake;
   }
 
+  /**
+   * @dev handle user withdraw from staking contract
+   * @dev notice for governance that voting power for proposalIds in current epoch is changed
+   */
   function handleWithdrawal(
     address user,
     uint256 /*reduceAmount*/
@@ -96,9 +109,10 @@ contract KyberVotingPowerStrategy is IVotingPowerStrategy, EpochUtils {
     governance.handleVotingPowerChanged(user, votingPower, epochProposals[currentEpoch]);
   }
 
-  ///
-  /// @dev call to get voter's voting power given timestamp
-  /// @dev only for reading purpose. when submitVote, should call handleVote instead
+  /**
+   * @dev call to get voter's voting power given timestamp
+   * @dev only for reading purpose. when submitVote, should call handleVote instead
+   */
   function getVotingPower(address voter, uint256 timestamp)
     external
     override
@@ -113,6 +127,9 @@ contract KyberVotingPowerStrategy is IVotingPowerStrategy, EpochUtils {
     votingPower = representative == voter ? stake.add(dStake) : dStake;
   }
 
+  /**
+   * @dev validate that a proposal is suitable for epoch mechanism
+   */
   function validateProposalCreation(uint256 startTime, uint256 endTime)
     external
     override

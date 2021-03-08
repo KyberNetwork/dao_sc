@@ -21,7 +21,7 @@ interface IVotingPowerStrategy is IWithdrawHandler {
 
   /**
    * @dev call by governance when submitting a vote
-   * @param choice: unused param for future use
+   * @param choice: unused param for future usage
    * @return votingPower of voter
    */
   function handleVote(
@@ -51,6 +51,7 @@ interface IVotingPowerStrategy is IWithdrawHandler {
 
   /**
    * @dev getMaxVotingPower at current time
+   * @dev call by governance when creating a proposal
    */
   function getMaxVotingPower() external view returns (uint256);
 }

@@ -7,7 +7,7 @@ const Helper = require('./helper');
 
 const TestToken = artifacts.require('KyberNetworkTokenV2.sol');
 const StakingContract = artifacts.require('KyberStaking.sol');
-const VotingPowerStrategy = artifacts.require('KyberVotingPowerStrategy.sol');
+const VotingPowerStrategy = artifacts.require('EpochVotingPowerStrategy.sol');
 const MockGovernance = artifacts.require('MockKyberGovernance');
 
 let kncToken;
