@@ -45,8 +45,8 @@ contract EpochVotingPowerStrategy is IVotingPowerStrategy, EpochUtils {
   }
 
   /**
-   * @dev stores proposalIds per epoch mapping, so when user withdraw,
-   * voting power strategy is aware of which proposals is affected
+   * @dev stores proposalIds per epoch mapping, so when user withdraws,
+   * voting power strategy is aware of which proposals are affected
    */
   function handleProposalCreation(
     uint256 proposalId,
@@ -59,8 +59,8 @@ contract EpochVotingPowerStrategy is IVotingPowerStrategy, EpochUtils {
   }
 
   /**
-   * @dev remove proposalId from proposalIds per epoch mapping, so when user withdraw,
-   * voting power strategy is aware of which proposals is affected
+   * @dev remove proposalId from proposalIds per epoch mapping, so when user withdraws,
+   * voting power strategy is aware of which proposals are affected
    */
   function handleProposalCancellation(uint256 proposalId) external override onlyGovernance {
     IKyberGovernance.ProposalWithoutVote memory proposal = governance.getProposalById(proposalId);
