@@ -2,8 +2,8 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import {ExecutorWithTimelock} from './ExecutorWithTimelock.sol';
-import {ProposalValidator} from './ProposalValidator.sol';
+import {DefaultExecutorWithTimelock} from './DefaultExecutorWithTimelock.sol';
+import {DefaultProposalValidator} from './DefaultProposalValidator.sol';
 
 /**
  * @title Time Locked, Validator, Executor Contract
@@ -12,7 +12,7 @@ import {ProposalValidator} from './ProposalValidator.sol';
  * - Validate Vote Quorum and Vote success on proposal
  * - Queue, Execute, Cancel, successful proposals' transactions.
  **/
-contract Executor is ExecutorWithTimelock, ProposalValidator {
+contract DefaultExecutor is DefaultExecutorWithTimelock, DefaultProposalValidator {
   constructor(
     address admin,
     uint256 delay,
@@ -24,7 +24,7 @@ contract Executor is ExecutorWithTimelock, ProposalValidator {
     uint256 voteDifferential,
     uint256 minimumQuorum
   )
-    ExecutorWithTimelock(admin, delay, gracePeriod, minimumDelay, maximumDelay)
-    ProposalValidator(minVoteDuration, maxVotingOptions, voteDifferential, minimumQuorum)
+    DefaultExecutorWithTimelock(admin, delay, gracePeriod, minimumDelay, maximumDelay)
+    DefaultProposalValidator(minVoteDuration, maxVotingOptions, voteDifferential, minimumQuorum)
   {}
 }

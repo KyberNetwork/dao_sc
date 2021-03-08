@@ -1,4 +1,4 @@
-const ProposalValidator = artifacts.require('ProposalValidator.sol');
+const DefaultProposalValidator = artifacts.require('DefaultProposalValidator.sol');
 const SimpleKyberGovernance = artifacts.require('MockSimpleKyberGovernance.sol');
 const VotingPowerStrategy = artifacts.require('MockKyberVotingPowerStrategy.sol');
 
@@ -25,7 +25,7 @@ let options = ['KNC', 'AAVE', 'SNX'];
 let proposalId;
 let maxVotingPower = new BN(10000);
 
-contract('ProposalValidator', function (accounts) {
+contract('DefaultProposalValidator', function (accounts) {
   before('init global values and contract', async () => {
     daoOperator = accounts[1];
     governance = await SimpleKyberGovernance.new();
@@ -37,7 +37,7 @@ contract('ProposalValidator', function (accounts) {
     voteDifferential = new BN(500);
     minimumQuorum = new BN(2000);
 
-    proposalValidator = await ProposalValidator.new(
+    proposalValidator = await DefaultProposalValidator.new(
       minVotingDuration,
       maxVotingOptions,
       voteDifferential,
@@ -299,7 +299,7 @@ contract('ProposalValidator', function (accounts) {
       );
 
       // set 0 MAX_OPTIONS
-      let tempProposalValidator = await ProposalValidator.new(
+      let tempProposalValidator = await DefaultProposalValidator.new(
         minVotingDuration,
         zeroBN,
         voteDifferential,

@@ -2,8 +2,8 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import {IExecutorWithTimelock} from '../interfaces/IExecutorWithTimelock.sol';
-import {IKyberGovernance} from '../interfaces/IKyberGovernance.sol';
+import {IExecutorWithTimelock} from '../../interfaces/IExecutorWithTimelock.sol';
+import {IKyberGovernance} from '../../interfaces/IKyberGovernance.sol';
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 
 /**
@@ -13,7 +13,7 @@ import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
  * Grace period is not over.
  * @author Aave
  **/
-contract ExecutorWithTimelock is IExecutorWithTimelock {
+contract DefaultExecutorWithTimelock is IExecutorWithTimelock {
   using SafeMath for uint256;
 
   uint256 public immutable override GRACE_PERIOD;

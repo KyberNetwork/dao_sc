@@ -2,9 +2,9 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import {IKyberGovernance} from '../interfaces/IKyberGovernance.sol';
-import {IVotingPowerStrategy} from '../interfaces/IVotingPowerStrategy.sol';
-import {IProposalValidator} from '../interfaces/IProposalValidator.sol';
+import {IKyberGovernance} from '../../interfaces/IKyberGovernance.sol';
+import {IVotingPowerStrategy} from '../../interfaces/IVotingPowerStrategy.sol';
+import {IProposalValidator} from '../../interfaces/IProposalValidator.sol';
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 import {Utils} from '@kyber.network/utils-sc/contracts/Utils.sol';
 
@@ -15,7 +15,7 @@ import {Utils} from '@kyber.network/utils-sc/contracts/Utils.sol';
  * Voting Power functions: Validates success of propositions.
  * @author Aave
  **/
-contract ProposalValidator is IProposalValidator, Utils {
+contract DefaultProposalValidator is IProposalValidator, Utils {
   using SafeMath for uint256;
 
   uint256 public immutable override MIN_VOTING_DURATION;
@@ -69,6 +69,7 @@ contract ProposalValidator is IProposalValidator, Utils {
 
   /**
    * @dev Called to validate a binary proposal
+   * @notice creator of proposals must be the daoOperator
    * @param strategy votingPowerStrategy contract to calculate voting power
    * @param creator address of the creator
    * @param startTime timestamp when vote starts
@@ -93,6 +94,7 @@ contract ProposalValidator is IProposalValidator, Utils {
 
   /**
    * @dev Called to validate a generic proposal
+   * @notice creator of proposals must be the daoOperator
    * @param strategy votingPowerStrategy contract to calculate voting power
    * @param creator address of the creator
    * @param startTime timestamp when vote starts
