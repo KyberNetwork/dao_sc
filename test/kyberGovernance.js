@@ -7,7 +7,11 @@ const MockVotingPowerStrategy = artifacts.require('MockVotingPowerStrategy.sol')
 const MockExecutorWithTimelock = artifacts.require('MockExecutorWithTimelock.sol');
 
 const Helper = require('./helper.js');
+const TestWallets = require('./../test-wallets');
 const {zeroAddress, ProposalState} = require('./helper.js');
+const {ecsign} = require('ethereumjs-util');
+const DOMAIN_TYPEHASH = web3.utils.soliditySha3('EIP712Domain(string name,uint256 chainId,address verifyingContract)');
+const VOTE_EMITTED_TYPEHASH = web3.utils.soliditySha3('VoteEmitted(uint256 id,uint256 optionBitMask)');
 
 let voter;
 let admin;
@@ -16,6 +20,7 @@ let governance;
 let validator;
 let votingStrategy;
 let executor;
+let chainId;
 
 contract('KyberGovernance', function (accounts) {
   before('Global setup', async () => {
@@ -25,6 +30,7 @@ contract('KyberGovernance', function (accounts) {
     validator = await MockProposalValidator.new();
     votingStrategy = await MockVotingPowerStrategy.new();
     executor = await MockExecutorWithTimelock.new();
+    chainId = await web3.eth.net.getId();
   });
 
   describe('#test constructor', async () => {
@@ -1368,6 +1374,55 @@ contract('KyberGovernance', function (accounts) {
       }
     });
 
+    it('generic - vote by signature correct data and event', async () => {
+      let currentTime = new BN(await Helper.getCurrentBlockTime());
+      let options = ['option 1', 'option 2', 'option 3'];
+      let voteCounts = [new BN(0), new BN(0), new BN(0)];
+      let proposalId = await createGenericProposal(
+        executor.address,
+        votingStrategy.address,
+        options,
+        currentTime,
+        currentTime.add(new BN(60)),
+        'link to desc'
+      );
+
+      let user = accounts[5];
+      let userPk = TestWallets.accounts[5].privateKey;
+      let userVotingPower = new BN(10).pow(new BN(20));
+      await votingStrategy.setVotingPower(user, userVotingPower);
+      Helper.assertEqual(userVotingPower, await votingStrategy.getVotingPower(user, currentTime));
+
+      // test revert for invalid signature
+      const digest = await getDigest(proposalId, 1, chainId, governance.address);
+      let signature = ecsign(Buffer.from(digest.slice(2), 'hex'), Buffer.from(userPk.slice(2), 'hex'));
+      await expectRevert(
+        governance.submitVoteBySignature(proposalId, 1, 0, signature.r, signature.s, {
+          from: accounts[6],
+        }),
+        'invalid signature'
+      );
+
+      let totalVotes = userVotingPower;
+      let oldOptions = 0;
+      for (let i = 1; i < 2 ** voteCounts.length; i++) {
+        const digest = await getDigest(proposalId, i, chainId, governance.address);
+        let signature = ecsign(Buffer.from(digest.slice(2), 'hex'), Buffer.from(userPk.slice(2), 'hex'));
+        let tx = await governance.submitVoteBySignature(proposalId, i, signature.v, signature.r, signature.s, {
+          from: accounts[6],
+        });
+        expectEvent(tx, 'VoteEmitted', {
+          proposalId: proposalId,
+          voter: user,
+          voteOptions: new BN(i),
+          votingPower: userVotingPower,
+        });
+        voteCounts = updateVoteCountsOnOptionChanges(voteCounts, oldOptions, i, userVotingPower);
+        await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, user, userVotingPower, i);
+        oldOptions = i;
+      }
+    });
+
     it('binary - vote correct data and event', async () => {
       let currentTime = new BN(await Helper.getCurrentBlockTime());
       let options = ['YES', 'NO'];
@@ -1402,6 +1457,49 @@ contract('KyberGovernance', function (accounts) {
         });
         voteCounts = updateVoteCountsOnOptionChanges(voteCounts, oldOptions, i, voterVotingPower);
         await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter, voterVotingPower, i);
+        oldOptions = i;
+      }
+    });
+
+    it('binary - vote by signature correct data and event', async () => {
+      let currentTime = new BN(await Helper.getCurrentBlockTime());
+      let options = ['YES', 'NO'];
+      let voteCounts = [new BN(0), new BN(0)];
+      let proposalId = await createBinaryProposal(
+        executor.address,
+        votingStrategy.address,
+        targets,
+        weiValues,
+        signatures,
+        calldatas,
+        withDelegatecalls,
+        currentTime,
+        currentTime.add(new BN(60)),
+        'link to desc'
+      );
+
+      let user = accounts[5];
+      let userPk = TestWallets.accounts[5].privateKey;
+      let userVotingPower = new BN(10).pow(new BN(20));
+      await votingStrategy.setVotingPower(user, userVotingPower);
+      Helper.assertEqual(userVotingPower, await votingStrategy.getVotingPower(user, currentTime));
+
+      let totalVotes = userVotingPower;
+      let oldOptions = 0;
+      for (let i = 1; i <= 2; i++) {
+        const digest = await getDigest(proposalId, i, chainId, governance.address);
+        let signature = ecsign(Buffer.from(digest.slice(2), 'hex'), Buffer.from(userPk.slice(2), 'hex'));
+        let tx = await governance.submitVoteBySignature(proposalId, i, signature.v, signature.r, signature.s, {
+          from: accounts[6],
+        });
+        expectEvent(tx, 'VoteEmitted', {
+          proposalId: proposalId,
+          voter: user,
+          voteOptions: new BN(i),
+          votingPower: userVotingPower,
+        });
+        voteCounts = updateVoteCountsOnOptionChanges(voteCounts, oldOptions, i, userVotingPower);
+        await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, user, userVotingPower, i);
         oldOptions = i;
       }
     });
@@ -1594,16 +1692,24 @@ contract('KyberGovernance', function (accounts) {
       await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter2, 0, 0);
 
       let newVotingPower = new BN(10).pow(new BN(10));
-      await votingStrategy.callbackWithdrawal(governance.address, voter2, newVotingPower, [proposalId]);
+      let txResult = await votingStrategy.callbackWithdrawal(governance.address, voter2, newVotingPower, [proposalId]);
       // no changes
       await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter1, voter1VotingPower, 1);
       await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter2, 0, 0);
+      await expectEvent.notEmitted.inTransaction(txResult.tx, governance, 'VotingPowerChanged');
 
-      await votingStrategy.callbackWithdrawal(governance.address, voter1, newVotingPower, [proposalId]);
+      txResult = await votingStrategy.callbackWithdrawal(governance.address, voter1, newVotingPower, [proposalId]);
       totalVotes = newVotingPower;
       voteCounts = updateVoteCountsOnVotingPowerChanges(voteCounts, 1, voter1VotingPower, newVotingPower);
       await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter1, newVotingPower, 1);
       await checkVoteDataChange(proposalId, totalVotes, options, voteCounts, voter2, 0, 0);
+      await expectEvent.inTransaction(txResult.tx, governance, 'VotingPowerChanged', {
+        proposalId: proposalId,
+        voter: voter1,
+        voteOptions: '1',
+        oldVotingPower: voter1VotingPower,
+        newVotingPower: newVotingPower,
+      });
     });
 
     it('vote data changes correctly', async () => {
@@ -1672,4 +1778,27 @@ function updateVoteCountsOnVotingPowerChanges(voteCounts, optionBitMask, oldVoti
     }
   }
   return voteCounts;
+}
+
+function getDigest(proposalId, optionBitMask, chainId, governanceAddr) {
+  const domainSeparator = web3.utils.soliditySha3(
+    web3.eth.abi.encodeParameters(
+      ['bytes32', 'bytes32', 'uint256', 'address'],
+      [DOMAIN_TYPEHASH, web3.utils.soliditySha3('Kyber Governance'), chainId, governanceAddr]
+    )
+  );
+  const msg = web3.utils.soliditySha3(
+    web3.eth.abi.encodeParameters(
+      ['bytes32', 'uint256', 'uint256'],
+      [VOTE_EMITTED_TYPEHASH, proposalId.toNumber(), optionBitMask]
+    )
+  );
+  return web3.utils.soliditySha3(
+    '0x' +
+      Buffer.concat([
+        Buffer.from('1901', 'hex'),
+        Buffer.from(domainSeparator.slice(2), 'hex'),
+        Buffer.from(msg.slice(2), 'hex'),
+      ]).toString('hex')
+  );
 }
