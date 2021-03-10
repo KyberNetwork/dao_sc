@@ -23,36 +23,36 @@ contract Pool is IPool, PermissionAdmin, PermissionOperators, Utils {
   EnumerableSet.AddressSet private _authorizedStrategies;
   bool private _isPaused;
 
-  constructor(address _admin, address[] memory _strategies) PermissionAdmin(_admin) {
-    for(uint256 i = 0; i < _strategies.length; i++) {
-      _authorizedStrategy(_strategies[i]);
+  constructor(address admin, address[] memory strategies) PermissionAdmin(admin) {
+    for(uint256 i = 0; i < strategies.length; i++) {
+      _authorizedStrategy(strategies[i]);
     }
     _isPaused = false;
   }
 
   receive() external payable {}
 
-  function authorizeStrategies(address[] calldata _strategies)
+  function authorizeStrategies(address[] calldata strategies)
     external override onlyAdmin
   {
-    for(uint256 i = 0; i < _strategies.length; i++) {
-      _authorizedStrategy(_strategies[i]);
+    for(uint256 i = 0; i < strategies.length; i++) {
+      _authorizedStrategy(strategies[i]);
     }
   }
 
-  function unauthorizeStrategies(address[] calldata _strategies)
+  function unauthorizeStrategies(address[] calldata strategies)
     external override onlyAdmin
   {
-    for(uint256 i = 0; i < _strategies.length; i++) {
-      _unauthorizedStrategy(_strategies[i]);
+    for(uint256 i = 0; i < strategies.length; i++) {
+      _unauthorizedStrategy(strategies[i]);
     }
   }
 
-  function replaceStrategy(address _oldStrategy, address _newStrategy)
+  function replaceStrategy(address oldStrategy, address newStrategy)
     external override onlyAdmin
   {
-    _unauthorizedStrategy(_oldStrategy);
-    _authorizedStrategy(_newStrategy);
+    _unauthorizedStrategy(oldStrategy);
+    _authorizedStrategy(newStrategy);
   }
 
   function pause() external override onlyOperator {
@@ -68,15 +68,15 @@ contract Pool is IPool, PermissionAdmin, PermissionOperators, Utils {
   }
 
   function withdrawFunds(
-    IERC20Ext[] calldata _tokens,
-    uint256[] calldata _amounts,
-    address payable _recipient
+    IERC20Ext[] calldata tokens,
+    uint256[] calldata amounts,
+    address payable recipient
   ) external override {
     require(!_isPaused, 'only when not paused');
     require(_isAuthorizedStrategy(msg.sender), 'not authorized');
-    require(_tokens.length == _amounts.length, 'invalid lengths');
-    for(uint256 i = 0; i < _tokens.length; i++) {
-      _transferToken(_tokens[i], _amounts[i], _recipient);
+    require(tokens.length == amounts.length, 'invalid lengths');
+    for(uint256 i = 0; i < tokens.length; i++) {
+      _transferToken(tokens[i], amounts[i], recipient);
     }
   }
 
@@ -84,10 +84,10 @@ contract Pool is IPool, PermissionAdmin, PermissionOperators, Utils {
     return _isPaused;
   }
 
-  function isAuthorizedStrategy(address _strategy)
+  function isAuthorizedStrategy(address strategy)
     external view override returns (bool)
   {
-    return _isAuthorizedStrategy(_strategy);
+    return _isAuthorizedStrategy(strategy);
   }
 
   function getAuthorizedStrategiesLength()
@@ -112,11 +112,11 @@ contract Pool is IPool, PermissionAdmin, PermissionOperators, Utils {
     }
   }
 
-  function _authorizedStrategy(address _strategy) internal {
-    require(_strategy != address(0), 'invalid strategy');
-    require(!_isAuthorizedStrategy(_strategy), 'only not authorized strategy');
-    _authorizedStrategies.add(_strategy);
-    emit AuthorizedStrategy(_strategy);
+  function _authorizedStrategy(address strategy) internal {
+    require(strategy != address(0), 'invalid strategy');
+    require(!_isAuthorizedStrategy(strategy), 'only not authorized strategy');
+    _authorizedStrategies.add(strategy);
+    emit AuthorizedStrategy(strategy);
   }
 
   function _unauthorizedStrategy(address _strategy) internal {

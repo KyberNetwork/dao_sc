@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.7.6;
 
-import {Pool} from '../Pool.sol';
+import {Pool} from './Pool.sol';
 
 
 contract FeePool is Pool {

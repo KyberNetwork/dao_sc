@@ -19,16 +19,16 @@ interface IPool {
 
   function pause() external;
   function unpause() external;
-  function authorizeStrategies(address[] calldata _strategies) external;
-  function unauthorizeStrategies(address[] calldata _strategies) external;
-  function replaceStrategy(address oldStrategy, address _strategies) external;
+  function authorizeStrategies(address[] calldata strategies) external;
+  function unauthorizeStrategies(address[] calldata strategies) external;
+  function replaceStrategy(address oldStrategy, address strategies) external;
   function withdrawFunds(
-    IERC20Ext[] calldata _tokens,
-    uint256[] calldata _amounts,
-    address payable _recipient
+    IERC20Ext[] calldata tokens,
+    uint256[] calldata amounts,
+    address payable recipient
   ) external;
   function isPaused() external view returns (bool);
-  function isAuthorizedStrategy(address _strategy) external view returns (bool);
+  function isAuthorizedStrategy(address strategy) external view returns (bool);
   function getAuthorizedStrategiesLength() external view returns (uint256);
   function getAuthorizedStrategyAt(uint256 index) external view returns (address);
   function getAllAuthorizedStrategies()
