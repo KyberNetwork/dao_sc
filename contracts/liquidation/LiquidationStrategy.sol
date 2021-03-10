@@ -147,18 +147,16 @@ contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, Re
         'only whitelisted liquidator'
       );
     }
-    // use local variable to save gas,
-    // also prevent any changes of treasury pool address during liquidation callback
-    address pool = _treasuryPool;
     // request funds from fee pool to recipient
     _feePool.withdrawFunds(sources, amounts, recipient);
-    uint256 balanceDestBefore = dest.balanceOf(pool);
+    uint256 balanceDestBefore = getBalance(dest, address(this));
     // callback for them to transfer dest amount to treasury
     ILiquidationCallback(recipient).liquidationCallback(
-      msg.sender, sources, amounts, payable(pool), dest, txData
+      msg.sender, sources, amounts, payable(address(this)), dest, txData
     );
-    destAmount = dest.balanceOf(pool).sub(balanceDestBefore);
+    destAmount = getBalance(dest, address(this)).sub(balanceDestBefore);
     require(destAmount >= minReturn, 'low dest amount after liquidated');
+    _transferToken(dest, payable(treasuryPool()), destAmount);
   }
 
   // Whitelisted tokens
@@ -302,5 +300,14 @@ contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, Re
   function _setWhitelistedLiquidatorsEnabled(bool _isEnabled) internal {
     _isWhitelistedLiquidatorEnabled = _isEnabled;
     emit WhitelistedLiquidatorsEnabled(_isEnabled); 
+  }
+
+  function _transferToken(IERC20Ext token, address payable recipient, uint256 amount) internal {
+    if (token == ETH_TOKEN_ADDRESS) {
+      (bool success, ) = recipient.call { value: amount }("");
+      require(success, 'transfer eth failed');
+    } else {
+      token.safeTransfer(recipient, amount);
+    }
   }
 }
