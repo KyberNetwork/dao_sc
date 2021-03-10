@@ -6,6 +6,7 @@ import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin
 import {Utils} from '@kyber.network/utils-sc/contracts/Utils.sol';
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 
+// Refer to https://github.com/smartcontractkit/chainlink/blob/develop/evm-contracts/src/v0.6/interfaces/AggregatorV3Interface.sol
 interface IChainLinkAggregatorProxy {
   function decimals() external view returns (uint8);
   function latestRoundData()
@@ -25,6 +26,9 @@ interface IChainLinkAggregatorProxy {
 *  If either token is not supported, conversion rate will be zero
 *  For each pair (src, dest) tokens, check rates using both eth and usd as quote
 *     then return the average
+*  Conversion Rate is returned with units of PRECISION or 10^18, e.g if rate is 0.001,
+*     the function will return 0.001 * 10^18
+*  From Utils, MAX_DECIMALS is 18, and PRECISION is 10^18
 */
 contract ChainLinkPriceOracle is IPriceOracle, PermissionAdmin, Utils {
   using SafeMath for uint256;
@@ -32,6 +36,8 @@ contract ChainLinkPriceOracle is IPriceOracle, PermissionAdmin, Utils {
   struct AggregatorProxyData {
     address quoteEth;
     address quoteUsd;
+    uint128 quoteEthDecimals;
+    uint128 quoteUsdDecimals;
   }
 
   mapping (address => AggregatorProxyData) internal _tokenData;
@@ -55,10 +61,20 @@ contract ChainLinkPriceOracle is IPriceOracle, PermissionAdmin, Utils {
       'invalid length data'
     );
 
+    uint8 quoteEthDecimals;
+    uint8 quoteUsdDecimals;
+
     for(uint256 i = 0; i < tokens.length; i++) {
+      quoteEthDecimals = quoteEthAddresses[i] == address(0) ? 0 :
+        IChainLinkAggregatorProxy(quoteEthAddresses[i]).decimals();
+      quoteUsdDecimals = quoteUsdAddresses[i] == address(0) ? 0 :
+        IChainLinkAggregatorProxy(quoteUsdAddresses[i]).decimals();
+
       _tokenData[tokens[i]] = AggregatorProxyData({
         quoteEth: quoteEthAddresses[i],
-        quoteUsd: quoteUsdAddresses[i]
+        quoteUsd: quoteUsdAddresses[i],
+        quoteEthDecimals: quoteEthDecimals,
+        quoteUsdDecimals: quoteUsdDecimals
       });
     }
   }
@@ -128,6 +144,9 @@ contract ChainLinkPriceOracle is IPriceOracle, PermissionAdmin, Utils {
     (quoteEth, quoteUsd) = (_tokenData[token].quoteEth, _tokenData[token].quoteUsd);
   }
 
+  /**
+  *   @dev Get token rate over eth with units of PRECISION
+  */
   function getRateOverEth(address token) public view returns (uint256 rate) {
     int answer;
     IChainLinkAggregatorProxy proxy = IChainLinkAggregatorProxy(_tokenData[token].quoteEth);
@@ -136,8 +155,17 @@ contract ChainLinkPriceOracle is IPriceOracle, PermissionAdmin, Utils {
     }
     if (answer < 0) return 0;
     rate = uint256(answer);
+    uint256 decimals = uint256(_tokenData[token].quoteEthDecimals);
+    if (decimals < MAX_DECIMALS) {
+      rate = rate.mul(10 ** (MAX_DECIMALS - decimals));
+    } else {
+      rate = rate.div(10 ** (decimals - MAX_DECIMALS));
+    }
   }
 
+  /**
+  *   @dev Get token rate over usd with units of PRECISION
+  */
   function getRateOverUsd(address token) public view returns (uint256 rate) {
     int answer;
     IChainLinkAggregatorProxy proxy = IChainLinkAggregatorProxy(_tokenData[token].quoteUsd);
@@ -146,5 +174,11 @@ contract ChainLinkPriceOracle is IPriceOracle, PermissionAdmin, Utils {
     }
     if (answer < 0) return 0;
     rate = uint256(answer);
+    uint256 decimals = uint256(_tokenData[token].quoteUsdDecimals);
+    if (decimals < MAX_DECIMALS) {
+      rate = rate.mul(10 ** (MAX_DECIMALS - decimals));
+    } else {
+      rate = rate.div(10 ** (decimals - MAX_DECIMALS));
+    }
   }
 }
