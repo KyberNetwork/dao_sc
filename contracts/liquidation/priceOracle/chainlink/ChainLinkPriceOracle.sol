@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.7.6;
 
-import {IPriceOracle} from '../interfaces/IPriceOracle.sol';
+import {IPriceOracle} from '../../../interfaces/IPriceOracle.sol';
 import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
 import {Utils} from '@kyber.network/utils-sc/contracts/Utils.sol';
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';

@@ -2,10 +2,10 @@
 pragma solidity 0.7.6;
 
 
-import {LiquidationStrategy} from './LiquidationStrategy.sol';
-import {IPriceOracle} from '../interfaces/IPriceOracle.sol';
-import {IPool} from '../interfaces/IPool.sol';
-import {IPriceOracleLiquidationStrategy} from '../interfaces/IPriceOracleLiquidationStrategy.sol';
+import {LiquidationStrategy} from '../LiquidationStrategy.sol';
+import {IPriceOracle} from '../../interfaces/IPriceOracle.sol';
+import {IPool} from '../../interfaces/IPool.sol';
+import {IPriceOracleLiquidationStrategy} from '../../interfaces/IPriceOracleLiquidationStrategy.sol';
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 
