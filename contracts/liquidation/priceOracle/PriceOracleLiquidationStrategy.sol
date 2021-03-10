@@ -83,10 +83,7 @@ contract PriceOracleLiquidationStrategy is LiquidationStrategy, IPriceOracleLiqu
       emit PriceOracleLiquidated(msg.sender, source, amount, dest, amount, txData);
       return amount;
     }
-    uint256 conversionRate = _priceOracle.conversionRate(address(source), address(dest), amount);
-    uint256 minReturn = calcDestAmount(source, dest, amount, conversionRate);
-    // giving them some premium
-    minReturn = _applyPremiumBps(msg.sender, minReturn);
+    uint256 minReturn = getExpectReturnAmount(source, dest, amount, msg.sender);
     require(minReturn > 0, 'min return is 0');
 
     destAmount = super.liquidate(sources, amounts, msg.sender, dest, minReturn, txData);
@@ -101,6 +98,24 @@ contract PriceOracleLiquidationStrategy is LiquidationStrategy, IPriceOracleLiqu
     for(uint256 i = 0; i < liquidators.length; i++) {
       _setGroupPremiumBps(liquidators[i], premiumBps[i]);
     }
+  }
+
+  /**
+  * @dev Liquidator can call this function to check the expected return amount
+  *   for given set of liquidation params
+  */
+  function getExpectReturnAmount(
+    IERC20Ext source,
+    IERC20Ext dest,
+    uint256 srcAmount,
+    address liquidator
+  )
+    public override view returns (uint256 destAmount)
+  {
+    uint256 conversionRate =
+      _priceOracle.conversionRate(address(source), address(dest), srcAmount);
+    destAmount = calcDestAmount(source, dest, srcAmount, conversionRate);
+    destAmount = _applyPremiumBps(liquidator, destAmount);
   }
 
   function priceOracle() external override view returns (address) {

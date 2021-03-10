@@ -14,6 +14,13 @@ interface IPriceOracleLiquidationStrategy is ILiquidationStrategy {
   )
     external returns (uint256 destAmount);
 
+  function getExpectReturnAmount(
+    IERC20Ext source,
+    IERC20Ext dest,
+    uint256 srcAmount,
+    address liquidator
+  )
+    external view returns (uint256 destAmount);
   function priceOracle() external view returns (address);
   function defaultPremiumBps() external view returns (uint256);
   function premiumBpsOf(address liquidator) external view returns (uint256);
