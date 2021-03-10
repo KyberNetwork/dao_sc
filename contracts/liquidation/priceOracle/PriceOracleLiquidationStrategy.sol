@@ -97,7 +97,10 @@ contract PriceOracleLiquidationStrategy is LiquidationStrategy, IPriceOracleLiqu
   function setGroupPremiumBps(address[] calldata liquidators, uint256[] calldata premiumBps)
     external onlyAdmin
   {
-    
+    require(liquidators.length == premiumBps.length, 'invalid length');
+    for(uint256 i = 0; i < liquidators.length; i++) {
+      _setGroupPremiumBps(liquidators[i], premiumBps[i]);
+    }
   }
 
   function priceOracle() external override view returns (address) {

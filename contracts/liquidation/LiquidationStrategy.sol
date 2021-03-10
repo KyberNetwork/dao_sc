@@ -155,7 +155,7 @@ contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, Re
       msg.sender, sources, amounts, payable(address(this)), dest, txData
     );
     destAmount = getBalance(dest, address(this)).sub(balanceDestBefore);
-    require(destAmount >= minReturn, 'low dest amount after liquidated');
+    require(destAmount >= minReturn, 'insufficient dest amount');
     _transferToken(dest, payable(treasuryPool()), destAmount);
   }
 

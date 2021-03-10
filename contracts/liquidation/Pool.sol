@@ -11,8 +11,7 @@ import {IPool} from '../interfaces/IPool.sol';
 
 
 /**
-* Pool contract to contains all tokens with allowing
-* whitelisted strategies can withdraw funds from
+* Pool contract containing all tokens which whitelisted strategies can withdraw funds from
 */
 contract Pool is IPool, PermissionAdmin, PermissionOperators, Utils {
   using SafeERC20 for IERC20Ext;
@@ -25,7 +24,7 @@ contract Pool is IPool, PermissionAdmin, PermissionOperators, Utils {
 
   constructor(address admin, address[] memory strategies) PermissionAdmin(admin) {
     for(uint256 i = 0; i < strategies.length; i++) {
-      _authorizedStrategy(strategies[i]);
+      _authorizeStrategy(strategies[i]);
     }
     _isPaused = false;
   }
@@ -36,7 +35,7 @@ contract Pool is IPool, PermissionAdmin, PermissionOperators, Utils {
     external override onlyAdmin
   {
     for(uint256 i = 0; i < strategies.length; i++) {
-      _authorizedStrategy(strategies[i]);
+      _authorizeStrategy(strategies[i]);
     }
   }
 
@@ -44,25 +43,23 @@ contract Pool is IPool, PermissionAdmin, PermissionOperators, Utils {
     external override onlyAdmin
   {
     for(uint256 i = 0; i < strategies.length; i++) {
-      _unauthorizedStrategy(strategies[i]);
+      _unauthorizeStrategy(strategies[i]);
     }
   }
 
   function replaceStrategy(address oldStrategy, address newStrategy)
     external override onlyAdmin
   {
-    _unauthorizedStrategy(oldStrategy);
-    _authorizedStrategy(newStrategy);
+    _unauthorizeStrategy(oldStrategy);
+    _authorizeStrategy(newStrategy);
   }
 
   function pause() external override onlyOperator {
-    require(!_isPaused, 'already paused');
     _isPaused = true;
     emit Paused(msg.sender);
   }
 
   function unpause() external override onlyAdmin {
-    require(_isPaused, 'not paused');
     _isPaused = false;
     emit Unpaused(msg.sender);
   }
@@ -112,14 +109,14 @@ contract Pool is IPool, PermissionAdmin, PermissionOperators, Utils {
     }
   }
 
-  function _authorizedStrategy(address strategy) internal {
+  function _authorizeStrategy(address strategy) internal {
     require(strategy != address(0), 'invalid strategy');
     require(!_isAuthorizedStrategy(strategy), 'only not authorized strategy');
     _authorizedStrategies.add(strategy);
     emit AuthorizedStrategy(strategy);
   }
 
-  function _unauthorizedStrategy(address _strategy) internal {
+  function _unauthorizeStrategy(address _strategy) internal {
     require(_strategy != address(0), 'invalid strategy');
     require(_isAuthorizedStrategy(_strategy), 'only authorized strategy');
     _authorizedStrategies.remove(_strategy);
