@@ -4,6 +4,8 @@ require("hardhat-gas-reporter");
 require('solidity-coverage');
 
 require('dotenv').config();
+
+require('./deployment/katanaDeployment.js');
 const {accounts} = require('./test-wallets.js');
 
 module.exports = {
