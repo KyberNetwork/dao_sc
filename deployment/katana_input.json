@@ -1,27 +1,27 @@
 {
-    "knc": "0x7b2810576aa1cce68f2b118cef1f36467c648f92",
-    "epochPeriod": 1209600,
+    "knc": "0xbf02f06a712da6631c026b5eb6f927eed9fd21e2",
+    "epochPeriod": 3600,
     "starttime": 1615792027,
     "shortExecutor": {
         "delay": 0,
-        "gracePeriod": 259200,
+        "gracePeriod": 86400,
         "minimumDelay": 0,
         "maximumDelay": 604800,
-        "minVoteDuration": 345600,
+        "minVoteDuration": 1800,
         "maxVotingOptions": 8,
         "voteDifferential": 50,
         "minimumQuorum": 200
     },
     "longExecutor": {
-        "delay": 172800,
-        "gracePeriod": 432000,
-        "minimumDelay": 86400,
+        "delay": 900,
+        "gracePeriod": 259200,
+        "minimumDelay": 0,
         "maximumDelay": 1209600,
-        "minVoteDuration": 604800,
+        "minVoteDuration": 2700,
         "maxVotingOptions": 8,
-        "voteDifferential": 500,
-        "minimumQuorum": 1000
+        "voteDifferential": 150,
+        "minimumQuorum": 400
     },
-    "daoOperator": "0xead9c93b79ae7c1591b1fb5323bd777e86e150d4",
+    "daoOperator": "0xddf05698718ba8ed1c9aba198d38a825a64d69e2",
     "outputFilename": "katana_ropsten_deployment.json"
 }
