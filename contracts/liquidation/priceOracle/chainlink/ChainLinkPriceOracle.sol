@@ -34,10 +34,10 @@ contract ChainLinkPriceOracle is IPriceOracle, PermissionAdmin, Utils {
   using SafeMath for uint256;
 
   struct AggregatorProxyData {
-    address quoteEth;
-    address quoteUsd;
-    uint128 quoteEthDecimals;
-    uint128 quoteUsdDecimals;
+    address quoteEthProxy;
+    uint8 quoteEthProxyDecimals;
+    address quoteUsdProxy;
+    uint8 quoteUsdProxyDecimals;
   }
 
   mapping (address => AggregatorProxyData) internal _tokenData;
@@ -51,30 +51,30 @@ contract ChainLinkPriceOracle is IPriceOracle, PermissionAdmin, Utils {
   */
   function updateAggregatorProxyData(
     address[] calldata tokens,
-    address[] calldata quoteEthAddresses,
-    address[] calldata quoteUsdAddresses
+    address[] calldata quoteEthProxies,
+    address[] calldata quoteUsdProxies
   ) external onlyAdmin {
 
     require(
-      tokens.length == quoteEthAddresses.length &&
-      tokens.length == quoteUsdAddresses.length,
+      tokens.length == quoteEthProxies.length &&
+      tokens.length == quoteUsdProxies.length,
       'invalid length data'
     );
 
-    uint8 quoteEthDecimals;
-    uint8 quoteUsdDecimals;
+    uint8 quoteEthProxyDecimals;
+    uint8 quoteUsdProxyDecimals;
 
     for(uint256 i = 0; i < tokens.length; i++) {
-      quoteEthDecimals = quoteEthAddresses[i] == address(0) ? 0 :
-        IChainLinkAggregatorProxy(quoteEthAddresses[i]).decimals();
-      quoteUsdDecimals = quoteUsdAddresses[i] == address(0) ? 0 :
-        IChainLinkAggregatorProxy(quoteUsdAddresses[i]).decimals();
+      quoteEthProxyDecimals = quoteEthProxies[i] == address(0) ? 0 :
+        IChainLinkAggregatorProxy(quoteEthProxies[i]).decimals();
+      quoteUsdProxyDecimals = quoteUsdProxies[i] == address(0) ? 0 :
+        IChainLinkAggregatorProxy(quoteUsdProxies[i]).decimals();
 
       _tokenData[tokens[i]] = AggregatorProxyData({
-        quoteEth: quoteEthAddresses[i],
-        quoteUsd: quoteUsdAddresses[i],
-        quoteEthDecimals: quoteEthDecimals,
-        quoteUsdDecimals: quoteUsdDecimals
+        quoteEthProxy: quoteEthProxies[i],
+        quoteUsdProxy: quoteUsdProxies[i],
+        quoteEthProxyDecimals: quoteEthProxyDecimals,
+        quoteUsdProxyDecimals: quoteUsdProxyDecimals
       });
     }
   }
@@ -137,11 +137,11 @@ contract ChainLinkPriceOracle is IPriceOracle, PermissionAdmin, Utils {
 
   function getTokenAggregatorProxyData(address token)
     external view returns (
-      address quoteEth,
-      address quoteUsd
+      address quoteEthProxy,
+      address quoteUsdProxy
     )
   {
-    (quoteEth, quoteUsd) = (_tokenData[token].quoteEth, _tokenData[token].quoteUsd);
+    (quoteEthProxy, quoteUsdProxy) = (_tokenData[token].quoteEthProxy, _tokenData[token].quoteUsdProxy);
   }
 
   /**
@@ -149,13 +149,13 @@ contract ChainLinkPriceOracle is IPriceOracle, PermissionAdmin, Utils {
   */
   function getRateOverEth(address token) public view returns (uint256 rate) {
     int256 answer;
-    IChainLinkAggregatorProxy proxy = IChainLinkAggregatorProxy(_tokenData[token].quoteEth);
+    IChainLinkAggregatorProxy proxy = IChainLinkAggregatorProxy(_tokenData[token].quoteEthProxy);
     if (proxy != IChainLinkAggregatorProxy(0)) {
       (, answer, , ,) = proxy.latestRoundData();
     }
     if (answer < 0) return 0; // safe check in case ChainLink returns invalid data
     rate = uint256(answer);
-    uint256 decimals = uint256(_tokenData[token].quoteEthDecimals);
+    uint256 decimals = uint256(_tokenData[token].quoteEthProxyDecimals);
     rate = (decimals < MAX_DECIMALS) ? rate.mul(10 ** (MAX_DECIMALS - decimals)) :
       rate.div(10 ** (decimals - MAX_DECIMALS));
   }
@@ -165,13 +165,13 @@ contract ChainLinkPriceOracle is IPriceOracle, PermissionAdmin, Utils {
   */
   function getRateOverUsd(address token) public view returns (uint256 rate) {
     int256 answer;
-    IChainLinkAggregatorProxy proxy = IChainLinkAggregatorProxy(_tokenData[token].quoteUsd);
+    IChainLinkAggregatorProxy proxy = IChainLinkAggregatorProxy(_tokenData[token].quoteUsdProxy);
     if (proxy != IChainLinkAggregatorProxy(0)) {
       (, answer, , ,) = proxy.latestRoundData();
     }
     if (answer < 0) return 0; // safe check in case ChainLink returns invalid data
     rate = uint256(answer);
-    uint256 decimals = uint256(_tokenData[token].quoteUsdDecimals);
+    uint256 decimals = uint256(_tokenData[token].quoteUsdProxyDecimals);
     rate = (decimals < MAX_DECIMALS) ? rate.mul(10 ** (MAX_DECIMALS - decimals)) :
       rate.div(10 ** (decimals - MAX_DECIMALS));
   }
