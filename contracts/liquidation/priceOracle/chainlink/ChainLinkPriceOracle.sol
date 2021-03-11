@@ -14,7 +14,7 @@ interface IChainLinkAggregatorProxy {
     view
     returns (
       uint80 roundId,
-      int256 answer, // rate in precision of 10^18
+      int256 answer, // rate in PRECISION of 10^18
       uint256 startedAt,
       uint256 updatedAt,
       uint80 answeredInRound
@@ -148,37 +148,31 @@ contract ChainLinkPriceOracle is IPriceOracle, PermissionAdmin, Utils {
   *   @dev Get token rate over eth with units of PRECISION
   */
   function getRateOverEth(address token) public view returns (uint256 rate) {
-    int answer;
+    int256 answer;
     IChainLinkAggregatorProxy proxy = IChainLinkAggregatorProxy(_tokenData[token].quoteEth);
     if (proxy != IChainLinkAggregatorProxy(0)) {
       (, answer, , ,) = proxy.latestRoundData();
     }
-    if (answer < 0) return 0;
+    if (answer < 0) return 0; // safe check in case ChainLink returns invalid data
     rate = uint256(answer);
     uint256 decimals = uint256(_tokenData[token].quoteEthDecimals);
-    if (decimals < MAX_DECIMALS) {
-      rate = rate.mul(10 ** (MAX_DECIMALS - decimals));
-    } else {
-      rate = rate.div(10 ** (decimals - MAX_DECIMALS));
-    }
+    rate = (decimals < MAX_DECIMALS) ? rate.mul(10 ** (MAX_DECIMALS - decimals)) :
+      rate.div(10 ** (decimals - MAX_DECIMALS));
   }
 
   /**
   *   @dev Get token rate over usd with units of PRECISION
   */
   function getRateOverUsd(address token) public view returns (uint256 rate) {
-    int answer;
+    int256 answer;
     IChainLinkAggregatorProxy proxy = IChainLinkAggregatorProxy(_tokenData[token].quoteUsd);
     if (proxy != IChainLinkAggregatorProxy(0)) {
       (, answer, , ,) = proxy.latestRoundData();
     }
-    if (answer < 0) return 0;
+    if (answer < 0) return 0; // safe check in case ChainLink returns invalid data
     rate = uint256(answer);
     uint256 decimals = uint256(_tokenData[token].quoteUsdDecimals);
-    if (decimals < MAX_DECIMALS) {
-      rate = rate.mul(10 ** (MAX_DECIMALS - decimals));
-    } else {
-      rate = rate.div(10 ** (decimals - MAX_DECIMALS));
-    }
+    rate = (decimals < MAX_DECIMALS) ? rate.mul(10 ** (MAX_DECIMALS - decimals)) :
+      rate.div(10 ** (decimals - MAX_DECIMALS));
   }
 }

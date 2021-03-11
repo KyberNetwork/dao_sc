@@ -14,7 +14,7 @@ interface IPriceOracleLiquidationStrategy is ILiquidationStrategy {
   )
     external returns (uint256 destAmount);
 
-  function getExpectReturnAmount(
+  function getExpectedReturnAmount(
     IERC20Ext source,
     IERC20Ext dest,
     uint256 srcAmount,

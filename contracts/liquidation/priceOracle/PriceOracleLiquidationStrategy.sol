@@ -83,7 +83,7 @@ contract PriceOracleLiquidationStrategy is LiquidationStrategy, IPriceOracleLiqu
       emit PriceOracleLiquidated(msg.sender, source, amount, dest, amount, txData);
       return amount;
     }
-    uint256 minReturn = getExpectReturnAmount(source, dest, amount, msg.sender);
+    uint256 minReturn = getExpectedReturnAmount(source, dest, amount, msg.sender);
     require(minReturn > 0, 'min return is 0');
 
     destAmount = super.liquidate(sources, amounts, msg.sender, dest, minReturn, txData);
@@ -104,7 +104,7 @@ contract PriceOracleLiquidationStrategy is LiquidationStrategy, IPriceOracleLiqu
   * @dev Liquidator can call this function to check the expected return amount
   *   for given set of liquidation params
   */
-  function getExpectReturnAmount(
+  function getExpectedReturnAmount(
     IERC20Ext source,
     IERC20Ext dest,
     uint256 srcAmount,
