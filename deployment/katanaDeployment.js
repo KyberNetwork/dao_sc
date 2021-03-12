@@ -7,14 +7,23 @@ const configParams = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
 let gasPrice;
 async function fetchNextGasPrice(BN, message) {
-    let question = [{
-        type: 'input',
-        name: 'gas',
-        message: `Next gas price to use (in gwei) for ${message}`,
-    }];
+  let question = [
+    {
+      type: 'input',
+      name: 'gas',
+      message: `Next gas price to use (in gwei) for ${message}`,
+    },
+  ];
 
-    gasPrice = (await inquirer.prompt(question)).gas;
-    gasPrice = new BN.from(gasPrice).mul(new BN.from(10).pow(new BN.from(9)));
+  gasPrice = (await inquirer.prompt(question)).gas;
+  gasPrice = new BN.from(gasPrice).mul(new BN.from(10).pow(new BN.from(9)));
+}
+
+async function verifyContract(hre, contractAddress, ctorArgs) {
+  await hre.run('verify:verify', {
+    address: contractAddress,
+    constructorArguments: ctorArgs,
+  });
 }
 
 let kncAddress;
@@ -26,8 +35,8 @@ let longExecutorConfig;
 let daoOperator;
 let outputFilename;
 
-task('deployGovInfra', 'deploys staking, governance, voting power strategy and executors')
-  .setAction(async () => {
+task('deployGovInfra', 'deploys staking, governance, voting power strategy and executors').setAction(
+  async (taskArgs, hre) => {
     parseInput(configParams);
     const BN = ethers.BigNumber;
     const [deployer] = await ethers.getSigners();
@@ -36,7 +45,9 @@ task('deployGovInfra', 'deploys staking, governance, voting power strategy and e
     // contract deployment
     await fetchNextGasPrice(BN, 'staking deployment');
     const KyberStaking = await ethers.getContractFactory('KyberStaking');
-    const kyberStaking = await KyberStaking.deploy(deployerAddress, kncAddress, epochPeriod, starttime, {gasPrice: gasPrice});
+    const kyberStaking = await KyberStaking.deploy(deployerAddress, kncAddress, epochPeriod, starttime, {
+      gasPrice: gasPrice,
+    });
     await kyberStaking.deployed();
     console.log(`staking address: ${kyberStaking.address}`);
 
@@ -81,10 +92,13 @@ task('deployGovInfra', 'deploys staking, governance, voting power strategy and e
 
     await fetchNextGasPrice(BN, 'voting power strategy deployment');
     const VotingPowerStrategy = await ethers.getContractFactory('EpochVotingPowerStrategy');
-    const votingPowerStrategy = await VotingPowerStrategy.deploy(kyberGovernance.address, kyberStaking.address, {gasPrice: gasPrice});
+    const votingPowerStrategy = await VotingPowerStrategy.deploy(kyberGovernance.address, kyberStaking.address, {
+      gasPrice: gasPrice,
+    });
     await votingPowerStrategy.deployed();
     console.log(`votingPowerStrategy address: ${votingPowerStrategy.address}`);
 
+    // export addresses
     exportAddresses({
       staking: kyberStaking.address,
       governance: kyberGovernance.address,
@@ -93,12 +107,39 @@ task('deployGovInfra', 'deploys staking, governance, voting power strategy and e
       votingPowerStrategy: votingPowerStrategy.address,
     });
 
+    // verify addresses
+    await verifyContract(hre, kyberStaking.address, [deployerAddress, kncAddress, epochPeriod, starttime]);
+    await verifyContract(hre, kyberGovernance.address, deployerAddress, daoOperator, [], []);
+    await verifyContract(hre, shortExecutor.address, [
+      kyberGovernance.address,
+      shortExecutorConfig.delay,
+      shortExecutorConfig.gracePeriod,
+      shortExecutorConfig.minimumDelay,
+      shortExecutorConfig.maximumDelay,
+      shortExecutorConfig.minVoteDuration,
+      shortExecutorConfig.maxVotingOptions,
+      shortExecutorConfig.voteDifferential,
+      shortExecutorConfig.minimumQuorum,
+    ]);
+    await verifyContract(hre, longExecutor.address, [
+      kyberGovernance.address,
+      longExecutorConfig.delay,
+      longExecutorConfig.gracePeriod,
+      longExecutorConfig.minimumDelay,
+      longExecutorConfig.maximumDelay,
+      longExecutorConfig.minVoteDuration,
+      longExecutorConfig.maxVotingOptions,
+      longExecutorConfig.voteDifferential,
+      longExecutorConfig.minimumQuorum,
+    ]);
+    await verifyContract(hre, votingPowerStrategy.address, [kyberGovernance.address, kyberStaking.address]);
+
     // set executors and voting power strategy in governance
     await fetchNextGasPrice(BN, 'authorizing executors in governance');
     await kyberGovernance.authorizeExecutors([shortExecutor.address, longExecutor.address], {gasPrice: gasPrice});
     await fetchNextGasPrice(BN, 'authorizing voting power strategy in governance');
     await kyberGovernance.authorizeVotingPowerStrategies([votingPowerStrategy.address], {gasPrice: gasPrice});
-    
+
     // update withdrawHandler in staking
     await fetchNextGasPrice(BN, 'setting voting power strategy in staking');
     await kyberStaking.updateWithdrawHandler(votingPowerStrategy.address, {gasPrice: gasPrice});
@@ -110,7 +151,8 @@ task('deployGovInfra', 'deploys staking, governance, voting power strategy and e
     await kyberGovernance.transferAdminQuickly(longExecutor.address, {gasPrice: gasPrice});
     console.log('setup completed!');
     process.exit(0);
-  });
+  }
+);
 
 function parseInput(jsonInput) {
   kncAddress = jsonInput['knc'];

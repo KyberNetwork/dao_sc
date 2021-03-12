@@ -1,13 +1,13 @@
 {
     "knc": "0xbf02f06a712da6631c026b5eb6f927eed9fd21e2",
     "epochPeriod": 3600,
-    "starttime": 1615792027,
+    "starttime": 1615521600,
     "shortExecutor": {
-        "delay": 0,
+        "delay": 60,
         "gracePeriod": 86400,
         "minimumDelay": 0,
         "maximumDelay": 604800,
-        "minVoteDuration": 1800,
+        "minVoteDuration": 900,
         "maxVotingOptions": 8,
         "voteDifferential": 50,
         "minimumQuorum": 200
@@ -17,7 +17,7 @@
         "gracePeriod": 259200,
         "minimumDelay": 0,
         "maximumDelay": 1209600,
-        "minVoteDuration": 2700,
+        "minVoteDuration": 1800,
         "maxVotingOptions": 8,
         "voteDifferential": 150,
         "minimumQuorum": 400
