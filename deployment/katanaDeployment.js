@@ -107,9 +107,26 @@ task('deployGovInfra', 'deploys staking, governance, voting power strategy and e
       votingPowerStrategy: votingPowerStrategy.address,
     });
 
+    // set executors and voting power strategy in governance
+    await fetchNextGasPrice(BN, 'authorizing executors in governance');
+    await kyberGovernance.authorizeExecutors([shortExecutor.address, longExecutor.address], {gasPrice: gasPrice});
+    await fetchNextGasPrice(BN, 'authorizing voting power strategy in governance');
+    await kyberGovernance.authorizeVotingPowerStrategies([votingPowerStrategy.address], {gasPrice: gasPrice});
+
+    // update withdrawHandler in staking
+    await fetchNextGasPrice(BN, 'setting voting power strategy in staking');
+    await kyberStaking.updateWithdrawHandler(votingPowerStrategy.address, {gasPrice: gasPrice});
+
+    // transfer admin to governance
+    await fetchNextGasPrice(BN, 'transferring staking admin to long executor');
+    await kyberStaking.transferAdminQuickly(longExecutor.address, {gasPrice: gasPrice});
+    await fetchNextGasPrice(BN, 'transferring governance admin to long executor');
+    await kyberGovernance.transferAdminQuickly(longExecutor.address, {gasPrice: gasPrice});
+
+    console.log('verify contracts...');
     // verify addresses
     await verifyContract(hre, kyberStaking.address, [deployerAddress, kncAddress, epochPeriod, starttime]);
-    await verifyContract(hre, kyberGovernance.address, deployerAddress, daoOperator, [], []);
+    await verifyContract(hre, kyberGovernance.address, [deployerAddress, daoOperator, [], []]);
     await verifyContract(hre, shortExecutor.address, [
       kyberGovernance.address,
       shortExecutorConfig.delay,
@@ -133,23 +150,7 @@ task('deployGovInfra', 'deploys staking, governance, voting power strategy and e
       longExecutorConfig.minimumQuorum,
     ]);
     await verifyContract(hre, votingPowerStrategy.address, [kyberGovernance.address, kyberStaking.address]);
-
-    // set executors and voting power strategy in governance
-    await fetchNextGasPrice(BN, 'authorizing executors in governance');
-    await kyberGovernance.authorizeExecutors([shortExecutor.address, longExecutor.address], {gasPrice: gasPrice});
-    await fetchNextGasPrice(BN, 'authorizing voting power strategy in governance');
-    await kyberGovernance.authorizeVotingPowerStrategies([votingPowerStrategy.address], {gasPrice: gasPrice});
-
-    // update withdrawHandler in staking
-    await fetchNextGasPrice(BN, 'setting voting power strategy in staking');
-    await kyberStaking.updateWithdrawHandler(votingPowerStrategy.address, {gasPrice: gasPrice});
-
-    // transfer admin to governance
-    await fetchNextGasPrice(BN, 'transferring staking admin to long executor');
-    await kyberStaking.transferAdminQuickly(longExecutor.address, {gasPrice: gasPrice});
-    await fetchNextGasPrice(BN, 'transferring governance admin to long executor');
-    await kyberGovernance.transferAdminQuickly(longExecutor.address, {gasPrice: gasPrice});
-    console.log('setup completed!');
+    console.log('setup completed');
     process.exit(0);
   }
 );
