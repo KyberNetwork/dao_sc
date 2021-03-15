@@ -304,7 +304,7 @@ contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, Re
 
   function _transferToken(IERC20Ext token, address payable recipient, uint256 amount) internal {
     if (token == ETH_TOKEN_ADDRESS) {
-      (bool success, ) = recipient.call { value: amount }("");
+      (bool success, ) = recipient.call { value: amount }('');
       require(success, 'transfer eth failed');
     } else {
       token.safeTransfer(recipient, amount);

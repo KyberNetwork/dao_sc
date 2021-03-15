@@ -6,6 +6,7 @@ import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin
 import {Utils} from '@kyber.network/utils-sc/contracts/Utils.sol';
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 
+// solhint-disable-next-line max-line-length
 // Refer to https://github.com/smartcontractkit/chainlink/blob/develop/evm-contracts/src/v0.6/interfaces/AggregatorV3Interface.sol
 interface IChainLinkAggregatorProxy {
   function decimals() external view returns (uint8);
