@@ -32,7 +32,6 @@ contract('KyberGovernance', function (accounts) {
       Helper.assertEqual(admin, await strategy.admin());
       Helper.assertEqual(accounts[0], await strategy.feePool());
       Helper.assertEqual(accounts[2], await strategy.treasuryPool());
-      Helper.assertEqual(false, await strategy.isPaused());
     });
   });
 
@@ -74,28 +73,6 @@ contract('KyberGovernance', function (accounts) {
     });
   });
 
-  describe('#pause & unpause', async () => {
-    beforeEach('init data', async () => {
-      strategy = await NoSwappingLiquidationStrategy.new(admin, accounts[0], accounts[2]);
-    });
-
-    it('pause - reverts not operator', async () => {
-      await expectRevert(strategy.pause({from: admin}), 'only operator');
-    });
-
-    it('unpause - reverts not admin', async () => {
-      await expectRevert(strategy.unpause({from: operator}), 'only admin');
-    });
-
-    it('data changes correctly', async () => {
-      await strategy.addOperator(operator, {from: admin});
-      await strategy.pause({from: operator});
-      Helper.assertEqual(true, await strategy.isPaused());
-      await strategy.unpause({from: admin});
-      Helper.assertEqual(false, await strategy.isPaused());
-    });
-  });
-
   describe('#liquidate', async () => {
     let tokens = [];
     before('deploy tokens', async () => {
@@ -105,20 +82,6 @@ contract('KyberGovernance', function (accounts) {
         let token = await Token.new();
         tokens.push(token);
       }
-    });
-
-    it('revert when paused', async () => {
-      strategy = await NoSwappingLiquidationStrategy.new(admin, accounts[2], accounts[3]);
-      await strategy.addOperator(operator, {from: admin});
-      await strategy.pause({from: operator});
-      await expectRevert(strategy.liquidate([], []), 'only when not paused');
-    });
-
-    it('revert invalid lengths', async () => {
-      strategy = await NoSwappingLiquidationStrategy.new(admin, accounts[2], accounts[3]);
-      await expectRevert(strategy.liquidate([], []), 'invalid length');
-      await expectRevert(strategy.liquidate([tokens[0].address], []), 'invalid length');
-      await expectRevert(strategy.liquidate([tokens[0].address], [1, 2]), 'invalid length');
     });
 
     it('revert withdraw funds from fee pool reverts', async () => {

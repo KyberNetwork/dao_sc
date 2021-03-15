@@ -12,7 +12,6 @@ interface INoSwappingLiquidationStrategy {
   function updateFeePool(address pool) external;
   function updateTreasuryPool(address payable pool) external;
   function liquidate(IERC20Ext[] calldata sources, uint256[] calldata amounts) external;
-  function isPaused() external view returns (bool);
   function feePool() external view returns (address);
   function treasuryPool() external view returns (address);
 }

@@ -476,7 +476,7 @@
   resolved "https://registry.yarnpkg.com/@nomiclabs/hardhat-ethers/-/hardhat-ethers-2.0.0.tgz#ebab032b3aed03945ea560f56bb67aec56a30cbc"
   integrity sha512-fIi6XP9PgKqwSNVcLDr6S5hvGlc21PendaLD5eGdXEXc9aYQ0OJX8Mk3evs+p78x7W9n9U3ZcKtTiGc1+YScDw==
 
-"@nomiclabs/hardhat-etherscan@1.0.1":
+"@nomiclabs/hardhat-etherscan@2.1.1":
   version "2.1.1"
   resolved "https://registry.yarnpkg.com/@nomiclabs/hardhat-etherscan/-/hardhat-etherscan-2.1.1.tgz#186f3fa652a0ca20fb77aa857cfad2da845d5cbf"
   integrity sha512-8TNUFsO5DpAfwNlXMDhcEtFAMOYsVNaQL2vq5vuCD45kUKBgL8H21++zOk231ha9D7LQWBMCIg7A7iPxw6Jwmg==

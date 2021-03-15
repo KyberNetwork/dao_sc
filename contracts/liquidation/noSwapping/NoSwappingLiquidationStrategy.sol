@@ -15,7 +15,6 @@ contract NoSwappingLiquidationStrategy is PermissionAdmin, PermissionOperators,
 
   IPool private _feePool;
   address payable private _treasuryPool;
-  bool private _isPaused;
 
   constructor(
     address admin,
@@ -24,7 +23,6 @@ contract NoSwappingLiquidationStrategy is PermissionAdmin, PermissionOperators,
   ) PermissionAdmin(admin) {
     _setFeePool(feePoolAddress);
     _setTreasuryPool(treasuryPoolAddress);
-		_isPaused = false;
   }
 
   function updateFeePool(address pool) external override onlyAdmin {
@@ -35,14 +33,6 @@ contract NoSwappingLiquidationStrategy is PermissionAdmin, PermissionOperators,
     _setTreasuryPool(pool);
   }
 
-	function pause() external onlyOperator {
-    _isPaused = true;
-  }
-
-  function unpause() external onlyAdmin {
-    _isPaused = false;
-  }
-
   /** @dev Fast forward tokens from fee pool to treasury pool
   * @param sources list of source tokens to liquidate
   * @param amounts list of amounts corresponding to each source token
@@ -50,14 +40,9 @@ contract NoSwappingLiquidationStrategy is PermissionAdmin, PermissionOperators,
   function liquidate(IERC20Ext[] calldata sources, uint256[] calldata amounts)
 		external override
 	{
-		require(!_isPaused, 'only when not paused');
-		require(sources.length > 0 && sources.length == amounts.length, 'invalid length');
+		// check for sources and amounts length will be done in fee pool
 		_feePool.withdrawFunds(sources, amounts, _treasuryPool);
 		emit Liquidated(msg.sender, sources, amounts);
-	}
-
-	function isPaused() external override view returns (bool) {
-		return _isPaused;
 	}
 
   function feePool() external override view returns (address) {
