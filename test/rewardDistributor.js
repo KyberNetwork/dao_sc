@@ -1,4 +1,4 @@
-const FeePool = artifacts.require('FeePool.sol');
+const TreasuryPool = artifacts.require('TreasuryPool.sol');
 const RewardsDistributor = artifacts.require('RewardsDistributor.sol');
 const Token = artifacts.require('MockToken.sol');
 const BadRewardsClaimer = artifacts.require('BadRewardsClaimer.sol');
@@ -57,7 +57,7 @@ contract('RewardsDistributor', function (accounts) {
     mike = accounts[4];
 
     // setup treasury and rewards
-    treasury = await FeePool.new(admin, []);
+    treasury = await TreasuryPool.new(admin, []);
     rewardsDistributor = await RewardsDistributor.new(admin, treasury.address);
     await treasury.authorizeStrategies([rewardsDistributor.address], {from: admin});
 

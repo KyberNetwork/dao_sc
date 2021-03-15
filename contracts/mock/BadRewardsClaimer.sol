@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.7.6;
 
-import '../governance/rewards/RewardsDistributor.sol';
+import '../reward/RewardsDistributor.sol';
 
 contract BadRewardsClaimer {
   function claim(
