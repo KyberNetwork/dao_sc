@@ -19,7 +19,7 @@ contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, Re
   using EnumerableSet for EnumerableSet.AddressSet;
 
   // after repeatedPeriod since startTime, there will be duration (in seconds)
-  // for liquidators to liquidate tokens in the fee pool
+  // for liquidators to liquidate tokens in the treasury pool
   // for example: from deployed time, every 2 weeks liquidation is enabled for 4 days
   struct LiquidationSchedule {
     uint128 startTime;
@@ -36,11 +36,11 @@ contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, Re
   EnumerableSet.AddressSet private _whitelistedLiquidators;
 
   LiquidationSchedule private _liquidationSchedule;
-  IPool private _feePool;
-  address payable private _treasuryPool;
+  IPool private _treasuryPool;
+  address payable private _rewardPool;
 
-  event FeePoolSet(address indexed feePool);
   event TreasuryPoolSet(address indexed treasuryPool);
+  event RewardPoolSet(address indexed rewardPool);
   event LiquidationScheduleUpdated(uint128 startTime, uint64 repeatedPeriod, uint64 duration);
   event WhitelistedTokenUpdated(address indexed token, bool indexed isAdd);
   event WhitelistedLiquidatorUpdated(address indexed liquidator, bool indexed isAdd);
@@ -53,15 +53,15 @@ contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, Re
 
   constructor(
     address admin,
-    address feePoolAddress,
-    address payable treasuryPoolAddress,
+    address treasuryPoolAddress,
+    address payable rewardPoolAddress,
     uint128 startTime,
     uint64 repeatedPeriod,
     uint64 duration,
     address[] memory whitelistedTokens
   ) PermissionAdmin(admin) {
-    _setFeePool(feePoolAddress);
     _setTreasuryPool(treasuryPoolAddress);
+    _setRewardPool(rewardPoolAddress);
     _setLiquidationSchedule(startTime, repeatedPeriod, duration);
     _updateWhitelistedToken(whitelistedTokens, true);
     // default not using whitelisted liquidator mechanism
@@ -78,12 +78,12 @@ contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, Re
     _setLiquidationSchedule(startTime, repeatedPeriod, duration);
   }
 
-  function updateFeePool(address pool) external override onlyAdmin {
-    _setFeePool(pool);
+  function updateTreasuryPool(address pool) external override onlyAdmin {
+    _setTreasuryPool(pool);
   }
 
-  function updateTreasuryPool(address payable pool) external override onlyAdmin {
-    _setTreasuryPool(pool);
+  function updateRewardPool(address payable pool) external override onlyAdmin {
+    _setRewardPool(pool);
   }
 
   function updateWhitelistedTokens(address[] calldata tokens, bool isAdd)
@@ -147,16 +147,16 @@ contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, Re
         'only whitelisted liquidator'
       );
     }
-    // request funds from fee pool to recipient
-    _feePool.withdrawFunds(sources, amounts, recipient);
+    // request funds from treasury pool to recipient
+    _treasuryPool.withdrawFunds(sources, amounts, recipient);
     uint256 balanceDestBefore = getBalance(dest, address(this));
-    // callback for them to transfer dest amount to treasury
+    // callback for them to transfer dest amount to reward
     ILiquidationCallback(recipient).liquidationCallback(
       msg.sender, sources, amounts, payable(address(this)), dest, txData
     );
     destAmount = getBalance(dest, address(this)).sub(balanceDestBefore);
     require(destAmount >= minReturn, 'insufficient dest amount');
-    _transferToken(dest, payable(treasuryPool()), destAmount);
+    _transferToken(dest, payable(rewardPool()), destAmount);
   }
 
   // Whitelisted tokens
@@ -212,12 +212,12 @@ contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, Re
     );
   }
 
-  function feePool() public override view returns (address) {
-    return address(_feePool);
+  function treasuryPool() public override view returns (address) {
+    return address(_treasuryPool);
   }
 
-  function treasuryPool() public override view returns (address) {
-    return _treasuryPool;
+  function rewardPool() public override view returns (address) {
+    return _rewardPool;
   }
 
   function isWhitelistedToken(address token)
@@ -251,16 +251,16 @@ contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, Re
     return timeInPeriod < schedule.duration;
   }
 
-  function _setFeePool(address _pool) internal {
-    require(_pool != address(0), 'invalid fee pool');
-    _feePool = IPool(_pool);
-    emit FeePoolSet(_pool);
+  function _setTreasuryPool(address _pool) internal {
+    require(_pool != address(0), 'invalid treasury pool');
+    _treasuryPool = IPool(_pool);
+    emit TreasuryPoolSet(_pool);
   }
 
-  function _setTreasuryPool(address payable _pool) internal {
-    require(_pool != address(0), 'invalid treasury pool');
-    _treasuryPool = _pool;
-    emit TreasuryPoolSet(_pool);
+  function _setRewardPool(address payable _pool) internal {
+    require(_pool != address(0), 'invalid reward pool');
+    _rewardPool = _pool;
+    emit RewardPoolSet(_pool);
   }
 
   function _updateWhitelistedToken(address[] memory _tokens, bool _isAdd) internal {

@@ -5,8 +5,8 @@ import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 
 
 interface ILiquidationStrategy {
-  function updateFeePool(address pool) external;
-  function updateTreasuryPool(address payable pool) external;
+  function updateTreasuryPool(address pool) external;
+  function updateRewardPool(address payable pool) external;
   function updateWhitelistedTokens(address[] calldata tokens, bool isAdd)
     external;
   function updateWhitelistedLiquidators(address[] calldata liquidators, bool isAdd) external;
@@ -38,6 +38,6 @@ interface ILiquidationStrategy {
   function getWhitelistedLiquidatorAt(uint256 index) external view returns (address);
   function getAllWhitelistedLiquidators()
     external view returns (address[] memory liquidators);
-  function feePool() external view returns (address);
   function treasuryPool() external view returns (address);
+  function rewardPool() external view returns (address);
 }

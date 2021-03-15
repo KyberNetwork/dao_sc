@@ -11,7 +11,7 @@ import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 
 
 /// Liquidation strategy that uses Price Oracle to liquidate tokens
-/// Liquidator will receive a premimum for every transaction that they liquidate tokens in the fee pool
+/// Liquidator will receive a premimum for every transaction that they liquidate tokens in the treasury pool
 contract PriceOracleLiquidationStrategy is LiquidationStrategy, IPriceOracleLiquidationStrategy {
 
   using SafeMath for uint256;
@@ -33,8 +33,8 @@ contract PriceOracleLiquidationStrategy is LiquidationStrategy, IPriceOracleLiqu
 
   constructor (
     address admin,
-    address feePool,
-    address payable treasuryPool,
+    address treasuryPool,
+    address payable rewardPool,
     uint128 startTime,
     uint64 repeatedPeriod,
     uint64 duration,
@@ -44,8 +44,8 @@ contract PriceOracleLiquidationStrategy is LiquidationStrategy, IPriceOracleLiqu
   )
     LiquidationStrategy(
       admin,
-      feePool,
       treasuryPool,
+      rewardPool,
       startTime,
       repeatedPeriod,
       duration,
@@ -78,8 +78,8 @@ contract PriceOracleLiquidationStrategy is LiquidationStrategy, IPriceOracleLiqu
     amounts[0] = amount;
 
     if (source == dest && isWhitelistedToken(address(source))) {
-      // forward token from fee pool to treasury pool
-      IPool(feePool()).withdrawFunds(sources, amounts, payable(treasuryPool()));
+      // forward token from treasury pool to reward pool
+      IPool(treasuryPool()).withdrawFunds(sources, amounts, payable(rewardPool()));
       emit PriceOracleLiquidated(msg.sender, source, amount, dest, amount, txData);
       return amount;
     }
