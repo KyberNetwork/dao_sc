@@ -4,9 +4,9 @@ pragma abicoder v2;
 
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 
-import {IVotingPowerStrategy} from '../../interfaces/IVotingPowerStrategy.sol';
-import {IKyberGovernance} from '../../interfaces/IKyberGovernance.sol';
-import {IKyberStaking} from '../../interfaces/IKyberStaking.sol';
+import {IVotingPowerStrategy} from '../../interfaces/governance/IVotingPowerStrategy.sol';
+import {IKyberGovernance} from '../../interfaces/governance/IKyberGovernance.sol';
+import {IKyberStaking} from '../../interfaces/staking/IKyberStaking.sol';
 import {EpochUtils} from '../../misc/EpochUtils.sol';
 
 /**

@@ -3,9 +3,9 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 
-import {IProposalValidator} from '../interfaces/IProposalValidator.sol';
-import {IKyberGovernance} from '../interfaces/IKyberGovernance.sol';
-import {IVotingPowerStrategy} from '../interfaces/IVotingPowerStrategy.sol';
+import {IProposalValidator} from '../interfaces/governance/IProposalValidator.sol';
+import {IKyberGovernance} from '../interfaces/governance/IKyberGovernance.sol';
+import {IVotingPowerStrategy} from '../interfaces/governance/IVotingPowerStrategy.sol';
 
 contract MockProposalValidator is IProposalValidator {
 

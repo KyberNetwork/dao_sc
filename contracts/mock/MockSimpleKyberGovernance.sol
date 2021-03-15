@@ -2,9 +2,9 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import {IExecutorWithTimelock} from '../interfaces/IExecutorWithTimelock.sol';
-import {IVotingPowerStrategy} from '../interfaces/IVotingPowerStrategy.sol';
-import {IKyberGovernance} from '../interfaces/IKyberGovernance.sol';
+import {IExecutorWithTimelock} from '../interfaces/governance/IExecutorWithTimelock.sol';
+import {IVotingPowerStrategy} from '../interfaces/governance/IVotingPowerStrategy.sol';
+import {IKyberGovernance} from '../interfaces/governance/IKyberGovernance.sol';
 
 contract MockSimpleKyberGovernance {
   /* 

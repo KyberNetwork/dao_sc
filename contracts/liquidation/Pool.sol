@@ -7,7 +7,7 @@ import {PermissionOperators} from '@kyber.network/utils-sc/contracts/PermissionO
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 import {EnumerableSet} from '@openzeppelin/contracts/utils/EnumerableSet.sol';
-import {IPool} from '../interfaces/IPool.sol';
+import {IPool} from '../interfaces/liquidation/IPool.sol';
 
 
 /**

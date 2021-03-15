@@ -8,8 +8,8 @@ import {IERC20} from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import {ReentrancyGuard} from '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
 
-import {IKyberStaking} from '../interfaces/IKyberStaking.sol';
-import {IWithdrawHandler} from '../interfaces/IWithdrawHandler.sol';
+import {IKyberStaking} from '../interfaces/staking/IKyberStaking.sol';
+import {IWithdrawHandler} from '../interfaces/staking/IWithdrawHandler.sol';
 import {EpochUtils} from '../misc/EpochUtils.sol';
 
 /**

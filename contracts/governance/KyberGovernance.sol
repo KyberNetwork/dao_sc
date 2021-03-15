@@ -4,10 +4,10 @@ pragma abicoder v2;
 
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
-import {IKyberGovernance} from '../interfaces/IKyberGovernance.sol';
-import {IExecutorWithTimelock} from '../interfaces/IExecutorWithTimelock.sol';
-import {IVotingPowerStrategy} from '../interfaces/IVotingPowerStrategy.sol';
-import {IProposalValidator} from '../interfaces/IProposalValidator.sol';
+import {IKyberGovernance} from '../interfaces/governance/IKyberGovernance.sol';
+import {IExecutorWithTimelock} from '../interfaces/governance/IExecutorWithTimelock.sol';
+import {IVotingPowerStrategy} from '../interfaces/governance/IVotingPowerStrategy.sol';
+import {IProposalValidator} from '../interfaces/governance/IProposalValidator.sol';
 import {getChainId} from '../misc/Helpers.sol';
 
 /**

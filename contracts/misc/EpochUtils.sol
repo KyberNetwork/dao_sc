@@ -3,7 +3,7 @@ pragma solidity 0.7.6;
 
 import '@openzeppelin/contracts/math/SafeMath.sol';
 
-import '../interfaces/IEpochUtils.sol';
+import '../interfaces/staking/IEpochUtils.sol';
 
 contract EpochUtils is IEpochUtils {
   using SafeMath for uint256;

@@ -2,8 +2,8 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import {IKyberGovernance} from '../../interfaces/IKyberGovernance.sol';
-import {IVotingPowerStrategy} from '../../interfaces/IVotingPowerStrategy.sol';
+import {IKyberGovernance} from '../../interfaces/governance/IKyberGovernance.sol';
+import {IVotingPowerStrategy} from '../../interfaces/governance/IVotingPowerStrategy.sol';
 
 /**
  * @dev mock governance contract to test

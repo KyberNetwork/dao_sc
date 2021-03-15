@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.7.6;
 
-import {IWithdrawHandler} from '../interfaces/IWithdrawHandler.sol';
+import {IWithdrawHandler} from '../interfaces/staking/IWithdrawHandler.sol';
 
 contract MockWithdrawHandler is IWithdrawHandler {
   mapping(address => uint256) public values;

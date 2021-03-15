@@ -2,9 +2,9 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import {IKyberGovernance} from '../../interfaces/IKyberGovernance.sol';
-import {IVotingPowerStrategy} from '../../interfaces/IVotingPowerStrategy.sol';
-import {IProposalValidator} from '../../interfaces/IProposalValidator.sol';
+import {IKyberGovernance} from '../../interfaces/governance/IKyberGovernance.sol';
+import {IVotingPowerStrategy} from '../../interfaces/governance/IVotingPowerStrategy.sol';
+import {IProposalValidator} from '../../interfaces/governance/IProposalValidator.sol';
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 import {Utils} from '@kyber.network/utils-sc/contracts/Utils.sol';
 

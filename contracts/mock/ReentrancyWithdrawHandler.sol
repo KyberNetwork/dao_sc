@@ -3,7 +3,7 @@ pragma solidity 0.7.6;
 
 import {IERC20} from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 
-import {IKyberStaking} from '../interfaces/IKyberStaking.sol';
+import {IKyberStaking} from '../interfaces/staking/IKyberStaking.sol';
 
 contract ReentrancyWithdrawHandler {
   IKyberStaking public immutable staking;

@@ -4,8 +4,8 @@ pragma abicoder v2;
 
 
 import {MockProposalValidator} from './MockProposalValidator.sol';
-import {IExecutorWithTimelock} from '../interfaces/IExecutorWithTimelock.sol';
-import {IKyberGovernance} from '../interfaces/IKyberGovernance.sol';
+import {IExecutorWithTimelock} from '../interfaces/governance/IExecutorWithTimelock.sol';
+import {IKyberGovernance} from '../interfaces/governance/IKyberGovernance.sol';
 
 contract MockExecutorWithTimelock is IExecutorWithTimelock, MockProposalValidator {
 

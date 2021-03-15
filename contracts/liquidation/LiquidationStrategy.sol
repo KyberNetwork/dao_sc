@@ -7,10 +7,10 @@ import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 import {ReentrancyGuard} from '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
-import {ILiquidationStrategy} from '../interfaces/ILiquidationStrategy.sol';
-import {ILiquidationCallback} from '../interfaces/ILiquidationCallback.sol';
 import {EnumerableSet} from '@openzeppelin/contracts/utils/EnumerableSet.sol';
-import {IPool} from '../interfaces/IPool.sol';
+import {ILiquidationStrategy} from '../interfaces/liquidation/ILiquidationStrategy.sol';
+import {ILiquidationCallback} from '../interfaces/liquidation/ILiquidationCallback.sol';
+import {IPool} from '../interfaces/liquidation/IPool.sol';
 
 contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, ReentrancyGuard {
 

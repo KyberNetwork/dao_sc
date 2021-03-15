@@ -2,7 +2,7 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import {IWithdrawHandler} from './IWithdrawHandler.sol';
+import {IWithdrawHandler} from '../staking/IWithdrawHandler.sol';
 
 interface IVotingPowerStrategy is IWithdrawHandler {
   /**
