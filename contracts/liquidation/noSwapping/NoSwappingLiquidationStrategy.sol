@@ -5,8 +5,8 @@ pragma solidity 0.7.6;
 import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
 import {PermissionOperators} from '@kyber.network/utils-sc/contracts/PermissionOperators.sol';
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
-import {IPool} from '../../interfaces/IPool.sol';
-import {INoSwappingLiquidationStrategy} from '../../interfaces/INoSwappingLiquidationStrategy.sol';
+import {IPool} from '../../interfaces/liquidation/IPool.sol';
+import {INoSwappingLiquidationStrategy} from '../../interfaces/liquidation/INoSwappingLiquidationStrategy.sol';
 
 /// @dev The simplest liquidation strategy which requests funds from FeePool and
 /// 	transfer directly to treasury pool, no actual liquidation happens
