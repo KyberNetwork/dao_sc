@@ -5,7 +5,14 @@ import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 
 
 interface IRewardsDistributor {
-  /** 
+  event Claimed(
+    uint256 indexed cycle,
+    address indexed user,
+    IERC20Ext[] tokens,
+    uint256[] claimAmounts
+  );
+
+  /**
    * @dev Claim accumulated rewards for a set of tokens at a given cycle number
    * @param cycle cycle number
    * @param index user reward info index in the array of reward info
@@ -45,7 +52,7 @@ interface IRewardsDistributor {
     bytes32[] calldata merkleProof
   ) external view returns (bool);
 
-  /** 
+  /**
    * @dev Fetch accumulated claimed rewards for a set of tokens since the first cycle
    * @param user wallet address of reward beneficiary
    * @param tokens array of tokens claimed by reward beneficiary

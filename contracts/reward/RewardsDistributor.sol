@@ -12,6 +12,14 @@ import {IPool} from '../interfaces/liquidation/IPool.sol';
 import {IERC20Ext, IRewardsDistributor} from '../interfaces/rewardDistribution/IRewardsDistributor.sol';
 
 
+/**
+ * @title Rewards Distributor contract for Kyber 3.0
+ * - For users to claim allocated rewards for various KyberDAO program initiatives
+ * (Eg. liquidity mining, staking rewards etc) in multiple tokens
+ * Reward amounts for each user are generated off-chain and merklized by the Kyber team.
+ * The admin (presumably the daoOperator) updates the reward amounts by submitting
+ * the merkle root of a new cycle.
+ **/
 contract RewardsDistributor is IRewardsDistributor, PermissionAdmin, ReentrancyGuard, Utils {
   using SafeERC20 for IERC20Ext;
   using SafeMath for uint256;
@@ -28,12 +36,6 @@ contract RewardsDistributor is IRewardsDistributor, PermissionAdmin, ReentrancyG
   mapping(address => mapping(IERC20Ext => uint256)) public claimedAmounts;
 
   event TreasuryPoolSet(IPool indexed treasuryPool);
-  event Claimed(
-    uint256 indexed cycle,
-    address indexed user,
-    IERC20Ext[] tokens,
-    uint256[] claimAmounts
-  );
   event RootUpdated(uint256 indexed cycle, bytes32 root, string contentHash);
 
   constructor(address admin, IPool _treasuryPool) PermissionAdmin(admin) {
