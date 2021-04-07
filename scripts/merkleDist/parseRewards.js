@@ -1,8 +1,9 @@
 const {MerkleTree} = require('merkletreejs');
 const ethers = require('ethers');
 const BN = ethers.BigNumber;
-const solidityKeccak256 = ethers.utils.solidityKeccak256;
 const keccak256 = require('keccak256');
+const ethersKeccak = ethers.utils.keccak256;
+const abiEncoder = ethers.utils.defaultAbiCoder;
 
 module.exports.parseRewards = function (rewardInfo) {
   const cycle = rewardInfo.cycle;
@@ -61,9 +62,11 @@ function addAccountInMapping(mappedTokensAmounts) {
 
 function hashElements(treeElements, cycle) {
   return treeElements.map((element, index) =>
-    solidityKeccak256(
-      ['uint256', 'uint256', 'address', 'address[]', 'uint256[]'],
-      [cycle.toString(), index.toString(), element.account, element.tokens, element.cumulativeAmounts]
+    ethersKeccak(
+      abiEncoder.encode(
+        ['uint256', 'uint256', 'address', 'address[]', 'uint256[]'],
+        [cycle.toString(), index.toString(), element.account, element.tokens, element.cumulativeAmounts]
+      )
     )
   );
 }

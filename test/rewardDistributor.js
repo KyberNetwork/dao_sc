@@ -7,7 +7,7 @@ const parseRewards = require('../scripts/merkleDist/parseRewards').parseRewards;
 const Helper = require('./helper.js');
 const {precisionUnits, zeroBN, zeroAddress, ethAddress} = require('./helper.js');
 const {genRandomBN} = require('./randomNumberGenerator.js');
-const {keccak256, solidityPack} = require('ethers').utils;
+const {keccak256, defaultAbiCoder} = require('ethers').utils;
 const BN = web3.utils.BN;
 const ethersBN = require('ethers').BigNumber;
 const {expectEvent, expectRevert} = require('@openzeppelin/test-helpers');
@@ -149,6 +149,22 @@ contract('RewardsDistributor', function (accounts) {
     Helper.assertEqual(expected.encodedDataHash, actual.encodedDataHash, 'encoded data hash not matching');
   });
 
+  it('should revert encoding claims for incorrect token and amount lengths', async () => {
+    cycle = 5;
+    index = 10;
+    amounts = [100, 200, 300];
+    await expectRevert(
+      rewardsDistributor.encodeClaim(cycle, index, loi, tokenAddresses, amounts),
+      'bad tokens and amounts length'
+    );
+
+    amounts = [100, 200, 300, 400, 500];
+    await expectRevert(
+      rewardsDistributor.encodeClaim(cycle, index, loi, tokenAddresses, amounts),
+      'bad tokens and amounts length'
+    );
+  });
+
   describe('test claims', async () => {
     before('set initial cycle and pull funds from treasury', async () => {
       cycle = new BN((await rewardsDistributor.getMerkleData()).cycle);
@@ -223,7 +239,7 @@ contract('RewardsDistributor', function (accounts) {
             'invalid claim is deemed valid'
           );
 
-          // invalid tokens
+          // invalid tokens: bad lengths
           assert.isFalse(
             await rewardsDistributor.isValidClaim(
               cycle,
@@ -236,13 +252,39 @@ contract('RewardsDistributor', function (accounts) {
             'invalid claim is deemed valid'
           );
 
-          // invalid amounts
+          // invalid amounts: bad lengths
           assert.isFalse(
             await rewardsDistributor.isValidClaim(
               cycle,
               userClaim.index,
               account,
               tokenAddresses,
+              userClaim.cumulativeAmounts.slice(1),
+              userClaim.proof
+            ),
+            'invalid claim is deemed valid'
+          );
+
+          // invalid tokens and amounts: bad lengths
+          assert.isFalse(
+            await rewardsDistributor.isValidClaim(
+              cycle,
+              userClaim.index,
+              account,
+              tokenAddresses.slice(1),
+              [tokenAddresses[0]].concat(userClaim.cumulativeAmounts),
+              userClaim.proof
+            ),
+            'invalid claim is deemed valid'
+          );
+
+          // invalid tokens and amounts: bad lengths
+          assert.isFalse(
+            await rewardsDistributor.isValidClaim(
+              cycle,
+              userClaim.index,
+              account,
+              [tokenAddresses[0]].concat(tokenAddresses),
               userClaim.cumulativeAmounts.slice(1),
               userClaim.proof
             ),
@@ -327,6 +369,46 @@ contract('RewardsDistributor', function (accounts) {
             }
           }
         }
+      });
+
+      it('should revert if token and amount lengths are not equal', async () => {
+        const [account, userClaim] = Object.entries(rewardClaims.userRewards)[0];
+        await expectRevert(
+          rewardsDistributor.claim(
+            cycle,
+            userClaim.index,
+            account,
+            [tokenAddresses[0]].concat(tokenAddresses),
+            userClaim.cumulativeAmounts,
+            userClaim.proof
+          ),
+          'bad tokens and amounts length'
+        );
+
+        await expectRevert(
+          rewardsDistributor.claim(
+            cycle,
+            userClaim.index,
+            account,
+            tokenAddresses,
+            [userClaim.cumulativeAmounts[0]].concat(userClaim.cumulativeAmounts),
+            userClaim.proof
+          ),
+          'bad tokens and amounts length'
+        );
+
+        // token mistaken as amount
+        await expectRevert(
+          rewardsDistributor.claim(
+            cycle,
+            userClaim.index,
+            account,
+            tokenAddresses.splice(0, tokenAddresses.length - 1),
+            [tokenAddresses[tokenAddresses.length - 1]].concat(userClaim.cumulativeAmounts),
+            userClaim.proof
+          ),
+          'bad tokens and amounts length'
+        );
       });
     });
 
@@ -497,7 +579,7 @@ contract('RewardsDistributor', function (accounts) {
 });
 
 function encodeData(cycle, index, account, tokens, amounts) {
-  let packedData = solidityPack(
+  let encodedData = defaultAbiCoder.encode(
     ['uint256', 'uint256', 'address', 'address[]', 'uint256[]'],
     [
       ethersBN.from(cycle.toString()),
@@ -508,8 +590,8 @@ function encodeData(cycle, index, account, tokens, amounts) {
     ]
   );
   return {
-    encodedData: packedData,
-    encodedDataHash: keccak256(packedData),
+    encodedData: encodedData,
+    encodedDataHash: keccak256(encodedData),
   };
 }
 

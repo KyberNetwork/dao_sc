@@ -68,7 +68,8 @@ contract RewardsDistributor is IRewardsDistributor, PermissionAdmin, ReentrancyG
     bytes32[] calldata merkleProof
   ) external view override returns (bool) {
     if (cycle != merkleData.cycle) return false;
-    bytes32 node = keccak256(abi.encodePacked(cycle, index, user, tokens, cumulativeAmounts));
+    if (tokens.length != cumulativeAmounts.length) return false;
+    bytes32 node = keccak256(abi.encode(cycle, index, user, tokens, cumulativeAmounts));
     return MerkleProof.verify(merkleProof, merkleData.root, node);
   }
 
@@ -92,9 +93,10 @@ contract RewardsDistributor is IRewardsDistributor, PermissionAdmin, ReentrancyG
     bytes32[] calldata merkleProof
   ) external override nonReentrant returns (uint256[] memory claimAmounts) {
     require(cycle == merkleData.cycle, 'incorrect cycle');
+    require(tokens.length == cumulativeAmounts.length, 'bad tokens and amounts length');
 
     // verify the merkle proof
-    bytes32 node = keccak256(abi.encodePacked(cycle, index, user, tokens, cumulativeAmounts));
+    bytes32 node = keccak256(abi.encode(cycle, index, user, tokens, cumulativeAmounts));
     require(MerkleProof.verify(merkleProof, merkleData.root, node), 'invalid proof');
 
     claimAmounts = new uint256[](tokens.length);
@@ -172,7 +174,8 @@ contract RewardsDistributor is IRewardsDistributor, PermissionAdmin, ReentrancyG
     IERC20Ext[] calldata tokens,
     uint256[] calldata cumulativeAmounts
   ) external pure returns (bytes memory encodedData, bytes32 encodedDataHash) {
-    encodedData = abi.encodePacked(cycle, index, account, tokens, cumulativeAmounts);
+    require(tokens.length == cumulativeAmounts.length, 'bad tokens and amounts length');
+    encodedData = abi.encode(cycle, index, account, tokens, cumulativeAmounts);
     encodedDataHash = keccak256(encodedData);
   }
 }
