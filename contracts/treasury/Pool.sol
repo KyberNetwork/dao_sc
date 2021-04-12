@@ -70,7 +70,7 @@ contract Pool is IPool, PermissionAdmin, PermissionOperators, Utils {
     address payable recipient
   ) external override {
     require(!_isPaused, 'only when not paused');
-    require(_isAuthorizedStrategy(msg.sender), 'not authorized');
+    require(isAuthorizedStrategy(msg.sender), 'not authorized');
     require(tokens.length == amounts.length, 'invalid lengths');
     for(uint256 i = 0; i < tokens.length; i++) {
       _transferToken(tokens[i], amounts[i], recipient);
@@ -79,12 +79,6 @@ contract Pool is IPool, PermissionAdmin, PermissionOperators, Utils {
 
   function isPaused() external view override returns (bool) {
     return _isPaused;
-  }
-
-  function isAuthorizedStrategy(address strategy)
-    external view override returns (bool)
-  {
-    return _isAuthorizedStrategy(strategy);
   }
 
   function getAuthorizedStrategiesLength()
@@ -109,17 +103,23 @@ contract Pool is IPool, PermissionAdmin, PermissionOperators, Utils {
     }
   }
 
+  function isAuthorizedStrategy(address strategy)
+    public view override returns (bool)
+  {
+    return _authorizedStrategies.contains(strategy);
+  }
+
   function _authorizeStrategy(address strategy) internal {
     require(strategy != address(0), 'invalid strategy');
-    require(!_isAuthorizedStrategy(strategy), 'only not authorized strategy');
-    _authorizedStrategies.add(strategy);
+    require(!isAuthorizedStrategy(strategy), 'only unauthorized strategy');
+    require(_authorizedStrategies.add(strategy), 'unable to add new strategy');
     emit AuthorizedStrategy(strategy);
   }
 
   function _unauthorizeStrategy(address _strategy) internal {
     require(_strategy != address(0), 'invalid strategy');
-    require(_isAuthorizedStrategy(_strategy), 'only authorized strategy');
-    _authorizedStrategies.remove(_strategy);
+    require(isAuthorizedStrategy(_strategy), 'only authorized strategy');
+    require(_authorizedStrategies.remove(_strategy), 'unable to remove strategy');
     emit UnauthorizedStrategy(_strategy);
   }
 
@@ -135,9 +135,5 @@ contract Pool is IPool, PermissionAdmin, PermissionOperators, Utils {
       _token.safeTransfer(_recipient, _amount);
     }
     emit WithdrawToken(_token, msg.sender, _recipient, _amount);
-  }
-
-  function _isAuthorizedStrategy(address _strategy) internal view returns (bool) {
-    return _authorizedStrategies.contains(_strategy);
   }
 }

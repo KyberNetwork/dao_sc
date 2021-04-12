@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
@@ -30,47 +30,18 @@ contract RewardsDistributor is IRewardsDistributor, PermissionAdmin, ReentrancyG
     string contentHash;
   }
 
-  IPool public treasuryPool;
   MerkleData private merkleData;
   // wallet => token => claimedAmount
   mapping(address => mapping(IERC20Ext => uint256)) public claimedAmounts;
 
-  event TreasuryPoolSet(IPool indexed treasuryPool);
   event RootUpdated(uint256 indexed cycle, bytes32 root, string contentHash);
 
-  constructor(address admin, IPool _treasuryPool) PermissionAdmin(admin) {
-    treasuryPool = _treasuryPool;
-  }
+  constructor(address admin) PermissionAdmin(admin) {}
 
   receive() external payable {}
 
   function getMerkleData() external view returns (MerkleData memory) {
     return merkleData;
-  }
-
-  /**
-   * @dev Checks whether a claim is valid or not
-   * @param cycle cycle number
-   * @param index user reward info index in the array of reward info
-   * during merkle tree generation
-   * @param user wallet address of reward beneficiary
-   * @param tokens array of tokens claimable by reward beneficiary
-   * @param cumulativeAmounts cumulative token amounts claimable by reward beneficiary
-   * @param merkleProof merkle proof of claim
-   * @return true if valid claim, false otherwise
-   **/
-  function isValidClaim(
-    uint256 cycle,
-    uint256 index,
-    address user,
-    IERC20Ext[] calldata tokens,
-    uint256[] calldata cumulativeAmounts,
-    bytes32[] calldata merkleProof
-  ) external view override returns (bool) {
-    if (cycle != merkleData.cycle) return false;
-    if (tokens.length != cumulativeAmounts.length) return false;
-    bytes32 node = keccak256(abi.encode(cycle, index, user, tokens, cumulativeAmounts));
-    return MerkleProof.verify(merkleProof, merkleData.root, node);
   }
 
   /** 
@@ -92,12 +63,12 @@ contract RewardsDistributor is IRewardsDistributor, PermissionAdmin, ReentrancyG
     uint256[] calldata cumulativeAmounts,
     bytes32[] calldata merkleProof
   ) external override nonReentrant returns (uint256[] memory claimAmounts) {
-    require(cycle == merkleData.cycle, 'incorrect cycle');
-    require(tokens.length == cumulativeAmounts.length, 'bad tokens and amounts length');
+    // verify if can claim
+    require(
+      isValidClaim(cycle, index, user, tokens, cumulativeAmounts, merkleProof),
+      'invalid claim data'
+    );
 
-    // verify the merkle proof
-    bytes32 node = keccak256(abi.encode(cycle, index, user, tokens, cumulativeAmounts));
-    require(MerkleProof.verify(merkleProof, merkleData.root, node), 'invalid proof');
 
     claimAmounts = new uint256[](tokens.length);
 
@@ -136,19 +107,40 @@ contract RewardsDistributor is IRewardsDistributor, PermissionAdmin, ReentrancyG
     emit RootUpdated(cycle, root, contentHash);
   }
 
-  function updateTreasuryPool(IPool _treasuryPool) external onlyAdmin {
-    require(_treasuryPool != IPool(0), 'invalid treasury pool');
-    treasuryPool = _treasuryPool;
-    emit TreasuryPoolSet(_treasuryPool);
-  }
-
-  function pullFundsFromTreasury(IERC20Ext[] calldata tokens, uint256[] calldata amounts)
+  function pullFundsFromTreasury(
+    IPool treasuryPool,
+    IERC20Ext[] calldata tokens, uint256[] calldata amounts
+  )
     external
     onlyAdmin
   {
     treasuryPool.withdrawFunds(tokens, amounts, payable(address(this)));
   }
-  
+
+   /**
+   * @dev Checks whether a claim is valid or not
+   * @param cycle cycle number
+   * @param index user reward info index in the array of reward info
+   * during merkle tree generation
+   * @param user wallet address of reward beneficiary
+   * @param tokens array of tokens claimable by reward beneficiary
+   * @param cumulativeAmounts cumulative token amounts claimable by reward beneficiary
+   * @param merkleProof merkle proof of claim
+   * @return true if valid claim, false otherwise
+   **/
+  function isValidClaim(
+    uint256 cycle,
+    uint256 index,
+    address user,
+    IERC20Ext[] calldata tokens,
+    uint256[] calldata cumulativeAmounts,
+    bytes32[] calldata merkleProof
+  ) public view override returns (bool) {
+    if (cycle != merkleData.cycle) return false;
+    bytes32 node = keccak256(abi.encodePacked(cycle, index, user, tokens, cumulativeAmounts));
+    return MerkleProof.verify(merkleProof, merkleData.root, node);
+  }
+
   /** 
    * @dev Fetch accumulated claimed rewards for a set of tokens since the first cycle
    * @param user wallet address of reward beneficiary
