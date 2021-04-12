@@ -58,7 +58,7 @@ contract('RewardsDistributor', function (accounts) {
 
     // setup treasury and rewards
     treasury = await TreasuryPool.new(admin, []);
-    rewardsDistributor = await RewardsDistributor.new(admin, treasury.address);
+    rewardsDistributor = await RewardsDistributor.new(admin);
     await treasury.authorizeStrategies([rewardsDistributor.address], {from: admin});
 
     // send 5M of each token and 1000 eth to treasury
@@ -72,32 +72,19 @@ contract('RewardsDistributor', function (accounts) {
     await Helper.sendEtherWithPromise(accounts[5], treasury.address, ethAmount);
   });
 
-  it('should have treasury pool updated by admin only', async () => {
-    await expectRevert(rewardsDistributor.updateTreasuryPool(victor), 'only admin');
-    await expectRevert(rewardsDistributor.updateTreasuryPool(victor, {from: victor}), 'only admin');
-    let tx = await rewardsDistributor.updateTreasuryPool(victor, {from: admin});
-    expectEvent(tx, 'TreasuryPoolSet', {
-      treasuryPool: victor,
-    });
-    Helper.assertEqual(await rewardsDistributor.treasuryPool(), victor, 'treasury address not updated');
-    await rewardsDistributor.updateTreasuryPool(treasury.address, {from: admin});
-    Helper.assertEqual(await rewardsDistributor.treasuryPool(), treasury.address, 'treasury address not updated');
-  });
-
-  it('should fail to update treasury to null address', async () => {
-    await expectRevert(rewardsDistributor.updateTreasuryPool(zeroAddress, {from: admin}), 'invalid treasury pool');
-  });
-
   it('should have funds pulled from treasury by admin only', async () => {
     let tokenArray = [knc.address];
     let tokenAmount = [new BN(10)];
-    await expectRevert(rewardsDistributor.pullFundsFromTreasury(tokenArray, tokenAmount), 'only admin');
     await expectRevert(
-      rewardsDistributor.pullFundsFromTreasury(tokenArray, tokenAmount, {from: victor}),
+      rewardsDistributor.pullFundsFromTreasury(treasury.address, tokenArray, tokenAmount),
+      'only admin'
+    );
+    await expectRevert(
+      rewardsDistributor.pullFundsFromTreasury(treasury.address, tokenArray, tokenAmount, {from: victor}),
       'only admin'
     );
     let tokenBalanceBefore = await knc.balanceOf(rewardsDistributor.address);
-    await rewardsDistributor.pullFundsFromTreasury(tokenArray, tokenAmount, {from: admin});
+    await rewardsDistributor.pullFundsFromTreasury(treasury.address, tokenArray, tokenAmount, {from: admin});
     Helper.assertEqual(
       await knc.balanceOf(rewardsDistributor.address),
       tokenAmount[0].sub(tokenBalanceBefore),
@@ -171,6 +158,7 @@ contract('RewardsDistributor', function (accounts) {
       tokenAmount = tokenAmount.sub(new BN(1000));
       ethAmount = ethAmount.sub(new BN(1000));
       await rewardsDistributor.pullFundsFromTreasury(
+        treasury.address,
         tokenAddresses,
         [tokenAmount, tokenAmount, tokenAmount, ethAmount],
         {from: admin}
@@ -317,7 +305,7 @@ contract('RewardsDistributor', function (accounts) {
             userClaim.cumulativeAmounts,
             userClaim.proof
           ),
-          'incorrect cycle'
+          'invalid claim data'
         );
       });
 
@@ -333,7 +321,7 @@ contract('RewardsDistributor', function (accounts) {
             userClaim.cumulativeAmounts,
             userClaim.proof
           ),
-          'invalid proof'
+          'invalid claim data'
         );
       });
 
@@ -382,7 +370,7 @@ contract('RewardsDistributor', function (accounts) {
             userClaim.cumulativeAmounts,
             userClaim.proof
           ),
-          'bad tokens and amounts length'
+          'invalid claim data'
         );
 
         await expectRevert(
@@ -394,7 +382,7 @@ contract('RewardsDistributor', function (accounts) {
             [userClaim.cumulativeAmounts[0]].concat(userClaim.cumulativeAmounts),
             userClaim.proof
           ),
-          'bad tokens and amounts length'
+          'invalid claim data'
         );
 
         // token mistaken as amount
@@ -407,7 +395,7 @@ contract('RewardsDistributor', function (accounts) {
             [tokenAddresses[tokenAddresses.length - 1]].concat(userClaim.cumulativeAmounts),
             userClaim.proof
           ),
-          'bad tokens and amounts length'
+          'invalid claim data'
         );
       });
     });
