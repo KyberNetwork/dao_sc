@@ -109,7 +109,8 @@ contract RewardsDistributor is IRewardsDistributor, PermissionAdmin, ReentrancyG
 
   function pullFundsFromTreasury(
     IPool treasuryPool,
-    IERC20Ext[] calldata tokens, uint256[] calldata amounts
+    IERC20Ext[] calldata tokens,
+    uint256[] calldata amounts
   )
     external
     onlyAdmin
@@ -137,7 +138,8 @@ contract RewardsDistributor is IRewardsDistributor, PermissionAdmin, ReentrancyG
     bytes32[] calldata merkleProof
   ) public view override returns (bool) {
     if (cycle != merkleData.cycle) return false;
-    bytes32 node = keccak256(abi.encodePacked(cycle, index, user, tokens, cumulativeAmounts));
+    if (tokens.length != cumulativeAmounts.length) return false;
+    bytes32 node = keccak256(abi.encode(cycle, index, user, tokens, cumulativeAmounts));
     return MerkleProof.verify(merkleProof, merkleData.root, node);
   }
 
