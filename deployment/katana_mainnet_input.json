@@ -1,0 +1,27 @@
+{
+    "knc": "0xdeFA4e8a7bcBA345F687a2f1456F5Edd9CE97202",
+    "epochPeriod": 1209600,
+    "starttime": 1619507227,
+    "shortExecutor": {
+        "delay": 43200,
+        "gracePeriod": 345600,
+        "minimumDelay": 3600,
+        "maximumDelay": 86400,
+        "minVoteDuration": 345600,
+        "maxVotingOptions": 8,
+        "voteDifferential": 1,
+        "minimumQuorum": 400
+    },
+    "longExecutor": {
+        "delay": 604800,
+        "gracePeriod": 604800,
+        "minimumDelay": 86400,
+        "maximumDelay": 1209600,
+        "minVoteDuration": 604800,
+        "maxVotingOptions": 8,
+        "voteDifferential": 400,
+        "minimumQuorum": 1500
+    },
+    "daoOperator": "0xe6a7338cba0a1070adfb22c07115299605454713",
+    "outputFilename": "katana_mainnet_deployment.json"
+}

@@ -23,5 +23,5 @@
         "minimumQuorum": 400
     },
     "daoOperator": "0xddf05698718ba8ed1c9aba198d38a825a64d69e2",
-    "outputFilename": "katana_ropsten_deployment.json"
+    "outputFilename": "katana_testnet_deployment.json"
 }

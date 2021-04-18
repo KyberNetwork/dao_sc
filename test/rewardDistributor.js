@@ -46,7 +46,7 @@ let maxIncrease = precisionUnits.div(new BN(5));
 contract('RewardsDistributor', function (accounts) {
   before('one time init', async () => {
     admin = accounts[1];
-    tokenAmount = precisionUnits.mul(new BN(100000000));
+    tokenAmount = precisionUnits.mul(new BN(100000000000));
     knc = await Token.new('Kyber Network Crystal', 'KNC', tokenAmount);
     usdc = await Token.new('USD Coin', 'USDC', tokenAmount);
     wbtc = await Token.new('Wrapped Bitcoin', 'WBTC', tokenAmount);
@@ -61,9 +61,9 @@ contract('RewardsDistributor', function (accounts) {
     rewardsDistributor = await RewardsDistributor.new(admin);
     await treasury.authorizeStrategies([rewardsDistributor.address], {from: admin});
 
-    // send 5M of each token and 1000 eth to treasury
-    tokenAmount = precisionUnits.mul(new BN(5000000));
-    ethAmount = precisionUnits.mul(new BN(1000));
+    // send 100M of each token and 2000 eth to treasury
+    tokenAmount = precisionUnits.mul(new BN(100000000));
+    ethAmount = precisionUnits.mul(new BN(2000));
     await Promise.all(
       tokens.map(async (token, index) => {
         await token.transfer(treasury.address, tokenAmount);

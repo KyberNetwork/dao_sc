@@ -2,7 +2,7 @@ require('@nomiclabs/hardhat-ethers');
 const inquirer = require('inquirer');
 const fs = require('fs');
 const path = require('path');
-const configPath = path.join(__dirname, './katana_input.json');
+const configPath = path.join(__dirname, './katana_mainnet_input.json');
 const configParams = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
 let gasPrice;
@@ -19,11 +19,14 @@ async function fetchNextGasPrice(BN, message) {
   gasPrice = new BN.from(gasPrice).mul(new BN.from(10).pow(new BN.from(9)));
 }
 
-async function verifyContract(hre, contractAddress, ctorArgs) {
-  await hre.run('verify:verify', {
+async function verifyContract(hre, contractAddress, ctorArgs, contract) {
+  let args = {
     address: contractAddress,
-    constructorArguments: ctorArgs,
-  });
+    constructorArguments: ctorArgs
+  };
+
+  if (contract != undefined) args.contract = contract;
+  await hre.run('verify:verify', args);
 }
 
 let kncAddress;
@@ -41,6 +44,7 @@ task('deployGovInfra', 'deploys staking, governance, voting power strategy and e
     const BN = ethers.BigNumber;
     const [deployer] = await ethers.getSigners();
     deployerAddress = await deployer.getAddress();
+    console.log(`deployer: ${deployerAddress}`);
 
     // contract deployment
     await fetchNextGasPrice(BN, 'staking deployment');
@@ -98,6 +102,30 @@ task('deployGovInfra', 'deploys staking, governance, voting power strategy and e
     await votingPowerStrategy.deployed();
     console.log(`votingPowerStrategy address: ${votingPowerStrategy.address}`);
 
+    await fetchNextGasPrice(BN, 'treasury pool deployment');
+    const TreasuryPool = await ethers.getContractFactory('TreasuryPool');
+    const treasuryPool = await TreasuryPool.deploy(deployerAddress, [], {gasPrice: gasPrice});
+    await treasuryPool.deployed();
+    console.log(`treasury pool address: ${treasuryPool.address}`);
+
+    await fetchNextGasPrice(BN, 'reward distribution deployment');
+    const RewardDist = await ethers.getContractFactory('RewardsDistributor');
+    const rewardDist = await RewardDist.deploy(daoOperator, {gasPrice: gasPrice});
+    await rewardDist.deployed();
+    console.log(`reward distribution address: ${rewardDist.address}`);
+
+    await fetchNextGasPrice(BN, 'reward pool deployment');
+    const RewardPool = await ethers.getContractFactory('RewardPool');
+    const rewardPool = await RewardPool.deploy(longExecutor.address, [rewardDist.address], {gasPrice: gasPrice});
+    await rewardPool.deployed();
+    console.log(`reward pool address: ${rewardPool.address}`);
+
+    await fetchNextGasPrice(BN, 'liquidation strategy deployment');
+    const LiqStrat = await ethers.getContractFactory('NoSwappingLiquidationStrategy');
+    const liqStrat = await LiqStrat.deploy(longExecutor.address, treasuryPool.address, rewardPool.address, {gasPrice: gasPrice});
+    await liqStrat.deployed();
+    console.log(`liquidation strategy address: ${liqStrat.address}`);
+
     // export addresses
     exportAddresses({
       staking: kyberStaking.address,
@@ -105,7 +133,14 @@ task('deployGovInfra', 'deploys staking, governance, voting power strategy and e
       shortExecutor: shortExecutor.address,
       longExecutor: longExecutor.address,
       votingPowerStrategy: votingPowerStrategy.address,
+      treasury: treasuryPool.address,
+      rewardDistribution: rewardDist.address,
+      rewardPool: rewardPool.address,
+      noSwapLiqStrategy: liqStrat.address
     });
+
+    await fetchNextGasPrice(BN, 'approve liq strat in treasury pool');
+    await treasuryPool.authorizeStrategies([liqStrat.address], {gasPrice: gasPrice});
 
     // set executors and voting power strategy in governance
     await fetchNextGasPrice(BN, 'authorizing executors in governance');
@@ -122,6 +157,8 @@ task('deployGovInfra', 'deploys staking, governance, voting power strategy and e
     await kyberStaking.transferAdminQuickly(longExecutor.address, {gasPrice: gasPrice});
     await fetchNextGasPrice(BN, 'transferring governance admin to long executor');
     await kyberGovernance.transferAdminQuickly(longExecutor.address, {gasPrice: gasPrice});
+    await fetchNextGasPrice(BN, 'transferring treasury admin to long executor');
+    await treasuryPool.transferAdminQuickly(longExecutor.address, {gasPrice: gasPrice});
 
     console.log('verify contracts...');
     // verify addresses
@@ -150,6 +187,20 @@ task('deployGovInfra', 'deploys staking, governance, voting power strategy and e
       longExecutorConfig.minimumQuorum,
     ]);
     await verifyContract(hre, votingPowerStrategy.address, [kyberGovernance.address, kyberStaking.address]);
+    await verifyContract(
+      hre,
+      treasuryPool.address,
+      [deployerAddress, []],
+      "contracts/treasury/TreasuryPool.sol:TreasuryPool"
+    );
+    await verifyContract(hre, rewardDist.address, [daoOperator]);
+    await verifyContract(
+      hre,
+      rewardPool.address,
+      [longExecutor.address, [rewardDist.address]],
+      "contracts/reward/RewardPool.sol:RewardPool"
+    );
+    await verifyContract(hre, liqStrat.address, [longExecutor.address, treasuryPool.address, rewardPool.address]);
     console.log('setup completed');
     process.exit(0);
   }
