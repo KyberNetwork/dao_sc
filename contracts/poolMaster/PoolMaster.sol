@@ -12,6 +12,11 @@ import {IKyberStaking} from '../interfaces/staking/IKyberStaking.sol';
 import {IRewardsDistributor} from '../interfaces/rewardDistribution/IRewardsDistributor.sol';
 import {IKyberGovernance} from '../interfaces/governance/IKyberGovernance.sol';
 
+interface INewKNC {
+  function mintWithOldKnc(uint256 amount) external;
+  function oldKNC() external view returns (address);
+}
+
 interface IKyberNetworkProxy {
   function swapEtherToToken(IERC20Ext token, uint256 minConversionRate)
     external
@@ -36,7 +41,7 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
   uint256 internal constant INITIAL_SUPPLY_MULTIPLIER = 10;
   uint256 internal constant MAX_UINT = 2**256 - 1;
   uint256 public adminFeeBps;
-  uint256 public withdrawableAdminKncFees;
+  uint256 public withdrawableAdminFees;
 
   mapping(address => bool) internal operators;
 
@@ -44,7 +49,8 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
   IKyberStaking public immutable kyberStaking;
   IRewardsDistributor public rewardsDistributor;
   IKyberGovernance public kyberGovernance;
-  IERC20Ext public immutable knc;
+  IERC20Ext public immutable newKnc;
+  IERC20Ext private immutable oldKnc;
 
   modifier onlyAdminOrOperator() {
     require(msg.sender == admin || isOperator(msg.sender), 'only admin or operator');
@@ -58,15 +64,17 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
     IKyberStaking _kyberStaking,
     IKyberGovernance _kyberGovernance,
     IRewardsDistributor _rewardsDistributor,
-    IERC20Ext _knc,
+    IERC20Ext _newKnc,
     uint256 _adminFeeBps
   ) ERC20(_name, _symbol) PermissionAdmin(msg.sender) {
     kyberProxy = _kyberProxy;
     kyberStaking = _kyberStaking;
     kyberGovernance = _kyberGovernance;
     rewardsDistributor = _rewardsDistributor;
-    knc = _knc;
-    _knc.safeApprove(address(_kyberStaking), MAX_UINT);
+    newKnc = _newKnc;
+    oldKnc = INewKNC(_newKnc).oldKNC();
+    oldKnc.safeApprove(address(_newKnc), MAX_UINT);
+    _newKnc.safeApprove(address(_kyberStaking), MAX_UINT);
     _changeAdminFee(_adminFeeBps);
   }
 
@@ -94,15 +102,15 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
     operators[newOperator] = false;
   }
 
-  function deposit(uint256 kncTokenWei) external {
-    knc.safeTransferFrom(msg.sender, address(this), kncTokenWei);
-    uint256 kncBalanceBefore = getLatestKncStake();
+  function depositWithOldKnc(uint256 tokenWei) external {
+    oldKnc.safeTransferFrom(msg.sender, address(this), tokenWei);
+    INewKNC(newKnc).mintWithOldKnc(tokenWei);
+    _deposit();
+  }
 
-    _deposit(getAvailableKncBalanceTwei());
-
-    uint256 mintAmount = _calculateMintAmount(kncBalanceBefore);
-
-    return super._mint(msg.sender, mintAmount);
+  function depositWithNewKnc(uint256 tokenWei) external {
+    newKnc.safeTransferFrom(msg.sender, address(this), tokenWei);
+    _deposit();
   }
 
   /*
@@ -113,11 +121,11 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
   function withdraw(uint256 tokensToRedeemTwei) external nonReentrant {
     require(balanceOf(msg.sender) >= tokensToRedeemTwei, 'insufficient balance');
 
-    uint256 proRataKnc = getLatestKncStake().mul(tokensToRedeemTwei).div(totalSupply());
-    _withdraw(proRataKnc);
+    uint256 proRataKnc = getLatestStake().mul(tokensToRedeemTwei).div(totalSupply());
+    _unstake(proRataKnc);
     super._burn(msg.sender, tokensToRedeemTwei);
 
-    knc.safeTransfer(msg.sender, proRataKnc);
+    newKnc.safeTransfer(msg.sender, proRataKnc);
   }
 
   /*
@@ -131,25 +139,23 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
   }
 
   /*
-   * @notice Claim reward from previous cycle
-   * @notice Will apply admin fee
+   * @notice Claim accumulated reward thus far
+   * @notice Will apply admin fee to KNC token.
+   * Admin fee for other tokens applied after liquidation to KNC
    * @dev Admin or operator calls with relevant params
-   * @dev ETH/other asset rewards swapped into KNC
    * @param cycle - sourced from Kyber API
    * @param index - sourced from Kyber API
    * @param tokens - ERC20 fee tokens
    * @param merkleProof - sourced from Kyber API
-   * @param minRates - kyberProxy.getExpectedRate(eth/token => knc)
    */
   function claimReward(
     uint256 cycle,
     uint256 index,
     IERC20Ext[] calldata tokens,
     uint256[] calldata cumulativeAmounts,
-    bytes32[] calldata merkleProof,
-    uint256[] calldata minRates
+    bytes32[] calldata merkleProof
   ) external onlyAdminOrOperator {
-    uint256[] memory claimAmounts = rewardsDistributor.claim(
+    ewardsDistributor.claim(
       cycle,
       index,
       address(this),
@@ -159,17 +165,39 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
     );
 
     for (uint256 i = 0; i < tokens.length; i++) {
-      if (claimAmounts[i] == 0 || tokens[i] == knc) {
-        continue;
-      } else if (tokens[i] == ETH_ADDRESS) {
-        kyberProxy.swapEtherToToken{value: claimAmounts[i]}(knc, minRates[i]);
-      } else {
-        kyberProxy.swapTokenToToken(tokens[i], claimAmounts[i], knc, minRates[i]);
+      if (tokens[i] == newKnc) {
+        uint256 availableKnc = _administerAdminFee(getAvailableNewKncBalanceTwei());
+        _stake(availableKnc);
       }
     }
+  }
 
-    uint256 availableKnc = _administerAdminFee(getAvailableKncBalanceTwei());
-    _deposit(availableKnc);
+  /*
+   * @notice Will liquidate ETH or ERC20 tokens to KNC
+   * @notice Will apply admin fee after liquidations
+   * @dev Admin or operator calls with relevant params
+   * @param tokens - ETH / ERC20 tokens to be liquidated to KNC
+   * @param minRates - kyberProxy.getExpectedRate(eth/token => knc)
+  */
+  function liquidateTokensToKnc(IERC20Ext[] calldata tokens, uint256[] calldata minRates)
+    external
+    onlyAdminOrOperator
+  {
+    require(tokens.length == minRates.length, 'unequal lengths');
+    for (uint256 i = 0; i < tokens.length; i++) {
+      if (tokens[i] == ETH_ADDRESS) {
+        kyberProxy.swapEtherToToken{value: address(this).balance}(newKnc, minRates[i]);
+      } else if (tokens[i] != newKnc) {
+        kyberProxy.swapTokenToToken(
+          tokens[i],
+          tokens[i].balanceOf(address(this)),
+          newKnc,
+          minRates[i]
+        );
+      }
+    }
+    uint256 availableKnc = _administerAdminFee(getAvailableNewKncBalanceTwei());
+    _stake(availableKnc);
   }
 
   /*
@@ -184,23 +212,23 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
   }
 
   function withdrawAdminFee() external onlyAdminOrOperator {
-    uint256 fee = withdrawableAdminKncFees;
-    withdrawableAdminKncFees = 0;
-    knc.safeTransfer(admin, fee);
+    uint256 fee = withdrawableAdminFees;
+    withdrawableAdminFees = 0;
+    newKnc.safeTransfer(admin, fee);
   }
 
   /*
    * @notice Returns KNC balance staked to the DAO
    */
-  function getLatestKncStake() public view returns (uint256 latestStake) {
+  function getLatestStake() public view returns (uint256 latestStake) {
     (latestStake, , ) = kyberStaking.getLatestStakerData(address(this));
   }
 
   /*
    * @notice Returns KNC balance available to stake
    */
-  function getAvailableKncBalanceTwei() public view returns (uint256) {
-    return knc.balanceOf(address(this)).sub(withdrawableAdminKncFees);
+  function getAvailableNewKncBalanceTwei() public view returns (uint256) {
+    return newKnc.balanceOf(address(this)).sub(withdrawableAdminFees);
   }
 
   function isOperator(address operator) public view returns (bool) {
@@ -215,23 +243,37 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
   /*
    * @notice returns the collective reward amount to be re-staked
    */
-  function _administerAdminFee(uint256 kncRewardAmount) internal returns (uint256) {
-    uint256 adminKncFeeToDeduct = kncRewardAmount.mul(BPS - adminFeeBps).div(BPS);
-    withdrawableAdminKncFees = withdrawableAdminKncFees.add(adminKncFeeToDeduct);
-    return kncRewardAmount.sub(adminKncFeeToDeduct);
+  function _administerAdminFee(uint256 rewardAmount) internal returns (uint256) {
+    uint256 adminFeeToDeduct = rewardAmount.mul(BPS - adminFeeBps).div(BPS);
+    withdrawableAdminFees = withdrawableAdminFees.add(adminFeeToDeduct);
+    return rewardAmount.sub(adminFeeToDeduct);
+  }
+
+  /*
+   * @notice Calculate and stake new KNC to staking contract
+   * then mints appropriate amount to user
+  */
+  function _deposit() internal {
+    uint256 balanceBefore = getLatestStake();
+
+    _stake(getAvailableNewKncBalanceTwei());
+
+    uint256 mintAmount = _calculateMintAmount(balanceBefore);
+
+    return super._mint(msg.sender, mintAmount);
   }
 
   /*
    * @notice KyberDAO deposit
    */
-  function _deposit(uint256 amount) private {
+  function _stake(uint256 amount) private {
     kyberStaking.deposit(amount);
   }
 
   /*
    * @notice KyberDAO withdraw
    */
-  function _withdraw(uint256 amount) private {
+  function _unstake(uint256 amount) private {
     kyberStaking.withdraw(amount);
   }
 
@@ -246,7 +288,7 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
     view
     returns (uint256 mintAmount)
   {
-    uint256 kncBalanceAfter = getLatestKncStake();
+    uint256 kncBalanceAfter = getLatestStake();
     if (totalSupply() == 0) return kncBalanceAfter.mul(INITIAL_SUPPLY_MULTIPLIER);
 
     mintAmount = (kncBalanceAfter.sub(kncBalanceBefore)).mul(totalSupply()).div(kncBalanceBefore);

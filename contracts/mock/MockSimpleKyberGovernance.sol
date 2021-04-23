@@ -47,16 +47,16 @@ contract MockSimpleKyberGovernance {
 
     ProposalWithoutVote storage newProposalData = _proposals[proposalId];
     newProposalData.id = proposalId;
-    newProposalData.proposalType = isBinary ?
-      IKyberGovernance.ProposalType.Binary :
-      IKyberGovernance.ProposalType.Generic;
+    newProposalData.proposalType = isBinary
+      ? IKyberGovernance.ProposalType.Binary
+      : IKyberGovernance.ProposalType.Generic;
   }
 
   function setProposalType(uint256 proposalId, bool isBinary) external {
     ProposalWithoutVote storage proposalData = _proposals[proposalId];
-    proposalData.proposalType = isBinary ?
-      IKyberGovernance.ProposalType.Binary :
-      IKyberGovernance.ProposalType.Generic;
+    proposalData.proposalType = isBinary
+      ? IKyberGovernance.ProposalType.Binary
+      : IKyberGovernance.ProposalType.Generic;
   }
 
   function setVoteData(
@@ -68,7 +68,7 @@ contract MockSimpleKyberGovernance {
     ProposalWithoutVote storage proposalData = _proposals[proposalId];
     if (proposalData.proposalType == IKyberGovernance.ProposalType.Binary)
       require(voteCounts.length == 2, 'bad vote counts');
-    
+
     proposalData.voteCounts = voteCounts;
     proposalData.totalVotes = totalVotes;
     proposalData.maxVotingPower = maxVotingPower;
@@ -83,47 +83,35 @@ contract MockSimpleKyberGovernance {
     proposalData.voteCounts[index] = newVoteCount;
   }
 
-  function setVoteCounts(
-    uint256 proposalId,
-    uint256[] calldata voteCounts
-  ) external {
+  function setVoteCounts(uint256 proposalId, uint256[] calldata voteCounts) external {
     ProposalWithoutVote storage proposalData = _proposals[proposalId];
     proposalData.voteCounts = voteCounts;
   }
 
-  function setTotalVotes(
-    uint256 proposalId,
-    uint256 totalVotes
-  ) external {
+  function submitVote(uint256 proposalId, uint256 optionBitMask) external {}
+
+  function setTotalVotes(uint256 proposalId, uint256 totalVotes) external {
     ProposalWithoutVote storage proposalData = _proposals[proposalId];
     proposalData.totalVotes = totalVotes;
   }
 
-  function setMaxVotingPower(
-    uint256 proposalId,
-    uint256 maxVotingPower
-  ) external {
+  function setMaxVotingPower(uint256 proposalId, uint256 maxVotingPower) external {
     ProposalWithoutVote storage proposalData = _proposals[proposalId];
     proposalData.maxVotingPower = maxVotingPower;
   }
 
-  function getProposalById(uint256 proposalId)
-    external
-    view
-    returns (ProposalWithoutVote memory)
-  {
+  function getProposalById(uint256 proposalId) external view returns (ProposalWithoutVote memory) {
     return _proposals[proposalId];
   }
 
   function getSimpleProposalData(uint256 proposalId)
     external
     view
-    returns
-    (
-    IKyberGovernance.ProposalType proposalType,
-    uint256[] memory voteCounts,
-    uint256 totalVotes,
-    uint256 maxVotingPower
+    returns (
+      IKyberGovernance.ProposalType proposalType,
+      uint256[] memory voteCounts,
+      uint256 totalVotes,
+      uint256 maxVotingPower
     )
   {
     ProposalWithoutVote storage proposalData = _proposals[proposalId];
