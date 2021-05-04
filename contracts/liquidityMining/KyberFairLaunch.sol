@@ -2,6 +2,7 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
+import {ReentrancyGuard} from '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
@@ -14,7 +15,7 @@ import {IKyberRewardLocker} from '../interfaces/liquidityMining/IKyberRewardLock
 /// Allow stakers to stake LP tokens and receive reward token
 /// Part of the reward will be locked and vested
 /// Allow extend or renew a pool to continue/restart the LM program
-contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin {
+contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   using SafeMath for uint256;
   using SafeERC20 for IERC20Ext;
 
@@ -230,7 +231,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin {
   * @param _pid: id of the pool
   * @param _amount: amount of stakeToken to be deposited
   */
-  function deposit(uint256 _pid, uint256 _amount) external override {
+  function deposit(uint256 _pid, uint256 _amount) external override nonReentrant {
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][msg.sender];
     require(pool.stakeToken != address(0), 'deposit: not accept deposit');
@@ -255,11 +256,11 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin {
     require(poolP0.stakeToken == poolP1.stakeToken, 'migrate: only same stake token');
 
     harvest(_pid0);
-    // only need to harvest if it is already started
+    // only need to harvest if it is not started yet
     if (poolP1.startBlock <= block.number) harvest(_pid1);
 
-    UserInfo storage userP1 = userInfo[_pid1][msg.sender];
     UserInfo storage userP0 = userInfo[_pid0][msg.sender];
+    UserInfo storage userP1 = userInfo[_pid1][msg.sender];
 
     uint256 _amount = userP0.amount;
 
@@ -280,7 +281,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin {
   * @param _pid: id of the pool
   * @param _amount: amount of stakeToken to withdraw
   */
-  function withdraw(uint256 _pid, uint256 _amount) external override {
+  function withdraw(uint256 _pid, uint256 _amount) external override nonReentrant {
     _withdraw(_pid, _amount);
   }
 
@@ -288,7 +289,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin {
   * @dev withdraw all tokens (of the sender) from pool, also harvest reward
   * @param _pid: id of the pool
   */
-  function withdrawAll(uint256 _pid) external override {
+  function withdrawAll(uint256 _pid) external override nonReentrant {
     _withdraw(_pid, userInfo[_pid][msg.sender].amount);
   }
 
@@ -297,7 +298,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin {
   *   without harvesting the reward
   * @param _pid: id of the pool
   */
-  function emergencyWithdraw(uint256 _pid) external override {
+  function emergencyWithdraw(uint256 _pid) external override nonReentrant {
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][msg.sender];
     uint256 amount = user.amount;
@@ -313,27 +314,12 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin {
   }
 
   /**
-  * @dev harvest reward from pool for the sender
-  * @param _pid: id of the pool
-  */
-  function harvest(uint256 _pid) public override {
-    PoolInfo storage pool = poolInfo[_pid];
-    UserInfo storage user = userInfo[_pid][msg.sender];
-    updatePoolRewards(_pid);
-    _harvest(msg.sender, _pid);
-    user.rewardDebt = user.amount.mul(pool.accRewardPerShare).div(PRECISION);
-  }
-
-  /**
   * @dev harvest rewards from all pools for the sender
   */
   function harvestAll() external override {
     uint256 length = poolInfo.length;
     for(uint256 i = 0; i < length; i++) {
-      updatePoolRewards(i);
-      _harvest(msg.sender, i);
-      userInfo[i][msg.sender].rewardDebt =
-        userInfo[i][msg.sender].amount.mul(poolInfo[i].accRewardPerShare).div(PRECISION);
+      harvest(i);
     }
   }
 
@@ -380,6 +366,18 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin {
     for (uint256 pid = 0; pid < length; ++pid) {
       updatePoolRewards(pid);
     }
+  }
+
+  /**
+  * @dev harvest reward from pool for the sender
+  * @param _pid: id of the pool
+  */
+  function harvest(uint256 _pid) public override {
+    PoolInfo storage pool = poolInfo[_pid];
+    UserInfo storage user = userInfo[_pid][msg.sender];
+    updatePoolRewards(_pid);
+    _harvest(msg.sender, _pid);
+    user.rewardDebt = user.amount.mul(pool.accRewardPerShare).div(PRECISION);
   }
 
   /**
