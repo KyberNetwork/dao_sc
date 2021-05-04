@@ -24,24 +24,6 @@ interface IKyberFairLaunch {
   ) external;
 
   /**
-  * @dev Renew a pool with a new set of data, only when pool is not active.
-  * @param _pid: pool id to be renew
-  * @param _startBlock: block where the reward starts
-  * @param _endBlock: block where the reward ends
-  * @param _rewardLockBps: percentage (in bps) of reward to be locked
-  * @param _rewardPerBlock: amount of reward token per block for the pool
-  * @param _withUpdate: whether to update the pool
-  */
-  function renewPool(
-    uint256 _pid,
-    uint32 _startBlock,
-    uint32 _endBlock,
-    uint32 _rewardLockBps,
-    uint128 _rewardPerBlock,
-    bool _withUpdate
-  ) external;
-
-  /**
   * @dev Update a pool, allow to change end block, reward per block and lock bps
   * @param _pid: pool id to be renew
   * @param _endBlock: block where the reward ends
@@ -56,6 +38,11 @@ interface IKyberFairLaunch {
     uint128 _rewardPerBlock,
     bool _withUpdate
   ) external;
+
+  /**
+  * @dev migrate deposited stake from a pool to another with the same stakeToken
+  */
+  function migrateStake(uint256 _pid0, uint256 _pid1) external;
 
   /**
   * @dev deposit to tokens to accumulate rewards
