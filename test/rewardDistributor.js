@@ -155,8 +155,8 @@ contract('RewardsDistributor', function (accounts) {
   describe('test claims', async () => {
     before('set initial cycle and pull funds from treasury', async () => {
       cycle = new BN((await rewardsDistributor.getMerkleData()).cycle);
-      tokenAmount = tokenAmount.sub(new BN(1000));
-      ethAmount = ethAmount.sub(new BN(1000));
+      tokenAmount = precisionUnits.mul(new BN(500000));
+      ethAmount = precisionUnits.mul(new BN(50));
       await rewardsDistributor.pullFundsFromTreasury(
         treasury.address,
         tokenAddresses,
