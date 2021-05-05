@@ -24,20 +24,20 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
 
   // Info of each user.
   struct UserInfo {
-    uint256 amount;       // How many Staking tokens the user has provided.
-    uint256 rewardDebt;   // Reward debt. See explanation below.
+    uint256 amount;             // How many Staking tokens the user has provided.
+    uint256 lastRewardPerShare; // Last recorded reward per share
 
     //
     // We do some fancy math here. Basically, any point in time, the amount of reward token
     // entitled to a user but is pending to be distributed is:
     //
-    //   pending reward = (user.amount * pool.accRewardPerShare) - user.rewardDebt
+    //   pending reward = (user.amount * (pool.accRewardPerShare - user.lastRewardPerShare)
     //
     // Whenever a user deposits or withdraws Staking tokens to a pool. Here's what happens:
     //   1. The pool's `accRewardPerShare` (and `lastRewardBlock`) gets updated.
     //   2. User receives the pending reward sent to his/her address.
-    //   3. User's `amount` gets updated.
-    //   4. User's `rewardDebt` gets updated.
+    //   3. User's `lastRewardPerShare` gets updated.
+    //   4. User's `amount` gets updated.
   }
 
   // Info of each pool
@@ -235,12 +235,18 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][msg.sender];
     require(pool.stakeToken != address(0), 'deposit: not accept deposit');
+
+    // update pool rewards and harvest if needed
     updatePoolRewards(_pid);
-    if (user.amount > 0) _harvest(msg.sender, _pid);
+    _harvest(msg.sender, _pid);
+
+    // collect stakeToken
     IERC20Ext(pool.stakeToken).safeTransferFrom(msg.sender, address(this), _amount);
+
+    // update user staked amount, and total staked amount for the pool
     user.amount = user.amount.add(_amount);
-    user.rewardDebt = user.amount.mul(pool.accRewardPerShare).div(PRECISION);
     pool.totalStake = pool.totalStake.add(_amount);
+
     emit Deposit(msg.sender, _pid, block.number, _amount);
   }
 
@@ -256,21 +262,17 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     require(poolP0.stakeToken == poolP1.stakeToken, 'migrate: only same stake token');
 
     harvest(_pid0);
-    // only need to harvest if it is not started yet
-    if (poolP1.startBlock <= block.number) harvest(_pid1);
+    harvest(_pid1);
 
     UserInfo storage userP0 = userInfo[_pid0][msg.sender];
     UserInfo storage userP1 = userInfo[_pid1][msg.sender];
 
     uint256 _amount = userP0.amount;
 
-    userP1.amount = userP1.amount.add(_amount);
-    userP1.rewardDebt = userP1.amount.mul(poolP1.accRewardPerShare).div(PRECISION);
-
     userP0.amount = 0;
-    userP0.rewardDebt = 0;
-
     poolP0.totalStake = poolP0.totalStake.sub(_amount);
+
+    userP1.amount = userP1.amount.add(_amount);
     poolP1.totalStake = poolP1.totalStake.add(_amount);
 
     emit Migrated(msg.sender, _pid0, _pid1, block.number, _amount);
@@ -304,7 +306,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     uint256 amount = user.amount;
 
     user.amount = 0;
-    user.rewardDebt = 0;
+    user.lastRewardPerShare = 0;
     pool.totalStake = pool.totalStake.sub(amount);
 
     if (amount > 0) {
@@ -338,14 +340,14 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   function pendingReward(uint256 _pid, address _user) external override view returns (uint256) {
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][_user];
-    uint256 accRewardPerShare = pool.accRewardPerShare;
+    uint256 _accRewardPerShare = pool.accRewardPerShare;
     uint256 _totalStake = pool.totalStake;
     uint32 lastAccountedBlock = _lastAccountedRewardBlock(_pid);
     if (lastAccountedBlock > pool.lastRewardBlock && _totalStake != 0) {
       uint256 reward = uint256(lastAccountedBlock - pool.lastRewardBlock).mul(pool.rewardPerBlock);
-      accRewardPerShare = accRewardPerShare.add(reward.mul(PRECISION).div(_totalStake));
+      _accRewardPerShare = _accRewardPerShare.add(reward.mul(PRECISION).div(_totalStake));
     }
-    return user.amount.mul(accRewardPerShare).div(PRECISION).sub(user.rewardDebt);
+    return user.amount.mul(_accRewardPerShare.sub(user.lastRewardPerShare)).div(PRECISION);
   }
 
   /**
@@ -377,7 +379,6 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     UserInfo storage user = userInfo[_pid][msg.sender];
     updatePoolRewards(_pid);
     _harvest(msg.sender, _pid);
-    user.rewardDebt = user.amount.mul(pool.accRewardPerShare).div(PRECISION);
   }
 
   /**
@@ -393,7 +394,9 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
       return;
     }
     uint256 reward = uint256(lastAccountedBlock - pool.lastRewardBlock).mul(uint256(pool.rewardPerBlock));
-    pool.accRewardPerShare = _safeUint128(uint256(pool.accRewardPerShare).add(reward.mul(PRECISION).div(_totalStake)));
+    pool.accRewardPerShare = _safeUint128(
+      uint256(pool.accRewardPerShare).add(reward.mul(PRECISION).div(_totalStake))
+    );
     pool.lastRewardBlock = lastAccountedBlock;
   }
 
@@ -424,7 +427,6 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     _harvest(msg.sender, _pid);
 
     user.amount = user.amount.sub(_amount);
-    user.rewardDebt = user.amount.mul(pool.accRewardPerShare).div(PRECISION);
     pool.totalStake = pool.totalStake.sub(_amount);
 
     if (pool.stakeToken != address(0)) {
@@ -440,13 +442,23 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   function _harvest(address _to, uint256 _pid) internal {
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][_to];
-    require(user.amount > 0, 'harvest: nothing to harvest');
-    uint256 _pending = user.amount.mul(pool.accRewardPerShare).div(PRECISION).sub(user.rewardDebt);
+    uint256 _accRewardPerShare = pool.accRewardPerShare;
+    if (user.amount == 0) {
+      // update user last reward per share to the latest pool reward per share
+      user.lastRewardPerShare = _accRewardPerShare;
+      return;
+    }
+    // user's amount * (pool's accRewardPerShare - user's lastRewardPerShare) / precision
+    uint256 _pending = user.amount.mul(_accRewardPerShare.sub(user.lastRewardPerShare)).div(PRECISION);
 
     uint256 _lockedAmount = _pending.mul(pool.rewardLockBps).div(BPS);
     uint256 _claimableAmount = _pending.sub(_lockedAmount);
+
     rewardToken.safeTransfer(_to, _claimableAmount);
     rewardLocker.lock(rewardToken, _to, _lockedAmount);
+
+    // update user last reward per share to the latest pool reward per share
+    user.lastRewardPerShare = _accRewardPerShare;
 
     emit Harvest(_to, _pid, block.number, _claimableAmount, _lockedAmount);
   }
