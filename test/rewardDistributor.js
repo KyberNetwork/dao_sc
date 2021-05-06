@@ -153,23 +153,22 @@ contract('RewardsDistributor', function (accounts) {
   });
 
   describe('test claims', async () => {
-    before('set initial cycle and pull funds from treasury', async () => {
+    before('set initial cycle', async () => {
       cycle = new BN((await rewardsDistributor.getMerkleData()).cycle);
-      tokenAmount = precisionUnits.mul(new BN(500000));
-      ethAmount = precisionUnits.mul(new BN(50));
-      await rewardsDistributor.pullFundsFromTreasury(
-        treasury.address,
-        tokenAddresses,
-        [tokenAmount, tokenAmount, tokenAmount, ethAmount],
-        {from: admin}
-      );
     });
 
     describe('test with randomly generated increasing rewards', async () => {
       beforeEach('increment cycle, generate claims and submit root', async () => {
         cycle = cycle.add(new BN(1));
         currentClaimAmounts = await fetchCurrentClaimAmounts(rewardsDistributor, [victor, mike, loi], tokenAddresses);
-        rewardClaims = generateRewardClaims(cycle, [victor, mike, loi], tokenAddresses, currentClaimAmounts);
+        rewardClaims = await generateRewardClaims(
+          rewardsDistributor,
+          treasury.address,
+          cycle,
+          [victor, mike, loi],
+          tokenAddresses,
+          currentClaimAmounts
+        );
         await rewardsDistributor.proposeRoot(cycle, rewardClaims.merkleRoot, contentHash, {from: admin});
       });
 
@@ -412,11 +411,16 @@ contract('RewardsDistributor', function (accounts) {
           currentClaimAmounts[i].push(zeroBN);
         }
 
+        // create tokens
+        let newToken = await Token.new('Token 1', 'TK1', tokenAmount);
+        let newToken2 = await Token.new('Token 2', 'TK2', tokenAmount);
+
         await generateAndClaimRewards(
           rewardsDistributor,
+          treasury.address,
           cycle,
           [victor, mike, loi],
-          tokenAddresses.concat([victor]),
+          tokenAddresses.concat([newToken.address]),
           currentClaimAmounts,
           false
         );
@@ -431,9 +435,10 @@ contract('RewardsDistributor', function (accounts) {
 
         await generateAndClaimRewards(
           rewardsDistributor,
+          treasury.address,
           cycle,
           [victor, mike, loi],
-          tokenAddresses.concat([victor, mike]),
+          tokenAddresses.concat([newToken.address, newToken2.address]),
           currentClaimAmounts,
           false
         );
@@ -441,7 +446,15 @@ contract('RewardsDistributor', function (accounts) {
 
       it('should successfully claim when claimable is 0 for one or more tokens', async () => {
         let account = victor;
-        await generateAndClaimRewards(rewardsDistributor, cycle, [account], tokenAddresses, currentClaimAmounts, true);
+        await generateAndClaimRewards(
+          rewardsDistributor,
+          treasury.address,
+          cycle,
+          [account],
+          tokenAddresses,
+          currentClaimAmounts,
+          true
+        );
 
         // increment cycle
         cycle = cycle.add(new BN(1));
@@ -452,12 +465,28 @@ contract('RewardsDistributor', function (accounts) {
         let newClaimAmounts = increaseTokenClaimAmounts(currentClaimAmounts);
         newClaimAmounts[0] = currentClaimAmounts[0];
 
-        await generateAndClaimRewards(rewardsDistributor, cycle, [account], tokenAddresses, [newClaimAmounts], false);
+        await generateAndClaimRewards(
+          rewardsDistributor,
+          treasury.address,
+          cycle,
+          [account],
+          tokenAddresses,
+          [newClaimAmounts],
+          false
+        );
       });
 
       it('should revert from integer underflow if claimable amount < claimed', async () => {
         let account = victor;
-        await generateAndClaimRewards(rewardsDistributor, cycle, [account], tokenAddresses, currentClaimAmounts, true);
+        await generateAndClaimRewards(
+          rewardsDistributor,
+          treasury.address,
+          cycle,
+          [account],
+          tokenAddresses,
+          currentClaimAmounts,
+          true
+        );
 
         // increment cycle
         cycle = cycle.add(new BN(1));
@@ -468,7 +497,15 @@ contract('RewardsDistributor', function (accounts) {
         let newClaimAmounts = increaseTokenClaimAmounts(currentClaimAmounts);
         newClaimAmounts[0] = currentClaimAmounts[0].sub(new BN(100));
 
-        let rewardClaims = generateRewardClaims(cycle, [account], tokenAddresses, [newClaimAmounts], false);
+        let rewardClaims = await generateRewardClaims(
+          rewardsDistributor,
+          treasury.address,
+          cycle,
+          [account],
+          tokenAddresses,
+          [newClaimAmounts],
+          false
+        );
         await rewardsDistributor.proposeRoot(cycle, rewardClaims.merkleRoot, contentHash, {from: admin});
 
         let userClaim = rewardClaims.userRewards[account];
@@ -495,6 +532,7 @@ contract('RewardsDistributor', function (accounts) {
         // should be claimable
         await generateAndClaimRewards(
           rewardsDistributor,
+          treasury.address,
           cycle,
           [account],
           tempTokenAddresses,
@@ -507,7 +545,15 @@ contract('RewardsDistributor', function (accounts) {
 
         // earlier amount > later amount, expect revert
         currentClaimAmounts = [currentTokenClaimAmt.add(new BN(8001)), currentTokenClaimAmt.add(new BN(8000))];
-        let rewardClaims = generateRewardClaims(cycle, [account], tempTokenAddresses, [currentClaimAmounts], false);
+        let rewardClaims = await generateRewardClaims(
+          rewardsDistributor,
+          treasury.address,
+          cycle,
+          [account],
+          tempTokenAddresses,
+          [currentClaimAmounts],
+          false
+        );
         await rewardsDistributor.proposeRoot(cycle, rewardClaims.merkleRoot, contentHash, {from: admin});
 
         let userClaim = rewardClaims.userRewards[account];
@@ -533,6 +579,7 @@ contract('RewardsDistributor', function (accounts) {
         // should still be claimable
         await generateAndClaimRewards(
           rewardsDistributor,
+          treasury.address,
           cycle,
           [account],
           tempTokenAddresses,
@@ -545,7 +592,15 @@ contract('RewardsDistributor', function (accounts) {
         let badRewardsClaimer = await BadRewardsClaimer.new();
         let account = badRewardsClaimer.address;
 
-        let rewardClaims = generateRewardClaims(cycle, [account], [ethAddress], [[new BN(1000)]], false);
+        let rewardClaims = await generateRewardClaims(
+          rewardsDistributor,
+          treasury.address,
+          cycle,
+          [account],
+          [ethAddress],
+          [[new BN(1000)]],
+          false
+        );
         await rewardsDistributor.proposeRoot(cycle, rewardClaims.merkleRoot, contentHash, {from: admin});
 
         let userClaim = rewardClaims.userRewards[account];
@@ -591,16 +646,37 @@ async function fetchCurrentClaimAmounts(rewardsDistributor, accounts, tokens) {
   );
 }
 
-function generateRewardClaims(cycle, accounts, tokenAddresses, currentClaimAmounts, increaseClaim = true) {
+async function generateRewardClaims(
+  rewardsDistributor,
+  treasuryAddress,
+  cycle,
+  accounts,
+  tokenAddresses,
+  currentClaimAmounts,
+  increaseClaim = true
+) {
   let userRewards = {};
+  let totalCumulativeAmounts = new Array(tokenAddresses.length).fill(zeroBN);
+  let userCumulativeAmounts;
   for (let i = 0; i < accounts.length; i++) {
+    userCumulativeAmounts = increaseClaim
+      ? increaseTokenClaimAmounts(currentClaimAmounts[i])
+      : convertToString(currentClaimAmounts[i]);
+
     userRewards[accounts[i]] = {
       tokens: tokenAddresses,
-      cumulativeAmounts: increaseClaim
-        ? increaseTokenClaimAmounts(currentClaimAmounts[i])
-        : convertToString(currentClaimAmounts[i]),
+      cumulativeAmounts: userCumulativeAmounts,
     };
+
+    for (let j = 0; j < userCumulativeAmounts.length; j++) {
+      totalCumulativeAmounts[j] = totalCumulativeAmounts[j].add(new BN(userCumulativeAmounts[j]));
+    }
   }
+
+  await rewardsDistributor.pullFundsFromTreasury(treasuryAddress, tokenAddresses, totalCumulativeAmounts, {
+    from: admin,
+  });
+
   return parseRewards({
     cycle: cycle,
     userRewards: userRewards,
@@ -622,13 +698,22 @@ function convertToString(array) {
 
 async function generateAndClaimRewards(
   rewardsDistributor,
+  treasuryAddress,
   cycle,
   accounts,
   tokenAddresses,
   claimAmounts,
   increaseClaim = true
 ) {
-  let rewardClaims = generateRewardClaims(cycle, accounts, tokenAddresses, claimAmounts, increaseClaim);
+  let rewardClaims = await generateRewardClaims(
+    rewardsDistributor,
+    treasuryAddress,
+    cycle,
+    accounts,
+    tokenAddresses,
+    claimAmounts,
+    increaseClaim
+  );
   await rewardsDistributor.proposeRoot(cycle, rewardClaims.merkleRoot, contentHash, {from: admin});
 
   for (const [account, userClaim] of Object.entries(rewardClaims.userRewards)) {
