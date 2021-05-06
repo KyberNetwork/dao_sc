@@ -12,15 +12,13 @@ interface IKyberFairLaunch {
   * @param _endBlock: block where the reward ends
   * @param _rewardLockBps: percentage (in bps) of reward to be locked
   * @param _rewardPerBlock: amount of reward token per block for the pool
-  * @param _withUpdate: whether to update all pools
   */
   function addPool(
     address _stakeToken,
     uint32 _startBlock,
     uint32 _endBlock,
     uint32 _rewardLockBps,
-    uint128 _rewardPerBlock,
-    bool _withUpdate
+    uint128 _rewardPerBlock
   ) external;
 
   /**
@@ -29,14 +27,12 @@ interface IKyberFairLaunch {
   * @param _endBlock: block where the reward ends
   * @param _rewardLockBps: percentage (in bps) of reward to be locked
   * @param _rewardPerBlock: amount of reward token per block for the pool
-  * @param _withUpdate: whether to update the pool
   */
   function updatePool(
     uint256 _pid,
     uint32 _endBlock,
     uint32 _rewardLockBps,
-    uint128 _rewardPerBlock,
-    bool _withUpdate
+    uint128 _rewardPerBlock
   ) external;
 
   /**

@@ -68,7 +68,8 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   IERC20Ext public immutable rewardToken;
 
   // Info of each pool.
-  PoolInfo[] public poolInfo;
+  uint256 public override poolLength;
+  mapping (uint256 => PoolInfo) public poolInfo;
   // Info of each user that stakes Staking tokens.
   mapping(uint256 => mapping(address => UserInfo)) public userInfo;
 
@@ -143,19 +144,14 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   * @param _endBlock: block where the reward ends
   * @param _rewardLockBps: percentage (in bps) of reward to be locked
   * @param _rewardPerBlock: amount of reward token per block for the pool
-  * @param _withUpdate: whether to update all pools
   */
   function addPool(
     address _stakeToken,
     uint32 _startBlock,
     uint32 _endBlock,
     uint32 _rewardLockBps,
-    uint128 _rewardPerBlock,
-    bool _withUpdate
+    uint128 _rewardPerBlock
   ) external override onlyAdmin {
-    if (_withUpdate) {
-      massUpdatePools();
-    }
     require(!isDuplicatedPool(_stakeToken), 'add: duplicated pool');
 
     require(
@@ -164,21 +160,21 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     require(_rewardLockBps <= BPS, 'add: invalid lock bps');
     require(_rewardPerBlock > 0, 'add: invalid reward per block');
 
-    poolInfo.push(
-      PoolInfo({
-        stakeToken: _stakeToken,
-        startBlock: _startBlock,
-        endBlock: _endBlock,
-        lastRewardBlock: _startBlock,
-        rewardLockBps: _rewardLockBps,
-        rewardPerBlock: _rewardPerBlock,
-        accRewardPerShare: 0,
-        totalStake: 0
-      })
-    );
+    poolInfo[poolLength] = PoolInfo({
+      stakeToken: _stakeToken,
+      startBlock: _startBlock,
+      endBlock: _endBlock,
+      lastRewardBlock: _startBlock,
+      rewardLockBps: _rewardLockBps,
+      rewardPerBlock: _rewardPerBlock,
+      accRewardPerShare: 0,
+      totalStake: 0
+    });
+
+    poolLength++;
 
     // use 0 for not exist
-    latestTokenPoolId[_stakeToken] = poolInfo.length;
+    latestTokenPoolId[_stakeToken] = poolLength;
 
     emit AddNewPool(
       _stakeToken,
@@ -195,18 +191,15 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   * @param _endBlock: block where the reward ends
   * @param _rewardLockBps: percentage (in bps) of reward to be locked
   * @param _rewardPerBlock: amount of reward token per block for the pool
-  * @param _withUpdate: whether to update the pool
   */
   function updatePool(
     uint256 _pid,
     uint32 _endBlock,
     uint32 _rewardLockBps,
-    uint128 _rewardPerBlock,
-    bool _withUpdate
+    uint128 _rewardPerBlock
   ) external override onlyAdmin {
-    require(_pid < poolInfo.length, 'update: invalid pool id');
-    // only update this pool
-    if (_withUpdate) updatePoolRewards(_pid);
+    require(_pid < poolLength, 'update: invalid pool id');
+    updatePoolRewards(_pid);
 
     PoolInfo storage pool = poolInfo[_pid];
 
@@ -223,8 +216,11 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
       _rewardLockBps,
       _rewardPerBlock
     );
+
     emit UpdatePool(_pid, _endBlock, _rewardLockBps, _rewardPerBlock);
   }
+
+  // TODO: deposit with permit
 
   /**
   * @dev deposit to tokens to accumulate rewards
@@ -232,9 +228,9 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   * @param _amount: amount of stakeToken to be deposited
   */
   function deposit(uint256 _pid, uint256 _amount) external override nonReentrant {
+    require(_pid < poolLength, 'deposit: invalid pool id');
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][msg.sender];
-    require(pool.stakeToken != address(0), 'deposit: not accept deposit');
 
     // update pool rewards and harvest if needed
     updatePoolRewards(_pid);
@@ -255,6 +251,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   */
   function migrateStake(uint256 _pid0, uint256 _pid1) external override {
     require(_pid0 != _pid1, 'migrate: duplicated pool');
+    require(_pid0 < poolLength && _pid1 < poolLength, 'migrate: invalid pool ids');
 
     PoolInfo storage poolP0 = poolInfo[_pid0];
     PoolInfo storage poolP1 = poolInfo[_pid1];
@@ -319,17 +316,10 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   * @dev harvest rewards from all pools for the sender
   */
   function harvestAll() external override {
-    uint256 length = poolInfo.length;
+    uint256 length = poolLength;
     for(uint256 i = 0; i < length; i++) {
       harvest(i);
     }
-  }
-
-  /**
-  * @dev return the total of pools that have been added
-  */
-  function poolLength() external override view returns (uint256) {
-    return poolInfo.length;
   }
 
   /**
@@ -364,7 +354,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   * @dev update pool reward for all pools
   */
   function massUpdatePools() public {
-    uint256 length = poolInfo.length;
+    uint256 length = poolLength;
     for (uint256 pid = 0; pid < length; ++pid) {
       updatePoolRewards(pid);
     }
@@ -375,8 +365,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   * @param _pid: id of the pool
   */
   function harvest(uint256 _pid) public override {
-    PoolInfo storage pool = poolInfo[_pid];
-    UserInfo storage user = userInfo[_pid][msg.sender];
+    require(_pid < poolLength, 'harvest: invalid pool id');
     updatePoolRewards(_pid);
     _harvest(msg.sender, _pid);
   }
@@ -418,6 +407,8 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   * @dev withdraw _amount of stakeToken from pool _pid, also harvest reward for the sender
   */
   function _withdraw(uint256 _pid, uint256 _amount) internal {
+    require(_pid < poolLength, 'withdraw: invalid pool id');
+
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][msg.sender];
     require(user.amount >= _amount, 'withdraw: insufficient amount');
