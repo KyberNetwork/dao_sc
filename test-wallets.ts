@@ -1,7 +1,8 @@
-const balance = '100000000000000000000000000000000';
+import { HardhatNetworkAccountsConfig } from "hardhat/types";
 
-module.exports = {
-  accounts: [
+const balance: string = '100000000000000000000000000000000';
+
+const accounts: HardhatNetworkAccountsConfig =  [
     // 20 accounts with 10^14 ETH each
     // Addresses:
     //   0xc783df8a850f42e7f7e57013759c285caa701eb6
@@ -104,5 +105,6 @@ module.exports = {
       privateKey: '0x28d1bfbbafe9d1d4f5a11c3c16ab6bf9084de48d99fbac4058bdfa3c80b2908f',
       balance,
     },
-  ]
-};
+  ];
+
+export {accounts};

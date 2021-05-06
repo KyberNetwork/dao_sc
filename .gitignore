@@ -48,6 +48,7 @@ jspm_packages
 
 report
 
+# Environment
 .env
-
 bin
+typechain
