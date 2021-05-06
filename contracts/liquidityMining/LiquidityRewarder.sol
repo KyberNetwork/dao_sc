@@ -41,23 +41,6 @@ contract LiquidityRewarder is PermissionAdmin, ReentrancyGuard {
   address public immutable rewardLocker;
   uint256 public lockBps;
 
-  /* ========== MODIFIERS ========== */
-
-  modifier updateReward(IERC20Ext stakeToken, address account) {
-    StakeTokenInfo storage stakeTokenInfo = rewards[stakeToken];
-    for (uint256 i; i < stakeTokenInfo.rewardTokens.length; i++) {
-      IERC20Ext rewardToken = stakeTokenInfo.rewardTokens[i];
-      RewardInfo storage rewardTokenInfo = stakeTokenInfo.rewardTokenInfo[rewardToken];
-      rewardTokenInfo.rewardPerTokenStored = rewardPerToken(stakeToken, rewardToken);
-      rewardTokenInfo.lastUpdateTime = lastTimeRewardApplicable(stakeToken, rewardToken);
-      if (account != address(0)) {
-        rewardTokenInfo.rewards[account] = earned(account, stakeToken, rewardToken);
-        rewardTokenInfo.userRewardPerTokenPaid[account] = rewardTokenInfo.rewardPerTokenStored;
-      }
-    }
-    _;
-  }
-
   /* ========== EVENTS ========== */
 
   event RewardAdded(IERC20Ext indexed stakeToken, IERC20Ext indexed rewardToken, uint256 reward);
@@ -76,17 +59,26 @@ contract LiquidityRewarder is PermissionAdmin, ReentrancyGuard {
     rewardLocker = _rewardLocker;
   }
 
-  function addRewardPool(
-    IERC20Ext _stakeToken,
-    IERC20Ext _rewardToken,
-    address _rewardsDistributor,
-    uint64 _rewardsDuration
-  ) public onlyAdmin {
-    RewardInfo storage rewardTokenInfo = rewards[_stakeToken].rewardTokenInfo[_rewardToken];
-    require(rewardTokenInfo.rewardsDuration == 0, 'existing reward token info');
-    rewardTokenInfo.rewardsDistributor = _rewardsDistributor;
-    rewardTokenInfo.rewardsDuration = _rewardsDuration;
-    rewards[_stakeToken].rewardTokens.push(_rewardToken);
+  /* ========== MODIFIERS ========== */
+
+  modifier updateReward(IERC20Ext stakeToken, address account) {
+    StakeTokenInfo storage stakeTokenInfo = rewards[stakeToken];
+    for (uint256 i; i < stakeTokenInfo.rewardTokens.length; i++) {
+      IERC20Ext rewardToken = stakeTokenInfo.rewardTokens[i];
+      RewardInfo storage rewardTokenInfo = stakeTokenInfo.rewardTokenInfo[rewardToken];
+      rewardTokenInfo.rewardPerTokenStored = _rewardPerToken(
+        rewardTokenInfo,
+        stakeTokenInfo.totalSupply
+      );
+      rewardTokenInfo.lastUpdateTime = _lastTimeRewardApplicable(
+        rewardTokenInfo.rewardsEndTimestamp
+      );
+      if (account != address(0)) {
+        rewardTokenInfo.rewards[account] = earned(account, stakeToken, rewardToken);
+        rewardTokenInfo.userRewardPerTokenPaid[account] = rewardTokenInfo.rewardPerTokenStored;
+      }
+    }
+    _;
   }
 
   /* ========== VIEWS ========== */
@@ -108,13 +100,12 @@ contract LiquidityRewarder is PermissionAdmin, ReentrancyGuard {
   }
 
   function lastTimeRewardApplicable(IERC20Ext stakeToken, IERC20Ext rewardToken)
-    public
+    external
     view
     returns (uint256)
   {
     return
-      Math.min(
-        block.timestamp,
+      _lastTimeRewardApplicable(
         rewards[stakeToken].rewardTokenInfo[rewardToken].rewardsEndTimestamp
       );
   }
@@ -124,17 +115,10 @@ contract LiquidityRewarder is PermissionAdmin, ReentrancyGuard {
     view
     returns (uint256)
   {
-    RewardInfo storage rewardTokenInfo = rewards[stakeToken].rewardTokenInfo[rewardToken];
-    if (rewards[stakeToken].totalSupply == 0) {
-      return rewardTokenInfo.rewardPerTokenStored;
-    }
     return
-      rewardTokenInfo.rewardPerTokenStored.add(
-        lastTimeRewardApplicable(stakeToken, rewardToken)
-          .sub(rewardTokenInfo.lastUpdateTime)
-          .mul(rewardTokenInfo.rewardRate)
-          .mul(1e18)
-          .div(rewards[stakeToken].totalSupply)
+      _rewardPerToken(
+        rewards[stakeToken].rewardTokenInfo[rewardToken],
+        rewards[stakeToken].totalSupply
       );
   }
 
@@ -147,7 +131,7 @@ contract LiquidityRewarder is PermissionAdmin, ReentrancyGuard {
     return
       rewards[stakeToken].balances[account]
         .mul(
-        rewardPerToken(stakeToken, rewardToken).sub(
+        _rewardPerToken(rewardTokenInfo, rewards[stakeToken].totalSupply).sub(
           rewardTokenInfo.userRewardPerTokenPaid[account]
         )
       )
@@ -165,14 +149,6 @@ contract LiquidityRewarder is PermissionAdmin, ReentrancyGuard {
   }
 
   /* ========== MUTATIVE FUNCTIONS ========== */
-
-  function setRewardsDistributor(
-    IERC20Ext _stakeToken,
-    IERC20Ext _rewardToken,
-    address _rewardsDistributor
-  ) external onlyAdmin {
-    rewards[_stakeToken].rewardTokenInfo[_rewardToken].rewardsDistributor = _rewardsDistributor;
-  }
 
   function stake(IERC20Ext stakeToken, uint256 amount)
     external
@@ -231,6 +207,28 @@ contract LiquidityRewarder is PermissionAdmin, ReentrancyGuard {
   }
 
   /* ========== RESTRICTED FUNCTIONS ========== */
+
+  function addRewardPool(
+    IERC20Ext _stakeToken,
+    IERC20Ext _rewardToken,
+    address _rewardsDistributor,
+    uint64 _rewardsDuration
+  ) public onlyAdmin {
+    RewardInfo storage rewardTokenInfo = rewards[_stakeToken].rewardTokenInfo[_rewardToken];
+    require(rewardTokenInfo.rewardsDuration == 0, 'existing reward token info');
+    rewardTokenInfo.rewardsDistributor = _rewardsDistributor;
+    rewardTokenInfo.rewardsDuration = _rewardsDuration;
+    rewards[_stakeToken].rewardTokens.push(_rewardToken);
+  }
+
+  function setRewardsDistributor(
+    IERC20Ext _stakeToken,
+    IERC20Ext _rewardToken,
+    address _rewardsDistributor
+  ) external onlyAdmin {
+    rewards[_stakeToken].rewardTokenInfo[_rewardToken].rewardsDistributor = _rewardsDistributor;
+  }
+
   function setLockBps(uint256 _lockBps) external onlyAdmin {
     require(_lockBps <= BPS, 'bad lock bps');
     lockBps = _lockBps;
@@ -286,5 +284,28 @@ contract LiquidityRewarder is PermissionAdmin, ReentrancyGuard {
     require(_rewardsDuration > 0, 'reward duration must be non-zero');
     rewardTokenInfo.rewardsDuration = _rewardsDuration;
     emit RewardsDurationUpdated(stakeToken, rewardToken, rewardTokenInfo.rewardsDuration);
+  }
+
+  /* ========== INTERNAL FUNCTIONS ========== */
+  function _rewardPerToken(RewardInfo storage rewardTokenInfo, uint256 totalStakedSupply)
+    internal
+    view
+    returns (uint256)
+  {
+    if (totalStakedSupply == 0) {
+      return rewardTokenInfo.rewardPerTokenStored;
+    }
+    return
+      rewardTokenInfo.rewardPerTokenStored.add(
+        _lastTimeRewardApplicable(rewardTokenInfo.rewardsEndTimestamp)
+          .sub(rewardTokenInfo.lastUpdateTime)
+          .mul(rewardTokenInfo.rewardRate)
+          .mul(1e18)
+          .div(totalStakedSupply)
+      );
+  }
+
+  function _lastTimeRewardApplicable(uint256 rewardsEndTimestamp) internal view returns (uint256) {
+    return Math.min(block.timestamp, rewardsEndTimestamp);
   }
 }
