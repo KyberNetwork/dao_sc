@@ -526,7 +526,7 @@ contract('RewardsDistributor', function (accounts) {
       it('should successfully claim even though there are multiple instances of the same token, under the right conditions', async () => {
         let account = victor;
         let tempTokenAddresses = [knc.address, knc.address];
-        currentClaimAmounts = currentClaimAmounts[0];
+        currentClaimAmounts = await rewardsDistributor.getClaimedAmounts(account, [knc.address]);
         let currentTokenClaimAmt = currentClaimAmounts[0];
         currentClaimAmounts = [currentTokenClaimAmt.add(new BN(5000)), currentTokenClaimAmt.add(new BN(8000))];
         // should be claimable
