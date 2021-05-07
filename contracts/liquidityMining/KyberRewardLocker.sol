@@ -23,20 +23,14 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
   using SafeERC20 for IERC20Ext;
   using EnumerableSet for EnumerableSet.AddressSet;
 
-  struct VestingSchedule {
-    uint64 startTime;
-    uint64 endTime;
-    uint128 quantity;
-  }
-
   struct VestingSchedules {
     uint256 length;
     mapping(uint256 => VestingSchedule) data;
   }
 
   struct VestingConfig {
-    uint64 lockTime;
-    uint64 negligibleTimeDifferent;
+    uint64 lockDuration;
+    uint64 negligibleTimeDifference;
   }
 
   uint256 private constant MAX_REWARD_CONTRACTS_SIZE = 10;
@@ -62,7 +56,11 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
   /* ========== EVENTS ========== */
   event RewardContractAdded(address indexed rewardContract, bool isAdded);
   event SetSlashingTarget(IERC20Ext indexed token, address target);
-  event SetVestingConfig(IERC20Ext indexed token, uint64 lockTime, uint64 negligibleTimeDifferent);
+  event SetVestingConfig(
+    IERC20Ext indexed token,
+    uint64 lockDuration,
+    uint64 negligibleTimeDifference
+  );
 
   /* ========== MODIFIERS ========== */
 
@@ -103,15 +101,15 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
 
   function setVestingConfig(
     IERC20Ext token,
-    uint64 _lockTime,
-    uint64 _negligibleTimeDifferent
+    uint64 _lockDuration,
+    uint64 _negligibleTimeDifference
   ) external onlyAdmin {
     vestingConfigPerToken[token] = VestingConfig({
-      lockTime: _lockTime,
-      negligibleTimeDifferent: _negligibleTimeDifferent
+      lockDuration: _lockDuration,
+      negligibleTimeDifference: _negligibleTimeDifference
     });
 
-    emit SetVestingConfig(token, _lockTime, _negligibleTimeDifferent);
+    emit SetVestingConfig(token, _lockDuration, _negligibleTimeDifference);
   }
 
   function lock(
@@ -137,7 +135,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     uint256 schedulesLength = schedules.length;
 
     VestingConfig memory config = vestingConfigPerToken[token];
-    uint256 endTime = startTime.add(config.lockTime);
+    uint256 endTime = startTime.add(config.lockDuration);
 
     if (schedulesLength == 0) {
       accountEscrowedBalance[account][token] = quantity;
@@ -149,13 +147,13 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
       schedules.length = 1;
     } else {
       VestingSchedule memory lastSchedule = schedules.data[schedulesLength - 1];
-      uint256 lastLockTime = uint256(lastSchedule.endTime).sub(lastSchedule.startTime);
-      ///  if lockTime of lastSchedule == currentLockTime
+      uint256 lastLockDuration = uint256(lastSchedule.endTime).sub(lastSchedule.startTime);
+      ///  if lockDuration of lastSchedule == current lockDuration
       /// and the diffrent between startTime of lastSchedule and startTime are negligible
       /// then merge schedule
       if (
-        lastSchedule.startTime > startTime.sub(config.negligibleTimeDifferent) &&
-        lastLockTime == config.lockTime
+        lastSchedule.startTime > startTime.sub(config.negligibleTimeDifference) &&
+        lastLockDuration == config.lockDuration
       ) {
         schedules.data[schedulesLength - 1] = VestingSchedule({
           startTime: startTime.toUint64(),
@@ -182,7 +180,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
   /**
    * @dev Allow a user to vest all ended schedules
    */
-  function vestAll(IERC20Ext token) external returns (uint256) {
+  function vestCompletedSchedules(IERC20Ext token) external override returns (uint256) {
     VestingSchedules storage schedules = accountsVestingSchedules[msg.sender][token];
     uint256 schedulesLength = schedules.length;
 
@@ -216,7 +214,11 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
   /**
    * @notice Allow a user to vest with specific schedule
    */
-  function vestAtIndex(IERC20Ext token, uint256[] calldata indexes) external returns (uint256) {
+  function vestScheduleAtIndex(IERC20Ext token, uint256[] calldata indexes)
+    external
+    override
+    returns (uint256)
+  {
     VestingSchedules storage schedules = accountsVestingSchedules[msg.sender][token];
     uint256 totalVesting = 0;
     uint256 totalSlashing = 0;
@@ -260,7 +262,12 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
   /**
    * @notice The number of vesting dates in an account's schedule.
    */
-  function numVestingSchedules(address account, IERC20Ext token) external view returns (uint256) {
+  function numVestingSchedules(address account, IERC20Ext token)
+    external
+    override
+    view
+    returns (uint256)
+  {
     return accountsVestingSchedules[account][token].length;
   }
 
@@ -273,6 +280,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     uint256 index
   )
     external
+    override
     view
     returns (
       uint64 startTime,
@@ -289,6 +297,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
    */
   function getVestingSchedules(address account, IERC20Ext token)
     external
+    override
     view
     returns (VestingSchedule[] memory schedules)
   {
