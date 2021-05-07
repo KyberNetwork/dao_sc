@@ -61,12 +61,15 @@ contract('KyberRewardLocker', (accounts) => {
       Helper.assertEqual(await rewardLocker.getRewardContractsPerToken(rewardToken.address), [rewardContract]);
     });
 
-    it('set lock time', async () => {
-      await expectRevert(rewardLocker.setLockTime(rewardToken.address, new BN(1000), {from: user1}), 'only admin');
+    it('set vesting config', async () => {
+      await expectRevert(
+        rewardLocker.setVestingConfig(rewardToken.address, new BN(1000), new BN(10), {from: user1}),
+        'only admin'
+      );
 
-      txResult = await rewardLocker.setLockTime(rewardToken.address, new BN(1000), {from: admin});
-      expectEvent(txResult, 'SetLockTime', {_lockTime: new BN(1000)});
-      Helper.assertEqual(await rewardLocker.lockTime(rewardToken.address), new BN(1000));
+      txResult = await rewardLocker.setVestingConfig(rewardToken.address, new BN(1000), new BN(10), {from: admin});
+      expectEvent(txResult, 'SetVestingConfig', {lockTime: new BN(1000)});
+      Helper.assertEqual((await rewardLocker.vestingConfigPerToken(rewardToken.address)).lockTime, new BN(1000));
     });
 
     it('set slashing target', async () => {
@@ -85,7 +88,7 @@ contract('KyberRewardLocker', (accounts) => {
     beforeEach('setup', async () => {
       rewardLocker = await RewardLocker.new(admin);
       await rewardLocker.addRewardsContract(rewardToken.address, rewardContract, {from: admin});
-      await rewardLocker.setLockTime(rewardToken.address, new BN(3600), {from: admin});
+      await rewardLocker.setVestingConfig(rewardToken.address, new BN(3600), new BN(60), {from: admin});
     });
 
     it('lock and vest with full time', async () => {

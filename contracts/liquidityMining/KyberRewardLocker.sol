@@ -4,6 +4,7 @@ pragma abicoder v2;
 
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
+import {Math} from '@openzeppelin/contracts/math/Math.sol';
 import {SafeCast} from '@openzeppelin/contracts/utils/SafeCast.sol';
 import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 import {EnumerableSet} from '@openzeppelin/contracts/utils/EnumerableSet.sol';
@@ -33,6 +34,11 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     mapping(uint256 => VestingSchedule) data;
   }
 
+  struct VestingConfig {
+    uint64 lockTime;
+    uint64 negligibleTimeDifferent;
+  }
+
   uint256 private constant MAX_REWARD_CONTRACTS_SIZE = 10;
 
   /// @dev whitelist of reward contracts
@@ -51,12 +57,12 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
   mapping(IERC20Ext => address) public slashingTargets;
 
   /// @dev lock time
-  mapping(IERC20Ext => uint256) public lockTime;
+  mapping(IERC20Ext => VestingConfig) public vestingConfigPerToken;
 
   /* ========== EVENTS ========== */
   event RewardContractAdded(address indexed rewardContract, bool isAdded);
   event SetSlashingTarget(IERC20Ext indexed token, address target);
-  event SetLockTime(IERC20Ext indexed token, uint256 _lockTime);
+  event SetVestingConfig(IERC20Ext indexed token, uint64 lockTime, uint64 negligibleTimeDifferent);
 
   /* ========== MODIFIERS ========== */
 
@@ -95,10 +101,17 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     emit SetSlashingTarget(token, target);
   }
 
-  function setLockTime(IERC20Ext token, uint256 _lockTime) external onlyAdmin {
-    lockTime[token] = _lockTime;
+  function setVestingConfig(
+    IERC20Ext token,
+    uint64 _lockTime,
+    uint64 _negligibleTimeDifferent
+  ) external onlyAdmin {
+    vestingConfigPerToken[token] = VestingConfig({
+      lockTime: _lockTime,
+      negligibleTimeDifferent: _negligibleTimeDifferent
+    });
 
-    emit SetLockTime(token, _lockTime);
+    emit SetVestingConfig(token, _lockTime, _negligibleTimeDifferent);
   }
 
   function lock(
@@ -115,7 +128,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     uint256 quantity,
     uint256 startTime
   ) public override onlyRewardsContract(token) {
-    require(quantity != 0, 'Quantity cannot be zero');
+    require(quantity > 0, 'Quantity cannot be zero');
 
     // transfer token from reward contract to lock contract
     token.safeTransferFrom(msg.sender, address(this), quantity);
@@ -123,68 +136,86 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     VestingSchedules storage schedules = accountsVestingSchedules[account][token];
     uint256 schedulesLength = schedules.length;
 
-    uint256 endTime = startTime.add(lockTime[token]);
+    VestingConfig memory config = vestingConfigPerToken[token];
+    uint256 endTime = startTime.add(config.lockTime);
 
     if (schedulesLength == 0) {
       accountEscrowedBalance[account][token] = quantity;
+      schedules.data[0] = VestingSchedule({
+        startTime: startTime.toUint64(),
+        endTime: endTime.toUint64(),
+        quantity: quantity.toUint128()
+      });
+      schedules.length = 1;
     } else {
-      /* Disallow adding new vested XTK earlier than the last one. */
-      require(schedules.data[schedulesLength - 1].endTime < endTime, 'not linear vesting');
+      VestingSchedule memory lastSchedule = schedules.data[schedulesLength - 1];
+      uint256 lastLockTime = uint256(lastSchedule.endTime).sub(lastSchedule.startTime);
+      ///  if lockTime of lastSchedule == currentLockTime
+      /// and the diffrent between startTime of lastSchedule and startTime are negligible
+      /// then merge schedule
+      if (
+        lastSchedule.startTime > startTime.sub(config.negligibleTimeDifferent) &&
+        lastLockTime == config.lockTime
+      ) {
+        schedules.data[schedulesLength - 1] = VestingSchedule({
+          startTime: startTime.toUint64(),
+          endTime: endTime.toUint64(),
+          quantity: uint256(lastSchedule.quantity).add(quantity).toUint128()
+        });
+      } else {
+        // append to storage, the schedule data
+        schedules.data[schedulesLength] = VestingSchedule({
+          startTime: startTime.toUint64(),
+          endTime: endTime.toUint64(),
+          quantity: quantity.toUint128()
+        });
+        schedules.length = schedulesLength + 1;
+      }
       accountEscrowedBalance[account][token] = accountEscrowedBalance[account][token].add(
         quantity
       );
     }
-    // append to storage, the schedule data
-    schedules.data[schedulesLength] = VestingSchedule({
-      startTime: startTime.toUint64(),
-      endTime: endTime.toUint64(),
-      quantity: quantity.toUint128()
-    });
-    schedules.length = schedulesLength + 1;
 
     emit VestingEntryCreated(token, account, _blockTimestamp(), quantity);
   }
 
   /**
-   * @notice Allow a user to withdraw any XTK in their schedule that have vested.
+   * @dev Allow a user to vest all ended schedules
    */
   function vestAll(IERC20Ext token) external returns (uint256) {
     VestingSchedules storage schedules = accountsVestingSchedules[msg.sender][token];
     uint256 schedulesLength = schedules.length;
 
     uint256 totalVesting = 0;
-    uint256 totalSlashing = 0;
     for (uint256 i = 0; i < schedulesLength; i++) {
       VestingSchedule memory schedule = schedules.data[i];
       if (schedule.quantity == 0) {
         continue;
       }
-      uint256 vestQuantity = _getVestingQuantity(
-        schedule.quantity,
-        schedule.startTime,
-        schedule.endTime
-      );
-      totalVesting = totalVesting.add(vestQuantity);
-      totalSlashing = totalSlashing.add(schedule.quantity - vestQuantity);
+      if (_blockTimestamp() < schedule.endTime) {
+        continue;
+      }
+      totalVesting = totalVesting.add(schedule.quantity);
       // clear data after vesting
       schedules.data[i].quantity = 0;
     }
     require(totalVesting != 0, 'invalid vesting amount');
     accountEscrowedBalance[msg.sender][token] = accountEscrowedBalance[msg.sender][token].sub(
-      totalVesting.add(totalSlashing)
+      totalVesting
     );
     accountVestedBalance[msg.sender][token] = accountVestedBalance[msg.sender][token].add(
       totalVesting
     );
 
     token.safeTransfer(msg.sender, totalVesting);
-    if (totalSlashing != 0) _slash(token, totalSlashing);
 
-    emit Vested(token, msg.sender, _blockTimestamp(), totalVesting, totalSlashing);
-
+    emit Vested(token, msg.sender, _blockTimestamp(), totalVesting, 0);
     return totalVesting;
   }
 
+  /**
+   * @notice Allow a user to vest with specific schedule
+   */
   function vestAtIndex(IERC20Ext token, uint256[] calldata indexes) external returns (uint256) {
     VestingSchedules storage schedules = accountsVestingSchedules[msg.sender][token];
     uint256 totalVesting = 0;
@@ -199,6 +230,9 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
         schedule.startTime,
         schedule.endTime
       );
+      if (vestQuantity == 0) {
+        continue;
+      }
       totalVesting = totalVesting.add(vestQuantity);
       totalSlashing = totalSlashing.add(schedule.quantity - vestQuantity);
       // clear data after vesting
@@ -305,7 +339,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     if (_blockTimestamp() <= startTime) {
       return 0;
     }
-    return _blockTimestamp().sub(startTime).mul(quantity).div(endTime - startTime);
+    return (_blockTimestamp() - startTime).mul(quantity).div(endTime - startTime);
   }
 
   /**
