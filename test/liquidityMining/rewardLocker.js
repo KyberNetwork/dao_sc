@@ -131,7 +131,7 @@ contract('KyberRewardLocker', (accounts) => {
 
       await rewardLocker.setTimestamp(new BN(9000));
 
-      txResult = await rewardLocker.vestAll(rewardToken.address, {from: user1});
+      txResult = await rewardLocker.vestAtIndex(rewardToken.address, [new BN(0)], {from: user1});
       expectEvent(txResult, 'Vested', {
         token: rewardToken.address,
         beneficiary: user1,
@@ -159,7 +159,7 @@ contract('KyberRewardLocker', (accounts) => {
 
       await rewardLocker.setTimestamp(new BN(9000));
 
-      txResult = await rewardLocker.vestAll(rewardToken.address, {from: user1});
+      txResult = await rewardLocker.vestAtIndex(rewardToken.address, [new BN(0)], {from: user1});
       expectEvent(txResult, 'Vested', {
         token: rewardToken.address,
         beneficiary: user1,
