@@ -10,14 +10,26 @@ interface IKyberFairLaunch {
   * @param _stakeToken: token to be staked to the pool
   * @param _startBlock: block where the reward starts
   * @param _endBlock: block where the reward ends
-  * @param _rewardLockBps: percentage (in bps) of reward to be locked
   * @param _rewardPerBlock: amount of reward token per block for the pool
   */
   function addPool(
     address _stakeToken,
     uint32 _startBlock,
     uint32 _endBlock,
-    uint32 _rewardLockBps,
+    uint128 _rewardPerBlock
+  ) external;
+
+  /**
+  * @dev Renew a pool to start another liquidity mining program
+  * @param _pid: id of the pool to renew, must be pool that has not started or already ended
+  * @param _startBlock: block where the reward starts
+  * @param _endBlock: block where the reward ends
+  * @param _rewardPerBlock: amount of reward token per block for the pool
+  */
+  function renewPool(
+    uint256 _pid,
+    uint32 _startBlock,
+    uint32 _endBlock,
     uint128 _rewardPerBlock
   ) external;
 
@@ -25,27 +37,21 @@ interface IKyberFairLaunch {
   * @dev Update a pool, allow to change end block, reward per block and lock bps
   * @param _pid: pool id to be renew
   * @param _endBlock: block where the reward ends
-  * @param _rewardLockBps: percentage (in bps) of reward to be locked
   * @param _rewardPerBlock: amount of reward token per block for the pool
   */
   function updatePool(
     uint256 _pid,
     uint32 _endBlock,
-    uint32 _rewardLockBps,
     uint128 _rewardPerBlock
   ) external;
-
-  /**
-  * @dev migrate deposited stake from a pool to another with the same stakeToken
-  */
-  function migrateStake(uint256 _pid0, uint256 _pid1) external;
 
   /**
   * @dev deposit to tokens to accumulate rewards
   * @param _pid: id of the pool
   * @param _amount: amount of stakeToken to be deposited
+  * @param _shouldHarvest: whether to harvest the reward or not
   */
-  function deposit(uint256 _pid, uint256 _amount) external;
+  function deposit(uint256 _pid, uint256 _amount, bool _shouldHarvest) external;
 
   /**
   * @dev withdraw token (of the sender) from pool, also harvest reward
@@ -74,9 +80,9 @@ interface IKyberFairLaunch {
   function harvest(uint256 _pid) external;
 
   /**
-  * @dev harvest rewards from all pools for the sender
+  * @dev harvest rewards from multiple pools for the sender
   */
-  function harvestAll() external;
+  function harvestMultiplePools(uint256[] calldata _pids) external;
 
   /**
   * @dev update reward for one pool
