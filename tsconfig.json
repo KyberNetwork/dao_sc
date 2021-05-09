@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "allowJs": true,
     "target": "es2018",
     "module": "commonjs",
     "strict": true,
