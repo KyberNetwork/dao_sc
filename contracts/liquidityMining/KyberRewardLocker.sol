@@ -39,7 +39,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
   mapping(IERC20Ext => EnumerableSet.AddressSet) internal rewardContractsPerToken;
 
   /// @dev vesting schedule of an account
-  mapping(address => mapping(IERC20Ext => VestingSchedules)) private accountsVestingSchedules;
+  mapping(address => mapping(IERC20Ext => VestingSchedules)) private accountVestingSchedules;
 
   /// @dev An account's total escrowed balance per token to save recomputing this for fee extraction purposes
   mapping(address => mapping(IERC20Ext => uint256)) public accountEscrowedBalance;
@@ -65,7 +65,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
   /* ========== MODIFIERS ========== */
 
   modifier onlyRewardsContract(IERC20Ext token) {
-    require(rewardContractsPerToken[token].contains(msg.sender), 'onlyRewardcontract');
+    require(rewardContractsPerToken[token].contains(msg.sender), 'only reward contract');
     _;
   }
 
@@ -131,7 +131,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     // transfer token from reward contract to lock contract
     token.safeTransferFrom(msg.sender, address(this), quantity);
 
-    VestingSchedules storage schedules = accountsVestingSchedules[account][token];
+    VestingSchedules storage schedules = accountVestingSchedules[account][token];
     uint256 schedulesLength = schedules.length;
 
     VestingConfig memory config = vestingConfigPerToken[token];
@@ -181,7 +181,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
    * @dev Allow a user to vest all ended schedules
    */
   function vestCompletedSchedules(IERC20Ext token) external override returns (uint256) {
-    VestingSchedules storage schedules = accountsVestingSchedules[msg.sender][token];
+    VestingSchedules storage schedules = accountVestingSchedules[msg.sender][token];
     uint256 schedulesLength = schedules.length;
 
     uint256 totalVesting = 0;
@@ -197,7 +197,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
       // clear data after vesting
       schedules.data[i].quantity = 0;
     }
-    require(totalVesting != 0, 'invalid vesting amount');
+    require(totalVesting != 0, '0 vesting amount');
     accountEscrowedBalance[msg.sender][token] = accountEscrowedBalance[msg.sender][token].sub(
       totalVesting
     );
@@ -219,7 +219,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     override
     returns (uint256)
   {
-    VestingSchedules storage schedules = accountsVestingSchedules[msg.sender][token];
+    VestingSchedules storage schedules = accountVestingSchedules[msg.sender][token];
     uint256 totalVesting = 0;
     uint256 totalSlashing = 0;
     for (uint256 i = 0; i < indexes.length; i++) {
@@ -268,7 +268,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     view
     returns (uint256)
   {
-    return accountsVestingSchedules[account][token].length;
+    return accountVestingSchedules[account][token].length;
   }
 
   /**
@@ -288,7 +288,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
       uint128 quantity
     )
   {
-    VestingSchedule memory schedule = accountsVestingSchedules[account][token].data[index];
+    VestingSchedule memory schedule = accountVestingSchedules[account][token].data[index];
     return (schedule.startTime, schedule.endTime, schedule.quantity);
   }
 
@@ -301,10 +301,10 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     view
     returns (VestingSchedule[] memory schedules)
   {
-    uint256 schedulesLength = accountsVestingSchedules[account][token].length;
+    uint256 schedulesLength = accountVestingSchedules[account][token].length;
     schedules = new VestingSchedule[](schedulesLength);
     for (uint256 i = 0; i < schedulesLength; i++) {
-      schedules[i] = accountsVestingSchedules[account][token].data[i];
+      schedules[i] = accountVestingSchedules[account][token].data[i];
     }
   }
 
