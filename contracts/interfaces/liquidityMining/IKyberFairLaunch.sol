@@ -34,7 +34,7 @@ interface IKyberFairLaunch {
   ) external;
 
   /**
-  * @dev Update a pool, allow to change end block, reward per block and lock bps
+  * @dev Update a pool, allow to change end block, reward per block
   * @param _pid: pool id to be renew
   * @param _endBlock: block where the reward ends
   * @param _rewardPerBlock: amount of reward token per block for the pool
