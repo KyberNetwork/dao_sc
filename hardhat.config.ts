@@ -1,18 +1,19 @@
 import '@nomiclabs/hardhat-truffle5';
+import '@nomiclabs/hardhat-ethers';
 import '@nomiclabs/hardhat-web3';
 import '@nomiclabs/hardhat-etherscan';
 import 'hardhat-gas-reporter';
 import 'solidity-coverage';
 import '@openzeppelin/hardhat-upgrades';
 import 'hardhat-typechain';
-import {HardhatUserConfig} from 'hardhat/types';
+import { HardhatUserConfig } from 'hardhat/types';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
 
 import './deployment/katanaDeployment.js';
 import './deployment/deployInternalGovernance.js';
-import {accounts} from './test-wallets';
+import { accounts } from './test-wallets';
 
 const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',

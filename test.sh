@@ -9,5 +9,5 @@ if [ -n "$FILE" ]; then
   yarn hardhat test --no-compile $FILE
 else
   echo "Running all tests..."
-  yarn hardhat test --no-compile
+  yarn hardhat test test/**/*.spec.* --no-compile
 fi
