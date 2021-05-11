@@ -7,7 +7,7 @@ readonly test_part=${TEST_PART:-}
 
 case "$test_part" in
 fullRegression)
-    yarn hardhat test --no-compile
+    yarn test
     ;;
 *)
     echo "test case not defined yet"
