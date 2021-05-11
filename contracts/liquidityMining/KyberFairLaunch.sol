@@ -24,9 +24,9 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
 
   // Info of each user.
   struct UserInfo {
-    uint256 amount;             // How many Staking tokens the user has provided.
+    uint256 amount;               // How many Staking tokens the user has provided.
     uint128 unclaimedReward;      // Reward that is pending to claim
-    uint128 lastRewardPerShare; // Last recorded reward per share
+    uint128 lastRewardPerShare;   // Last recorded reward per share
 
     //
     // Basically, any point in time, the amount of reward token
@@ -93,13 +93,6 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     address indexed user,
     uint256 indexed pid,
     uint256 indexed blockNumber,
-    uint256 amount
-  );
-  event Migrated(
-    address indexed user,
-    uint256 indexed pid0,
-    uint256 indexed pid1,
-    uint256 blockNumber,
     uint256 amount
   );
   event Withdraw(
@@ -368,7 +361,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     if (lastAccountedBlock <= pool.lastRewardBlock || lastAccountedBlock < pool.startBlock) return;
     uint256 _totalStake = pool.totalStake;
     if (_totalStake == 0) {
-      pool.lastRewardBlock = _safeUint32(block.number);
+      pool.lastRewardBlock = lastAccountedBlock;
       return;
     }
     uint256 reward = uint256(lastAccountedBlock - pool.lastRewardBlock).mul(uint256(pool.rewardPerBlock));
