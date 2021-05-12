@@ -296,6 +296,150 @@ contract('KyberFairLaunch', function (accounts) {
     });
   });
 
+
+  describe('#harvest', async () => {
+    beforeEach('deploy contracts', async() => {
+      await deployContracts();
+    });
+
+    it('revert invalid pool', async() => {
+      await expectRevert(
+        fairLaunch.harvest(1, { from: user1 }),
+        'invalid pool id'
+      );
+      await expectRevert(
+        fairLaunch.harvestMultiplePools([1], { from: user1 }),
+        'invalid pool id'
+      );
+    });
+
+    it('revert harvest not enough reward token', async() => {
+      currentBlock = new BN(await Helper.getCurrentBlock());
+      let pid = await addNewPool(
+        currentBlock.add(new BN(10)), currentBlock.add(new BN(20)), precisionUnits
+      );
+      await fairLaunch.deposit(pid, precisionUnits, false, { from: user1 });
+      await Helper.increaseBlockNumberTo(poolInfo[pid].startBlock);
+      await expectRevert.unspecified(
+        fairLaunch.harvest(pid, { from: user1 })
+      );
+      await kncToken.transfer(fairLaunch.address, precisionUnits.mul(new BN(10)));
+      await fairLaunch.harvest(pid, { from: user1 });
+    });
+
+    it('harvest and check rewards', async() => {
+      let amount = precisionUnits.div(new BN(10));
+      currentBlock = new BN(await Helper.getCurrentBlock());
+      let startBlock = currentBlock.add(new BN(16));
+      let pid = await addNewPool(
+        startBlock, startBlock.add(new BN(50)), precisionUnits
+      );
+
+      amount = precisionUnits.mul(new BN(2));
+      await depositAndVerifyData(user1, pid, amount, false);
+      await depositAndVerifyData(user2, pid, amount, true);
+
+      // harvest when not started yet, no reward claimed
+      // Note: KNC has not been set to the fairlaunch yet, means it won't revert because reward is 0
+      await harvestAndVerifyData(user1, pid);
+
+      await Helper.increaseBlockNumberTo(startBlock.add(new BN(2)));
+
+      await kncToken.transfer(fairLaunch.address, precisionUnits.mul(new BN(200)));
+
+      // harvest reward
+      await harvestAndVerifyData(user1, pid);
+      await Helper.increaseBlockNumber(2);
+      await harvestAndVerifyData(user2, pid);
+      // harvest user that has not depsited
+      await harvestAndVerifyData(user3, pid);
+
+      await verifyPendingRewards(pid, [user1, user2, user3]);
+
+      // deposit and not harvest, then harvest
+      await depositAndVerifyData(user1, pid, amount, false);
+      await harvestAndVerifyData(user1, pid);
+      // deposit and harvest, then call harvest
+      await depositAndVerifyData(user2, pid, amount, true);
+      await harvestAndVerifyData(user2, pid);
+
+      // delay to end
+      await Helper.increaseBlockNumberTo(poolInfo[pid].endBlock);
+
+      await harvestAndVerifyData(user1, pid);
+      await withdrawAndVerifyData(user2, pid, userInfo[user2][pid].amount, true);
+      await harvestAndVerifyData(user2, pid);
+
+      // extra verification
+      let poolData = await fairLaunch.poolInfo(pid);
+      let user1Data = await fairLaunch.userInfo(pid, user1);
+      let user2Data = await fairLaunch.userInfo(pid, user2);
+
+      await Helper.assertEqual(poolInfo[pid].endBlock, poolData.lastRewardBlock);
+      await Helper.assertEqual(user1Data.lastRewardPerShare, poolData.accRewardPerShare);
+      await Helper.assertEqual(user2Data.lastRewardPerShare, poolData.accRewardPerShare);
+      await Helper.assertEqual(0, user2Data.unclaimedReward);
+      await Helper.assertEqual(0, user1Data.unclaimedReward);
+    });
+
+    it('harvest multiple pools and check rewards', async() => {
+      currentBlock = new BN(await Helper.getCurrentBlock());
+      let startBlock = currentBlock.add(new BN(16));
+      let pid1 = await addNewPool(
+        startBlock, startBlock.add(new BN(50)), precisionUnits
+      );
+      let pid2 = await addNewPool(
+        startBlock, startBlock.add(new BN(40)), precisionUnits.mul(new BN(2))
+      );
+      let amount = precisionUnits.mul(new BN(2));
+      await depositAndVerifyData(user1, pid1, amount, false);
+      await depositAndVerifyData(user2, pid1, amount.add(new BN(1)), true);
+
+      amount = precisionUnits;
+      await depositAndVerifyData(user1, pid1, amount, false);
+      await depositAndVerifyData(user2, pid1, amount.add(new BN(100)), true);
+
+      // harvest when not started yet, no reward claimed
+      // Note: KNC has not been set to the fairlaunch yet, means it won't revert because reward is 0
+      await harvestMultiplePoolsAndVerifyData(user1, [pid1, pid2]);
+      await Helper.increaseBlockNumberTo(startBlock.add(new BN(2)));
+
+      await kncToken.transfer(fairLaunch.address, precisionUnits.mul(new BN(200)));
+
+      await harvestMultiplePoolsAndVerifyData(user1, [pid1, pid2]);
+      // harvest same pid
+      await harvestMultiplePoolsAndVerifyData(user2, [pid1, pid1]);
+
+      await depositAndVerifyData(user1, pid1, amount, false);
+      await depositAndVerifyData(user2, pid2, amount, false);
+
+      await harvestMultiplePoolsAndVerifyData(user1, [pid1]);
+      await harvestMultiplePoolsAndVerifyData(user1, [pid2]);
+      // harvest same pid
+      await harvestMultiplePoolsAndVerifyData(user2, [pid1, pid2]);
+
+      await Helper.increaseBlockNumberTo(poolInfo[pid1].endBlock);
+
+      await harvestMultiplePoolsAndVerifyData(user1, [pid1, pid2]);
+      await harvestMultiplePoolsAndVerifyData(user2, [pid1, pid2]);
+      // extra verification
+      let pids = [pid1, pid2];
+      for(let i = 0; i < pids.length; i++) {
+        let pid = pids[i];
+
+        let poolData = await fairLaunch.poolInfo(pid);
+        let user1Data = await fairLaunch.userInfo(pid, user1);
+        let user2Data = await fairLaunch.userInfo(pid, user2);
+
+        await Helper.assertEqual(poolInfo[pid].endBlock, poolData.lastRewardBlock);
+        await Helper.assertEqual(user1Data.lastRewardPerShare, poolData.accRewardPerShare);
+        await Helper.assertEqual(user2Data.lastRewardPerShare, poolData.accRewardPerShare);
+        await Helper.assertEqual(0, user2Data.unclaimedReward);
+        await Helper.assertEqual(0, user1Data.unclaimedReward);
+      }
+    });
+  });
+
   const depositAndVerifyData = async (user, pid, amount, isHarvesting) => {
     let poolData = poolInfo[pid];
     let userBalBefore = await poolData.stakeToken.balanceOf(user);
@@ -362,12 +506,53 @@ contract('KyberFairLaunch', function (accounts) {
     await verifyContractData(tx, user, pid, poolKncBalance, lockerKncBalance, claimedAmount);
   }
 
-  const harvestAndVerifyData = async (user, pid, amount) => {
+  const harvestMultiplePoolsAndVerifyData = async (user, pids) => {
     let poolKncBalance = await kncToken.balanceOf(fairLaunch.address);
     let lockerKncBalance = await kncToken.balanceOf(rewardLocker.address);
 
+    let tx = await fairLaunch.harvestMultiplePools(pids, { from: user });
+
+    currentBlock = await Helper.getCurrentBlock();otalClaimedAmount.iadd(claimedAmount);
+    let totalClaimedAmount = new BN(0);
+    for(let i = 0; i < pids.length; i++) {
+      let claimedAmount = new BN(0);
+      let pid = pids[i];
+      [userInfo[user][pid], poolInfo[pid], claimedAmount] = updateInfoOnHarvest(
+        userInfo[user][pid], poolInfo[pid], currentBlock
+      );
+      userClaimData[user].iadd(claimedAmount);
+      totalClaimedAmount.iadd(claimedAmount);
+
+      await verifyPoolInfo(poolInfo[pid]);
+      await verifyUserInfo(user, pid, userInfo[user][pid]);
+
+      if (claimedAmount.gt(new BN(0))) {
+        expectEvent(tx, 'Harvest', {
+          user: user,
+          pid: pid,
+          blockNumber: new BN(currentBlock),
+          lockedAmount: claimedAmount
+        });
+      }
+    }
+
+    Helper.assertEqual(
+      userClaimData[user], await rewardLocker.lockedAmounts(user, kncToken.address)
+    );
+    await verifyRewardData(user, poolKncBalance, lockerKncBalance, totalClaimedAmount);
+  }
+
+  const harvestAndVerifyData = async (user, pid) => {
+    let poolKncBalance = await kncToken.balanceOf(fairLaunch.address);
+    let lockerKncBalance = await kncToken.balanceOf(rewardLocker.address);
+
+    let tx = await fairLaunch.harvest(pid, { from: user });
+
+    currentBlock = await Helper.getCurrentBlock();
     let claimedAmount = new BN(0);
-    [userInfo[user][pid], poolInfo[pid], claimedAmount] = updateInfoOnWithdraw(userInfo[user][pid], poolInfo[pid], amount, currentBlock);
+    [userInfo[user][pid], poolInfo[pid], claimedAmount] = updateInfoOnHarvest(
+      userInfo[user][pid], poolInfo[pid], currentBlock
+    );
     userClaimData[user].iadd(claimedAmount);
 
     await verifyContractData(tx, user, pid, poolKncBalance, lockerKncBalance, claimedAmount);
