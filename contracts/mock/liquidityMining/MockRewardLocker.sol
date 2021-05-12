@@ -5,15 +5,15 @@ pragma abicoder v2;
 import {KyberRewardLocker} from '../../liquidityMining/KyberRewardLocker.sol';
 
 contract MockRewardLocker is KyberRewardLocker {
-  uint256 internal timestamp;
+  uint256 internal blockNumber;
 
   constructor(address _admin) KyberRewardLocker(_admin) {}
 
-  function setTimestamp(uint256 _timestamp) external {
-    timestamp = _timestamp;
+  function setBlockNumber(uint256 blockNumber_) external {
+    blockNumber = blockNumber_;
   }
 
-  function _blockTimestamp() internal override view returns (uint256) {
-    return timestamp;
+  function _blockNumber() internal override view returns (uint256) {
+    return blockNumber;
   }
 }

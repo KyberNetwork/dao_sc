@@ -15,7 +15,6 @@ let rewardLocker;
 let rewardContract;
 let rewardContract2;
 let rewardToken;
-let slashingTarget;
 
 let txResult;
 
@@ -27,7 +26,6 @@ contract('KyberRewardLocker', (accounts) => {
     user2 = accounts[3];
     rewardContract = accounts[4];
     rewardContract2 = accounts[5];
-    slashingTarget = accounts[6];
 
     rewardToken = await KNC.new();
   });
@@ -71,17 +69,6 @@ contract('KyberRewardLocker', (accounts) => {
       expectEvent(txResult, 'SetVestingConfig', {lockDuration: new BN(1000)});
       Helper.assertEqual((await rewardLocker.vestingConfigPerToken(rewardToken.address)).lockDuration, new BN(1000));
     });
-
-    it('set slashing target', async () => {
-      await expectRevert(
-        rewardLocker.setSlashingTarget(rewardToken.address, slashingTarget, {from: user1}),
-        'only admin'
-      );
-
-      txResult = await rewardLocker.setSlashingTarget(rewardToken.address, slashingTarget, {from: admin});
-      expectEvent(txResult, 'SetSlashingTarget', {target: slashingTarget});
-      expect(await rewardLocker.slashingTargets(rewardToken.address)).equal(slashingTarget);
-    });
   });
 
   describe('lock and vest', async () => {
@@ -96,80 +83,47 @@ contract('KyberRewardLocker', (accounts) => {
       await rewardToken.transfer(rewardContract, vestingQuantity);
       await rewardToken.approve(rewardLocker.address, Helper.MAX_ALLOWANCE, {from: rewardContract});
 
-      await rewardLocker.setTimestamp(new BN(7200));
+      await rewardLocker.setBlockNumber(new BN(7200));
 
       await rewardLocker.lock(rewardToken.address, user1, vestingQuantity, {from: rewardContract});
 
       let vestingSchedules = await rewardLocker.getVestingSchedules(user1, rewardToken.address);
       expect(vestingSchedules.length).equals(1);
-      Helper.assertEqual(vestingSchedules[0].startTime, new BN(7200));
-      Helper.assertEqual(vestingSchedules[0].endTime, new BN(10800));
+      Helper.assertEqual(vestingSchedules[0].startBlock, new BN(7200));
+      Helper.assertEqual(vestingSchedules[0].endBlock, new BN(10800));
       Helper.assertEqual(vestingSchedules[0].quantity, vestingQuantity);
 
-      await rewardLocker.setTimestamp(new BN(10800));
+      await rewardLocker.setBlockNumber(new BN(10800));
 
       txResult = await rewardLocker.vestCompletedSchedules(rewardToken.address, {from: user1});
       expectEvent(txResult, 'Vested', {
         token: rewardToken.address,
         beneficiary: user1,
-        time: new BN(10800),
         vestedQuantity: vestingQuantity,
-        slashedQuantity: new BN(0),
       });
     });
 
-    it('lock and vest and burn with half time', async () => {
-      await rewardLocker.setSlashingTarget(rewardToken.address, Helper.zeroAddress, {from: admin});
-
+    it('lock and vest and claim with half time', async () => {
       let vestingQuantity = new BN(10).pow(new BN(18)).mul(new BN(7));
       await rewardToken.transfer(rewardContract, vestingQuantity);
       await rewardToken.approve(rewardLocker.address, Helper.MAX_ALLOWANCE, {from: rewardContract});
 
-      await rewardLocker.setTimestamp(new BN(7200));
+      await rewardLocker.setBlockNumber(new BN(7200));
 
       await rewardLocker.lock(rewardToken.address, user1, vestingQuantity, {from: rewardContract});
 
-      await rewardLocker.setTimestamp(new BN(9000));
+      await rewardLocker.setBlockNumber(new BN(9000));
 
       txResult = await rewardLocker.vestScheduleAtIndex(rewardToken.address, [new BN(0)], {from: user1});
       expectEvent(txResult, 'Vested', {
         token: rewardToken.address,
         beneficiary: user1,
-        time: new BN(9000),
         vestedQuantity: vestingQuantity.div(new BN(2)),
-        slashedQuantity: vestingQuantity.div(new BN(2)),
       });
 
       await expectEvent.inTransaction(txResult.tx, rewardToken, 'Transfer', {
-        to: Helper.zeroAddress,
-        value: vestingQuantity.div(new BN(2)),
-      });
-    });
-
-    it('lock and vest and transfer slashing quantity with half time', async () => {
-      await rewardLocker.setSlashingTarget(rewardToken.address, slashingTarget, {from: admin});
-
-      let vestingQuantity = new BN(10).pow(new BN(18)).mul(new BN(7));
-      await rewardToken.transfer(rewardContract, vestingQuantity);
-      await rewardToken.approve(rewardLocker.address, Helper.MAX_ALLOWANCE, {from: rewardContract});
-
-      await rewardLocker.setTimestamp(new BN(7200));
-
-      await rewardLocker.lock(rewardToken.address, user1, vestingQuantity, {from: rewardContract});
-
-      await rewardLocker.setTimestamp(new BN(9000));
-
-      txResult = await rewardLocker.vestScheduleAtIndex(rewardToken.address, [new BN(0)], {from: user1});
-      expectEvent(txResult, 'Vested', {
-        token: rewardToken.address,
-        beneficiary: user1,
-        time: new BN(9000),
-        vestedQuantity: vestingQuantity.div(new BN(2)),
-        slashedQuantity: vestingQuantity.div(new BN(2)),
-      });
-
-      await expectEvent.inTransaction(txResult.tx, rewardToken, 'Transfer', {
-        to: slashingTarget,
+        from: rewardLocker.address,
+        to: user1,
         value: vestingQuantity.div(new BN(2)),
       });
     });

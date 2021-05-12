@@ -30,7 +30,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
 
   struct VestingConfig {
     uint64 lockDuration;
-    uint64 negligibleTimeDifference;
+    uint64 negligibleBlockDifference;
   }
 
   uint256 private constant MAX_REWARD_CONTRACTS_SIZE = 10;
@@ -47,19 +47,15 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
   /// @dev An account's total vested reward per token
   mapping(address => mapping(IERC20Ext => uint256)) public accountVestedBalance;
 
-  /// @dev where slashing tokens goes
-  mapping(IERC20Ext => address) public slashingTargets;
-
-  /// @dev lock time
+  /// @dev lock config
   mapping(IERC20Ext => VestingConfig) public vestingConfigPerToken;
 
   /* ========== EVENTS ========== */
   event RewardContractAdded(address indexed rewardContract, bool isAdded);
-  event SetSlashingTarget(IERC20Ext indexed token, address target);
   event SetVestingConfig(
     IERC20Ext indexed token,
     uint64 lockDuration,
-    uint64 negligibleTimeDifference
+    uint64 negligibleBlockDifference
   );
 
   /* ========== MODIFIERS ========== */
@@ -93,23 +89,17 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     emit RewardContractAdded(_rewardContract, false);
   }
 
-  function setSlashingTarget(IERC20Ext token, address target) external onlyAdmin {
-    slashingTargets[token] = target;
-
-    emit SetSlashingTarget(token, target);
-  }
-
   function setVestingConfig(
     IERC20Ext token,
     uint64 _lockDuration,
-    uint64 _negligibleTimeDifference
+    uint64 _negligibleBlockDifference
   ) external onlyAdmin {
     vestingConfigPerToken[token] = VestingConfig({
       lockDuration: _lockDuration,
-      negligibleTimeDifference: _negligibleTimeDifference
+      negligibleBlockDifference: _negligibleBlockDifference
     });
 
-    emit SetVestingConfig(token, _lockDuration, _negligibleTimeDifference);
+    emit SetVestingConfig(token, _lockDuration, _negligibleBlockDifference);
   }
 
   function lock(
@@ -117,14 +107,14 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     address account,
     uint256 quantity
   ) external override {
-    lockWithStartTime(token, account, quantity, _blockTimestamp());
+    lockWithStartBlock(token, account, quantity, _blockNumber());
   }
 
-  function lockWithStartTime(
+  function lockWithStartBlock(
     IERC20Ext token,
     address account,
     uint256 quantity,
-    uint256 startTime
+    uint256 startBlock
   ) public override onlyRewardsContract(token) {
     require(quantity > 0, 'Quantity cannot be zero');
 
@@ -135,36 +125,36 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     uint256 schedulesLength = schedules.length;
 
     VestingConfig memory config = vestingConfigPerToken[token];
-    uint256 endTime = startTime.add(config.lockDuration);
+    uint256 endBlock = startBlock.add(config.lockDuration);
 
     if (schedulesLength == 0) {
       accountEscrowedBalance[account][token] = quantity;
       schedules.data[0] = VestingSchedule({
-        startTime: startTime.toUint64(),
-        endTime: endTime.toUint64(),
+        startBlock: startBlock.toUint64(),
+        endBlock: endBlock.toUint64(),
         quantity: quantity.toUint128()
       });
       schedules.length = 1;
     } else {
       VestingSchedule memory lastSchedule = schedules.data[schedulesLength - 1];
-      uint256 lastLockDuration = uint256(lastSchedule.endTime).sub(lastSchedule.startTime);
+      uint256 lastLockDuration = uint256(lastSchedule.endBlock).sub(lastSchedule.startBlock);
       ///  if lockDuration of lastSchedule == current lockDuration
-      /// and the diffrent between startTime of lastSchedule and startTime are negligible
+      /// and the diffrent between startBlock of lastSchedule and startBlock are negligible
       /// then merge schedule
       if (
-        lastSchedule.startTime > startTime.sub(config.negligibleTimeDifference) &&
+        lastSchedule.startBlock > startBlock.sub(config.negligibleBlockDifference) &&
         lastLockDuration == config.lockDuration
       ) {
         schedules.data[schedulesLength - 1] = VestingSchedule({
-          startTime: startTime.toUint64(),
-          endTime: endTime.toUint64(),
+          startBlock: startBlock.toUint64(),
+          endBlock: endBlock.toUint64(),
           quantity: uint256(lastSchedule.quantity).add(quantity).toUint128()
         });
       } else {
         // append to storage, the schedule data
         schedules.data[schedulesLength] = VestingSchedule({
-          startTime: startTime.toUint64(),
-          endTime: endTime.toUint64(),
+          startBlock: startBlock.toUint64(),
+          endBlock: endBlock.toUint64(),
           quantity: quantity.toUint128()
         });
         schedules.length = schedulesLength + 1;
@@ -174,7 +164,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
       );
     }
 
-    emit VestingEntryCreated(token, account, _blockTimestamp(), quantity);
+    emit VestingEntryCreated(token, account, _blockNumber(), quantity);
   }
 
   /**
@@ -190,7 +180,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
       if (schedule.quantity == 0) {
         continue;
       }
-      if (_blockTimestamp() < schedule.endTime) {
+      if (_blockNumber() < schedule.endBlock) {
         continue;
       }
       totalVesting = totalVesting.add(schedule.quantity);
@@ -207,7 +197,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
 
     token.safeTransfer(msg.sender, totalVesting);
 
-    emit Vested(token, msg.sender, _blockTimestamp(), totalVesting, 0);
+    emit Vested(token, msg.sender, _blockNumber(), totalVesting);
     return totalVesting;
   }
 
@@ -221,7 +211,6 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
   {
     VestingSchedules storage schedules = accountVestingSchedules[msg.sender][token];
     uint256 totalVesting = 0;
-    uint256 totalSlashing = 0;
     for (uint256 i = 0; i < indexes.length; i++) {
       VestingSchedule memory schedule = schedules.data[indexes[i]];
       if (schedule.quantity == 0) {
@@ -229,30 +218,36 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
       }
       uint256 vestQuantity = _getVestingQuantity(
         schedule.quantity,
-        schedule.startTime,
-        schedule.endTime
+        schedule.startBlock,
+        schedule.endBlock
       );
       if (vestQuantity == 0) {
         continue;
       }
       totalVesting = totalVesting.add(vestQuantity);
-      totalSlashing = totalSlashing.add(schedule.quantity - vestQuantity);
-      // clear data after vesting
-      schedules.data[i].quantity = 0;
+
+      if (vestQuantity == uint256(schedule.quantity)) {
+        schedules.data[i].quantity = 0;
+      } else {
+        schedules.data[i] = VestingSchedule({
+          startBlock: _blockNumber().toUint64(),
+          endBlock: schedule.endBlock,
+          quantity: uint256(schedule.quantity).sub(vestQuantity).toUint128()
+        });
+      }
     }
     require(totalVesting != 0, 'invalid vesting amount');
 
     accountEscrowedBalance[msg.sender][token] = accountEscrowedBalance[msg.sender][token].sub(
-      totalVesting.add(totalSlashing)
+      totalVesting
     );
     accountVestedBalance[msg.sender][token] = accountVestedBalance[msg.sender][token].add(
       totalVesting
     );
 
     token.safeTransfer(msg.sender, totalVesting);
-    if (totalSlashing != 0) _slash(token, totalSlashing);
 
-    emit Vested(token, msg.sender, _blockTimestamp(), totalVesting, totalSlashing);
+    emit Vested(token, msg.sender, _blockNumber(), totalVesting);
 
     return totalVesting;
   }
@@ -283,13 +278,13 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     override
     view
     returns (
-      uint64 startTime,
-      uint64 endTime,
+      uint64 startBlock,
+      uint64 endBlock,
       uint128 quantity
     )
   {
     VestingSchedule memory schedule = accountVestingSchedules[account][token].data[index];
-    return (schedule.startTime, schedule.endTime, schedule.quantity);
+    return (schedule.startBlock, schedule.endBlock, schedule.quantity);
   }
 
   /**
@@ -322,39 +317,27 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
   /* ========== INTERNAL FUNCTIONS ========== */
 
   /**
-   * @dev if slashingTarget is equals to 0 address, burn the reward else transfer to the target
-   */
-  function _slash(IERC20Ext token, uint256 amount) internal {
-    address target = slashingTargets[token];
-    if (target != address(0)) {
-      token.safeTransfer(target, amount);
-    } else {
-      IERC20Burnable(address(token)).burn(amount);
-    }
-  }
-
-  /**
-   * @dev implements slashing mechanism
+   * @dev implements linear vesting mechanism
    * @dev this will allow user to claim token early, but slash the rest of token.
    */
   function _getVestingQuantity(
     uint256 quantity,
-    uint256 startTime,
-    uint256 endTime
+    uint256 startBlock,
+    uint256 endBlock
   ) internal view returns (uint256) {
-    if (_blockTimestamp() >= endTime) {
+    if (_blockNumber() >= endBlock) {
       return quantity;
     }
-    if (_blockTimestamp() <= startTime) {
+    if (_blockNumber() <= startBlock) {
       return 0;
     }
-    return (_blockTimestamp() - startTime).mul(quantity).div(endTime - startTime);
+    return (_blockNumber() - startBlock).mul(quantity).div(endBlock - startBlock);
   }
 
   /**
-   * @dev wrap timestamp so we can easily mock it
+   * @dev wrap block.number so we can easily mock it
    */
-  function _blockTimestamp() internal virtual view returns (uint256) {
-    return block.timestamp;
+  function _blockNumber() internal virtual view returns (uint256) {
+    return block.number;
   }
 }
