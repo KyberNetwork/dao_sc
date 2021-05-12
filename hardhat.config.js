@@ -9,6 +9,7 @@ require('dotenv').config();
 
 require('./deployment/katanaDeployment.js');
 require('./deployment/deployInternalGovernance.js');
+require('./deployment/deployLiquidityMining.js');
 const {accounts} = require('./test-wallets.js');
 
 module.exports = {
