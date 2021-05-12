@@ -193,7 +193,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     PoolInfo storage pool = poolInfo[_pid];
     require(
       pool.startBlock > block.number || pool.endBlock < block.number,
-      'renew: invalid pool status to renew'
+      'renew: invalid pool state to renew'
     );
 
     // checking data of new pool
@@ -232,7 +232,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     PoolInfo storage pool = poolInfo[_pid];
 
     // should call renew pool if the pool has ended
-    require(pool.endBlock <= block.number, 'update: pool already ended');
+    require(pool.endBlock > block.number, 'update: pool already ended');
     require(
       _endBlock > block.number && _endBlock > pool.startBlock,
       'update: invalid end block'

@@ -104,7 +104,6 @@ contract ERC20NoReturnMock is Context {
    * - the caller must have a balance of at least `amount`.
    */
   function transfer(address recipient, uint256 amount) public virtual {
-    console.log('bbb');
     _transfer(_msgSender(), recipient, amount);
   }
 
