@@ -355,7 +355,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   * @dev update reward for one pool
   */
   function updatePoolRewards(uint256 _pid) public override {
-    require(_pid < poolLength, 'deposit: invalid pool id');
+    require(_pid < poolLength, 'invalid pool id');
     PoolInfo storage pool = poolInfo[_pid];
     uint32 lastAccountedBlock = _lastAccountedRewardBlock(_pid);
     if (lastAccountedBlock <= pool.lastRewardBlock || lastAccountedBlock < pool.startBlock) return;
@@ -375,7 +375,6 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   * @dev withdraw _amount of stakeToken from pool _pid, also harvest reward for the sender
   */
   function _withdraw(uint256 _pid, uint256 _amount) internal {
-    require(_pid < poolLength, 'withdraw: invalid pool id');
 
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][msg.sender];
