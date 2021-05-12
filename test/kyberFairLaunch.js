@@ -86,7 +86,7 @@ contract('KyberFairLaunch', function (accounts) {
   describe('#constructor', async () => {
   });
 
-  describe.only('#add pools', async () => {
+  describe('#add pools', async () => {
     beforeEach('deploy contracts', async() => {
       await deployContracts();
     });
@@ -180,6 +180,135 @@ contract('KyberFairLaunch', function (accounts) {
   });
 
   describe('#update pools', async () => {
+    beforeEach('deploy contracts', async() => {
+      await deployContracts();
+    });
+
+    it('revert not admin', async() => {
+      currentBlock = await Helper.getCurrentBlock();
+      let startBlock = new BN(currentBlock).add(new BN(10));
+      let endBlock = startBlock.add(new BN(10));
+      await expectRevert(
+        fairLaunch.updatePool(1, endBlock, precisionUnits, { from: accounts[0] }),
+        'only admin'
+      )
+    });
+
+    it('revert invalid pool id', async() => {
+      currentBlock = await Helper.getCurrentBlock();
+      let startBlock = new BN(currentBlock).add(new BN(10));
+      let endBlock = startBlock.add(new BN(10));
+      await expectRevert(
+        fairLaunch.updatePool(1, endBlock, precisionUnits, { from: admin }),
+        'invalid pool id'
+      );
+    });
+
+    it('revert pool has ended', async() => {
+      currentBlock = await Helper.getCurrentBlock();
+      let startBlock = new BN(currentBlock).add(new BN(2));
+      let endBlock = startBlock.add(new BN(3));
+      await fairLaunch.addPool(tokens[0].address, startBlock, endBlock, precisionUnits, { from: admin });
+      await Helper.increaseBlockNumberTo(endBlock.sub(new BN(1)));
+      // next tx will be executed in endBlock
+      await expectRevert(
+        fairLaunch.updatePool(0, endBlock, precisionUnits, { from: admin }),
+        'update: pool already ended'
+      );
+      // next tx will be executed after endblock
+      await expectRevert(
+        fairLaunch.updatePool(0, endBlock, precisionUnits, { from: admin }),
+        'update: pool already ended'
+      )
+    });
+
+    it('revert invalid block', async() => {
+      currentBlock = await Helper.getCurrentBlock();
+      let startBlock = new BN(currentBlock).add(new BN(5));
+      let endBlock = startBlock.add(new BN(10));
+      await fairLaunch.addPool(tokens[0].address, startBlock, endBlock, precisionUnits, { from: admin });
+      // end block <= start block
+      await expectRevert(
+        fairLaunch.updatePool(0, startBlock, precisionUnits, { from: admin }),
+        'update: invalid end block'
+      );
+      await expectRevert(
+        fairLaunch.updatePool(0, startBlock.sub(new BN(1)), precisionUnits, { from: admin }),
+        'update: invalid end block'
+      );
+      // end block <= current block
+      await Helper.increaseBlockNumber(5);
+      currentBlock = await Helper.getCurrentBlock();
+      // next tx is executed at currentBlock + 1
+      await expectRevert(
+        fairLaunch.updatePool(0, new BN(currentBlock + 1), precisionUnits, { from: admin }),
+        'update: invalid end block'
+      );
+      currentBlock = await Helper.getCurrentBlock();
+      await expectRevert(
+        fairLaunch.updatePool(0, new BN(currentBlock), precisionUnits, { from: admin }),
+        'update: invalid end block'
+      );
+    });
+
+    it('correct data and events', async() => {
+      currentBlock = new BN(await Helper.getCurrentBlock());
+      let startBlock = currentBlock.add(new BN(16));
+      let endBlock = startBlock.add(new BN(10));
+      let rewardPerBlock = precisionUnits;
+      let pid = await addNewPool(startBlock, endBlock, rewardPerBlock);
+      await verifyPoolInfo(poolInfo[pid]);
+
+      await kncToken.transfer(fairLaunch.address, precisionUnits.mul(new BN(200)));
+
+      // update pool before it starts
+      endBlock = startBlock.add(new BN(20));
+      rewardPerBlock = precisionUnits.div(new BN(2));
+
+      let tx = await fairLaunch.updatePool(pid, endBlock, rewardPerBlock, { from: admin });
+      expectEvent(tx, 'UpdatePool', {
+        pid: pid, endBlock: endBlock, rewardPerBlock: rewardPerBlock
+      });
+      currentBlock = await Helper.getCurrentBlock();
+      poolInfo[pid].endBlock = endBlock;
+      poolInfo[pid].rewardPerBlock = rewardPerBlock;
+      await verifyPoolInfo(poolInfo[pid]);
+
+      let amount = precisionUnits.mul(new BN(2));
+      await depositAndVerifyData(user1, pid, amount, false);
+      amount = precisionUnits.mul(new BN(2));
+      await depositAndVerifyData(user2, pid, amount, true);
+
+      await Helper.increaseBlockNumberTo(poolInfo[pid].startBlock);
+      await harvestAndVerifyData(user1, pid);
+
+      // change reward per block
+      rewardPerBlock = rewardPerBlock.div(new BN(2));
+      await fairLaunch.updatePool(pid, endBlock, rewardPerBlock, { from: admin });
+      currentBlock = await Helper.getCurrentBlock();
+      poolInfo[pid] = updatePoolReward(poolInfo[pid], currentBlock);
+      poolInfo[pid].rewardPerBlock = rewardPerBlock;
+      await verifyPoolInfo(poolInfo[pid]);
+
+      await harvestAndVerifyData(user1, pid);
+      await harvestAndVerifyData(user2, pid);
+
+      await withdrawAndVerifyData(user1, pid, amount.div(new BN(10)), false);
+
+      // change reward per block
+      rewardPerBlock = rewardPerBlock.div(new BN(2));
+      await fairLaunch.updatePool(pid, endBlock, rewardPerBlock, { from: admin });
+      currentBlock = await Helper.getCurrentBlock();
+      poolInfo[pid] = updatePoolReward(poolInfo[pid], currentBlock);
+      poolInfo[pid].rewardPerBlock = rewardPerBlock;
+      await verifyPoolInfo(poolInfo[pid]);
+
+      await depositAndVerifyData(user1, pid, amount, true);
+      await depositAndVerifyData(user2, pid, amount, true);
+    });
+  });
+
+  describe('#renew pools', async () => {
   });
 
   describe('#deposit', async () => {
