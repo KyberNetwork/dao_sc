@@ -30,9 +30,9 @@ contract KyberInternalGovernance is PermissionOperators {
         IRewardsDistributor _rewardDistributor,
         address _operator
     ) PermissionAdmin(_admin) {
-        require(_rewardRecipient != address(0), "invalid reward recipient");
-        require(_governance != IKyberGovernance(0), "invalid kyber governance");
-        require(_rewardDistributor != IRewardsDistributor(0), "invalid reward distributor");
+        require(_rewardRecipient != address(0), 'invalid reward recipient');
+        require(_governance != IKyberGovernance(0), 'invalid kyber governance');
+        require(_rewardDistributor != IRewardsDistributor(0), 'invalid reward distributor');
 
         rewardRecipient = _rewardRecipient;
         governance = _governance;
@@ -58,7 +58,7 @@ contract KyberInternalGovernance is PermissionOperators {
     )
         external onlyOperator
     {
-        require(proposalIds.length == optionBitMasks.length, "invalid length");
+        require(proposalIds.length == optionBitMasks.length, 'invalid length');
         for(uint256 i = 0; i < proposalIds.length; i++) {
             governance.submitVote(proposalIds[i], optionBitMasks[i]);
         }
@@ -92,7 +92,7 @@ contract KyberInternalGovernance is PermissionOperators {
     function updateRewardRecipient(address payable _newRecipient)
         external onlyAdmin
     {
-        require(_newRecipient != address(0), "invalid address");
+        require(_newRecipient != address(0), 'invalid address');
         rewardRecipient = _newRecipient;
     }
 
@@ -105,8 +105,8 @@ contract KyberInternalGovernance is PermissionOperators {
     )
         external onlyAdmin
     {
-        require(_governance != IKyberGovernance(0), "invalid kyber dao");
-        require(_rewardDistributor != IRewardsDistributor(0), "invalid reward distributor");
+        require(_governance != IKyberGovernance(0), 'invalid kyber dao');
+        require(_rewardDistributor != IRewardsDistributor(0), 'invalid reward distributor');
         governance = _governance;
         rewardDistributor = _rewardDistributor;
     }
@@ -118,7 +118,7 @@ contract KyberInternalGovernance is PermissionOperators {
         IERC20Ext[] calldata tokens,
         uint256[] calldata amounts
     ) external {
-        require(tokens.length == amounts.length, "invalid length");
+        require(tokens.length == amounts.length, 'invalid length');
         for(uint256 i = 0; i < tokens.length; i++) {
             _transferToken(tokens[i], amounts[i]);
         }
@@ -126,8 +126,8 @@ contract KyberInternalGovernance is PermissionOperators {
 
     function _transferToken(IERC20Ext token, uint256 amount) internal {
         if (token == ETH_TOKEN_ADDRESS) {
-            (bool success, ) = rewardRecipient.call { value: amount }("");
-            require(success, "transfer eth failed");
+            (bool success, ) = rewardRecipient.call { value: amount }('');
+            require(success, 'transfer eth failed');
         } else {
             token.safeTransfer(rewardRecipient, amount);
         }
