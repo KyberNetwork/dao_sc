@@ -6,7 +6,7 @@ const KyberFairLaunch = artifacts.require('KyberFairLaunch.sol');
 const SimpleMockRewardLocker = artifacts.require('SimpleMockRewardLocker.sol');
 
 const Helper = require('./helper.js');
-const { precisionUnits } = require('./helper.js');
+const { precisionUnits, zeroAddress } = require('./helper.js');
 
 const REWARD_PER_SHARE_PRECISION = new BN(10).pow(new BN(12));
 
@@ -86,7 +86,97 @@ contract('KyberFairLaunch', function (accounts) {
   describe('#constructor', async () => {
   });
 
-  describe('#add pools', async () => {
+  describe.only('#add pools', async () => {
+    beforeEach('deploy contracts', async() => {
+      await deployContracts();
+    });
+
+    it('revert not admin', async() => {
+      currentBlock = await Helper.getCurrentBlock();
+      let startBlock = new BN(currentBlock).add(new BN(10));
+      let endBlock = startBlock.add(new BN(10));
+      await expectRevert(
+        fairLaunch.addPool(tokens[0].address, startBlock, endBlock, precisionUnits, { from: accounts[0] }),
+        'only admin'
+      )
+    });
+
+    it('revert stake token is 0', async() => {
+      currentBlock = await Helper.getCurrentBlock();
+      let startBlock = new BN(currentBlock).add(new BN(10));
+      let endBlock = startBlock.add(new BN(10));
+      await expectRevert(
+        fairLaunch.addPool(zeroAddress, startBlock, endBlock, precisionUnits, { from: admin }),
+        'add: invalid stake token'
+      )
+    });
+
+    it('revert invalid blocks', async() => {
+      currentBlock = await Helper.getCurrentBlock();
+      let startBlock = new BN(currentBlock).add(new BN(10));
+      let endBlock = startBlock.add(new BN(10));
+      // start in the past
+      await expectRevert(
+        fairLaunch.addPool(tokens[0].address, new BN(currentBlock), endBlock, precisionUnits, { from: admin }),
+        'add: invalid blocks'
+      );
+      currentBlock = await Helper.getCurrentBlock();
+      // start at the executed tx block number
+      await expectRevert(
+        fairLaunch.addPool(tokens[0].address, new BN(currentBlock + 1), endBlock, precisionUnits, { from: admin }),
+        'add: invalid blocks'
+      );
+      // end block <= start block
+      await expectRevert(
+        fairLaunch.addPool(tokens[0].address, endBlock, endBlock, precisionUnits, { from: admin }),
+        'add: invalid blocks'
+      );
+      currentBlock = await Helper.getCurrentBlock();
+      await fairLaunch.addPool(tokens[0].address, new BN(currentBlock + 2), new BN(currentBlock + 3), precisionUnits, { from: admin });
+    });
+
+    it('revert duplicated pool', async() => {
+      currentBlock = await Helper.getCurrentBlock();
+      let startBlock = new BN(currentBlock + 10);
+      let endBlock = startBlock.add(new BN(10));
+      await fairLaunch.addPool(tokens[0].address, startBlock, endBlock, precisionUnits, { from: admin });
+      await expectRevert(
+        fairLaunch.addPool(tokens[0].address, startBlock, endBlock, precisionUnits, { from: admin }),
+        'add: duplicated pool'
+      );
+    });
+
+    it('correct data and events', async() => {
+      let poolLength = 0;
+      Helper.assertEqual(poolLength, await fairLaunch.poolLength());
+      for(let i = 0; i < 5; i++) {
+        let stakeToken = tokens[i].address;
+        currentBlock = await Helper.getCurrentBlock();
+        let startBlock = new BN(currentBlock + 10);
+        let endBlock = new BN(currentBlock + 20);
+        let rewardPerBlock = precisionUnits.div(new BN(i + 1));
+        let tx = await fairLaunch.addPool(stakeToken, startBlock, endBlock, rewardPerBlock, { from: admin });
+        expectEvent(tx, 'AddNewPool', {
+          stakeToken: stakeToken,
+          startBlock: startBlock,
+          endBlock: endBlock,
+          rewardPerBlock: rewardPerBlock
+        });
+        poolLength++;
+        Helper.assertEqual(poolLength, await fairLaunch.poolLength());
+        poolInfo[i] = {
+          id: i,
+          stakeToken: tokens[i],
+          startBlock: startBlock,
+          endBlock: endBlock,
+          rewardPerBlock: rewardPerBlock,
+          lastRewardBlock: startBlock,
+          accRewardPerShare: new BN(0),
+          totalStake: new BN(0)
+        };
+        await verifyPoolInfo(poolInfo[i]);
+      }
+    });
   });
 
   describe('#update pools', async () => {
