@@ -205,13 +205,6 @@ contract('KyberFairLaunch', function (accounts) {
       await deployContracts();
     });
 
-    it('revert invalid pool', async() => {
-      await expectRevert(
-        fairLaunch.withdraw(1, 100, { from: user1 }),
-        'invalid pool id'
-      );
-    });
-
     it('revert withdraw higher than deposited', async() => {
       currentBlock = new BN(await Helper.getCurrentBlock());
       let pid = await addNewPool(
@@ -296,7 +289,6 @@ contract('KyberFairLaunch', function (accounts) {
     });
   });
 
-
   describe('#harvest', async () => {
     beforeEach('deploy contracts', async() => {
       await deployContracts();
@@ -330,9 +322,9 @@ contract('KyberFairLaunch', function (accounts) {
     it('harvest and check rewards', async() => {
       let amount = precisionUnits.div(new BN(10));
       currentBlock = new BN(await Helper.getCurrentBlock());
-      let startBlock = currentBlock.add(new BN(16));
+      let startBlock = currentBlock.add(new BN(6));
       let pid = await addNewPool(
-        startBlock, startBlock.add(new BN(50)), precisionUnits
+        startBlock, startBlock.add(new BN(20)), precisionUnits
       );
 
       amount = precisionUnits.mul(new BN(2));
@@ -384,12 +376,12 @@ contract('KyberFairLaunch', function (accounts) {
 
     it('harvest multiple pools and check rewards', async() => {
       currentBlock = new BN(await Helper.getCurrentBlock());
-      let startBlock = currentBlock.add(new BN(16));
+      let startBlock = currentBlock.add(new BN(10));
       let pid1 = await addNewPool(
-        startBlock, startBlock.add(new BN(50)), precisionUnits
+        startBlock, startBlock.add(new BN(36)), precisionUnits
       );
       let pid2 = await addNewPool(
-        startBlock, startBlock.add(new BN(40)), precisionUnits.mul(new BN(2))
+        startBlock, startBlock.add(new BN(30)), precisionUnits.mul(new BN(2))
       );
       let amount = precisionUnits.mul(new BN(2));
       await depositAndVerifyData(user1, pid1, amount, false);
@@ -436,6 +428,64 @@ contract('KyberFairLaunch', function (accounts) {
         await Helper.assertEqual(user2Data.lastRewardPerShare, poolData.accRewardPerShare);
         await Helper.assertEqual(0, user2Data.unclaimedReward);
         await Helper.assertEqual(0, user1Data.unclaimedReward);
+      }
+    });
+  });
+
+  describe('#emergency withdraw', async () => {
+    beforeEach('deploy contracts', async() => {
+      await deployContracts();
+    });
+
+    // no KNC has been transferred out, since there is no KNC in the fairlaunch contract
+    it('emergencyWithdraw and check data', async() => {
+      currentBlock = new BN(await Helper.getCurrentBlock());
+      let startBlock = currentBlock.add(new BN(16));
+      let pid1 = await addNewPool(
+        startBlock, startBlock.add(new BN(32)), precisionUnits
+      );
+      let pid2 = await addNewPool(
+        startBlock, startBlock.add(new BN(40)), precisionUnits
+      );
+      let amount = precisionUnits.mul(new BN(2));
+      await depositAndVerifyData(user1, pid1, amount, false);
+      amount = precisionUnits.mul(new BN(5));
+      await depositAndVerifyData(user2, pid1, amount, true);
+      await depositAndVerifyData(user1, pid2, amount, false);
+      amount = precisionUnits.mul(new BN(3));
+      await depositAndVerifyData(user1, pid2, amount, false);
+
+      await Helper.increaseBlockNumber(startBlock.add(new BN(40)));
+
+      let users = [ user1, user2, user3 ];
+      let pids = [ pid1, pid2 ];
+      for(let u = 0; u < users.length; u++) {
+        let user = users[u];
+        for(let p = 0; p < pids.length; p++) {
+          let pid = pids[p];
+          let poolTokenBal = await poolInfo[pid].stakeToken.balanceOf(fairLaunch.address);
+          let userTokenBal = await poolInfo[pid].stakeToken.balanceOf(user);
+
+          let tx = await fairLaunch.emergencyWithdraw(pid, { from: user });
+          expectEvent(tx, 'EmergencyWithdraw', {
+            user: user, pid: pid,
+            blockNumber: new BN(await Helper.getCurrentBlock()),
+            amount: userInfo[user][pid].amount
+          })
+
+          Helper.assertEqual(
+            poolTokenBal.sub(userInfo[user][pid].amount), await poolInfo[pid].stakeToken.balanceOf(fairLaunch.address)
+          );
+          Helper.assertEqual(
+            userTokenBal.add(userInfo[user][pid].amount), await poolInfo[pid].stakeToken.balanceOf(user)
+          );
+
+          poolInfo[pid].totalStake.isub(userInfo[user][pid].amount);
+          userInfo[user][pid] = emptyUserInfo();
+
+          await verifyUserInfo(user, pid, userInfo[user][pid]);
+          await verifyPoolInfo(poolInfo[pid]);
+        }
       }
     });
   });
@@ -512,7 +562,7 @@ contract('KyberFairLaunch', function (accounts) {
 
     let tx = await fairLaunch.harvestMultiplePools(pids, { from: user });
 
-    currentBlock = await Helper.getCurrentBlock();otalClaimedAmount.iadd(claimedAmount);
+    currentBlock = await Helper.getCurrentBlock();
     let totalClaimedAmount = new BN(0);
     for(let i = 0; i < pids.length; i++) {
       let claimedAmount = new BN(0);

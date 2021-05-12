@@ -311,10 +311,10 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     pool.totalStake = pool.totalStake.sub(amount);
 
     if (amount > 0) {
-      IERC20Ext(pool.stakeToken).safeTransfer(msg.sender, user.amount);
+      IERC20Ext(pool.stakeToken).safeTransfer(msg.sender, amount);
     }
 
-    emit EmergencyWithdraw(msg.sender, _pid, block.number, user.amount);
+    emit EmergencyWithdraw(msg.sender, _pid, block.number, amount);
   }
 
   /**
