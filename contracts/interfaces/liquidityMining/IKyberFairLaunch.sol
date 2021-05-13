@@ -99,5 +99,5 @@ interface IKyberFairLaunch {
   * @param _pid: id of the pool
   * @param _user: user to check for pending rewards
   */
-  function pendingReward(uint256 _pid, address _user) external view returns (uint256);
+  function pendingReward(uint256 _pid, address _user) external view returns (uint256 rewards);
 }

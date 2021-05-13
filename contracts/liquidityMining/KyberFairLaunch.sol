@@ -331,7 +331,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   * @param _pid: id of the pool
   * @param _user: user to check for pending rewards
   */
-  function pendingReward(uint256 _pid, address _user) external override view returns (uint256) {
+  function pendingReward(uint256 _pid, address _user) external override view returns (uint256 rewards) {
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][_user];
     uint256 _accRewardPerShare = pool.accRewardPerShare;
@@ -339,12 +339,11 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     uint32 lastAccountedBlock = _lastAccountedRewardBlock(_pid);
     if (lastAccountedBlock > pool.lastRewardBlock && _totalStake != 0) {
       uint256 reward = uint256(lastAccountedBlock - pool.lastRewardBlock).mul(pool.rewardPerBlock);
-      _accRewardPerShare = _accRewardPerShare.add(reward.mul(PRECISION).div(_totalStake));
+      _accRewardPerShare = _accRewardPerShare.add(reward.mul(PRECISION) / _totalStake);
     }
-    return user.amount.mul(
-      _accRewardPerShare.sub(user.lastRewardPerShare)
-    ).div(PRECISION)
-    .add(user.unclaimedReward);
+
+    rewards = user.amount.mul(_accRewardPerShare.sub(user.lastRewardPerShare)) / PRECISION;
+    rewards = rewards.add(user.unclaimedReward);
   }
 
   /**
@@ -371,7 +370,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     }
     uint256 reward = uint256(lastAccountedBlock - pool.lastRewardBlock).mul(uint256(pool.rewardPerBlock));
     pool.accRewardPerShare = _safeUint128(
-      uint256(pool.accRewardPerShare).add(reward.mul(PRECISION).div(_totalStake))
+      uint256(pool.accRewardPerShare).add(reward.mul(PRECISION) / _totalStake)
     );
     pool.lastRewardBlock = lastAccountedBlock;
   }
@@ -401,35 +400,35 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   * @dev update reward of _to address from pool _pid, harvest if needed
   */
   function _updateUserReward(address _to, uint256 _pid, bool shouldHarvest) internal {
-    PoolInfo storage pool = poolInfo[_pid];
-    UserInfo storage user = userInfo[_pid][_to];
+    uint128 lastAccRewardPerShare = poolInfo[_pid].accRewardPerShare;
+    UserInfo memory user = userInfo[_pid][_to];
 
     if (user.amount == 0) {
       // update user last reward per share to the latest pool reward per share
       // by right if user.amount is 0, user.unclaimedReward should be 0 as well,
       // except when user uses emergencyWithdraw function
-      user.lastRewardPerShare = pool.accRewardPerShare;
+      userInfo[_pid][_to].lastRewardPerShare = lastAccRewardPerShare;
       return;
     }
 
     // user's unclaim reward + user's amount * (pool's accRewardPerShare - user's lastRewardPerShare) / precision
     uint256 _pending = user.amount.mul(
-      uint256(pool.accRewardPerShare).sub(user.lastRewardPerShare)
-    ).div(PRECISION)
-    .add(user.unclaimedReward);
+      uint256(lastAccRewardPerShare).sub(user.lastRewardPerShare)
+    ) / PRECISION;
+    _pending = _pending.add(user.unclaimedReward);
 
     if (shouldHarvest) {
-      user.unclaimedReward = 0;
+      userInfo[_pid][_to].unclaimedReward = 0;
       if (_pending > 0) {
         rewardLocker.lock(rewardToken, _to, _pending);
         emit Harvest(_to, _pid, block.number, _pending);
       }
     } else {
-      user.unclaimedReward = _safeUint128(_pending);
+      userInfo[_pid][_to].unclaimedReward = _safeUint128(_pending);
     }
 
     // update user last reward per share to the latest pool reward per share
-    user.lastRewardPerShare = pool.accRewardPerShare;
+    userInfo[_pid][_to].lastRewardPerShare = lastAccRewardPerShare;
   }
 
   /**
