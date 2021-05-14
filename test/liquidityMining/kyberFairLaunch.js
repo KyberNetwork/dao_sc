@@ -481,7 +481,7 @@ contract('KyberFairLaunch', function (accounts) {
 
     it('revert not enough reward token', async () => {
       currentBlock = new BN(await Helper.getCurrentBlock());
-      let pid = await addNewPool(currentBlock.add(new BN(10)), currentBlock.add(new BN(20)), precisionUnits);
+      let pid = await addNewPool(currentBlock.add(new BN(3)), currentBlock.add(new BN(20)), precisionUnits);
       await fairLaunch.deposit(pid, precisionUnits, false, {from: user1});
       await Helper.increaseBlockNumberTo(poolInfo[pid].startBlock.add(new BN(1)));
       // deposit without harvesting, still ok
@@ -497,7 +497,7 @@ contract('KyberFairLaunch', function (accounts) {
     // 5. deposit after pool has ended
     it('deposit and check rewards', async () => {
       currentBlock = new BN(await Helper.getCurrentBlock());
-      let startBlock = currentBlock.add(new BN(16));
+      let startBlock = currentBlock.add(new BN(6));
       let pid = await addNewPool(startBlock, startBlock.add(new BN(10)), precisionUnits);
       let amount = precisionUnits.mul(new BN(2));
 
@@ -568,7 +568,7 @@ contract('KyberFairLaunch', function (accounts) {
 
     it('revert withdraw not enough reward token', async () => {
       currentBlock = new BN(await Helper.getCurrentBlock());
-      let pid = await addNewPool(currentBlock.add(new BN(10)), currentBlock.add(new BN(20)), precisionUnits);
+      let pid = await addNewPool(currentBlock.add(new BN(4)), currentBlock.add(new BN(20)), precisionUnits);
       await fairLaunch.deposit(pid, precisionUnits, false, {from: user1});
       await Helper.increaseBlockNumberTo(poolInfo[pid].startBlock);
       await expectRevert.unspecified(fairLaunch.withdraw(pid, precisionUnits, {from: user1}));
@@ -580,7 +580,7 @@ contract('KyberFairLaunch', function (accounts) {
 
     it('withdraw and check rewards', async () => {
       currentBlock = new BN(await Helper.getCurrentBlock());
-      let startBlock = currentBlock.add(new BN(16));
+      let startBlock = currentBlock.add(new BN(6));
       let pid = await addNewPool(startBlock, startBlock.add(new BN(10)), precisionUnits);
       let amount = precisionUnits.mul(new BN(2));
       await depositAndVerifyData(user1, pid, amount, false);
@@ -591,9 +591,9 @@ contract('KyberFairLaunch', function (accounts) {
       amount = precisionUnits.div(new BN(10));
       await withdrawAndVerifyData(user1, pid, amount, false);
 
-      await Helper.increaseBlockNumberTo(startBlock.add(new BN(2)));
+      await Helper.increaseBlockNumberTo(startBlock.add(new BN(1)));
 
-      await kncToken.transfer(fairLaunch.address, precisionUnits.mul(new BN(200)));
+      await kncToken.transfer(fairLaunch.address, precisionUnits.mul(new BN(1000)));
 
       // withdraw and harvest rewards
       amount = precisionUnits.div(new BN(5));
@@ -640,7 +640,7 @@ contract('KyberFairLaunch', function (accounts) {
 
     it('revert harvest not enough reward token', async () => {
       currentBlock = new BN(await Helper.getCurrentBlock());
-      let pid = await addNewPool(currentBlock.add(new BN(10)), currentBlock.add(new BN(20)), precisionUnits);
+      let pid = await addNewPool(currentBlock.add(new BN(4)), currentBlock.add(new BN(20)), precisionUnits);
       await fairLaunch.deposit(pid, precisionUnits, false, {from: user1});
       await Helper.increaseBlockNumberTo(poolInfo[pid].startBlock);
       await expectRevert.unspecified(fairLaunch.harvest(pid, {from: user1}));
@@ -664,7 +664,7 @@ contract('KyberFairLaunch', function (accounts) {
 
       await Helper.increaseBlockNumberTo(startBlock.add(new BN(2)));
 
-      await kncToken.transfer(fairLaunch.address, precisionUnits.mul(new BN(200)));
+      await kncToken.transfer(fairLaunch.address, precisionUnits.mul(new BN(1000)));
 
       // harvest reward
       await harvestAndVerifyData(user1, pid);
@@ -704,8 +704,8 @@ contract('KyberFairLaunch', function (accounts) {
     it('harvest multiple pools and check rewards', async () => {
       currentBlock = new BN(await Helper.getCurrentBlock());
       let startBlock = currentBlock.add(new BN(10));
-      let pid1 = await addNewPool(startBlock, startBlock.add(new BN(36)), precisionUnits);
-      let pid2 = await addNewPool(startBlock, startBlock.add(new BN(30)), precisionUnits.mul(new BN(2)));
+      let pid1 = await addNewPool(startBlock, startBlock.add(new BN(22)), precisionUnits);
+      let pid2 = await addNewPool(startBlock, startBlock.add(new BN(20)), precisionUnits.mul(new BN(2)));
       let amount = precisionUnits.mul(new BN(2));
       await depositAndVerifyData(user1, pid1, amount, false);
       await depositAndVerifyData(user2, pid1, amount.add(new BN(1)), true);
@@ -753,6 +753,40 @@ contract('KyberFairLaunch', function (accounts) {
         await Helper.assertEqual(0, user1Data.unclaimedReward);
       }
     });
+
+    it('harvest: exact amount of reward tokens in FairLaunch', async () => {
+      currentBlock = new BN(await Helper.getCurrentBlock());
+      let startBlock = currentBlock.add(new BN(6));
+      let duration = new BN(6);
+      let pid = await addNewPool(startBlock, startBlock.add(duration), precisionUnits);
+
+      let totalAmount = precisionUnits;
+      let amount1 = precisionUnits;
+      await depositAndVerifyData(user1, pid, amount1, false);
+      let amount2 = precisionUnits.mul(new BN(2));
+      totalAmount = totalAmount.add(amount2);
+      await depositAndVerifyData(user2, pid, amount2, true);
+
+      // delay to end block
+      await Helper.increaseBlockNumberTo(startBlock.add(duration));
+
+      let totalReward = duration.mul(precisionUnits);
+
+      currentBlock = await Helper.getCurrentBlock();
+      Helper.assertEqual(
+        totalReward.mul(amount1).div(totalAmount),
+        getUserPendingReward(user1, pid, currentBlock)
+      );
+      Helper.assertEqual(
+        totalReward.mul(amount2).div(totalAmount),
+        getUserPendingReward(user2, pid, currentBlock)
+      );
+
+      await kncToken.transfer(fairLaunch.address, totalReward);
+      await harvestAndVerifyData(user1, pid);
+      await harvestAndVerifyData(user2, pid);
+      Helper.assertEqual(new BN(0), await kncToken.balanceOf(fairLaunch.address));
+    });
   });
 
   describe('#emergency withdraw', async () => {
@@ -764,8 +798,8 @@ contract('KyberFairLaunch', function (accounts) {
     it('emergencyWithdraw and check data', async () => {
       currentBlock = new BN(await Helper.getCurrentBlock());
       let startBlock = currentBlock.add(new BN(16));
-      let pid1 = await addNewPool(startBlock, startBlock.add(new BN(32)), precisionUnits);
-      let pid2 = await addNewPool(startBlock, startBlock.add(new BN(40)), precisionUnits);
+      let pid1 = await addNewPool(startBlock, startBlock.add(new BN(6)), precisionUnits);
+      let pid2 = await addNewPool(startBlock, startBlock.add(new BN(12)), precisionUnits);
       let amount = precisionUnits.mul(new BN(2));
       await depositAndVerifyData(user1, pid1, amount, false);
       amount = precisionUnits.mul(new BN(5));
@@ -774,7 +808,7 @@ contract('KyberFairLaunch', function (accounts) {
       amount = precisionUnits.mul(new BN(3));
       await depositAndVerifyData(user1, pid2, amount, false);
 
-      await Helper.increaseBlockNumber(startBlock.add(new BN(40)));
+      await Helper.increaseBlockNumber(startBlock.add(new BN(12)));
 
       let users = [user1, user2, user3];
       let pids = [pid1, pid2];
@@ -835,6 +869,116 @@ contract('KyberFairLaunch', function (accounts) {
       Helper.assertEqual(adminKncBal.add(amount), await kncToken.balanceOf(admin));
     });
   });
+
+  let numberRuns = 0;
+  const UserActions = {
+    Deposit: 0, Withdraw: 1, WithdrawAll: 2, Harvest: 3
+  }
+  const AdminActions = {
+    AddPool: 0, UpdatePool: 1, RenewPool: 2
+  }
+  let users = [];
+
+  if (numberRuns > 0) {
+    describe('#running simulation', async() => {
+      beforeEach('deploy contracts', async () => {
+        await deployContracts();
+        users = [user1, user2, user3, user4];
+      });
+
+      it(`simulate with ${numberRuns} runs`, async () => {
+        let poolLength = 0;
+        for(let i = 0; i < numberRuns; i++) {
+          let isUserAction = Helper.getRandomInt(0, 100) >= 10; // 90% user's actions
+          let userAction = Helper.getRandomInt(0, 4);
+          let adminAction = Helper.getRandomInt(0, 3);
+          currentBlock = await Helper.getCurrentBlock();
+          if (poolLength == 0 || (!isUserAction && adminAction == AdminActions.AddPool)) {
+            let startBlock = new BN(currentBlock + Helper.getRandomInt(5, 10));
+            let endBlock = startBlock.add(new BN(Helper.getRandomInt(5, numberRuns - i + 5)));
+            let rewardPerBlock = precisionUnits.div(new BN(Helper.getRandomInt(1, 10)));
+            if (poolLength == tokens.length) {
+              // all tokens have been added, will get duplicated token
+              console.log(`Loop ${i}: Expect add pool reverts`);
+              await expectRevert(
+                fairLaunch.addPool(tokens[i % tokens.length].address, startBlock, endBlock, rewardPerBlock, { from: admin }),
+                'add: duplicated pool'
+              );
+              continue;
+            }
+            poolLength += 1;
+            await kncToken.transfer(fairLaunch.address, rewardPerBlock.mul(endBlock.sub(startBlock)));
+            console.log(`Loop ${i}: Add pool ${tokens[poolLength - 1].address} ${startBlock.toString(10)} ${endBlock.toString(10)} ${rewardPerBlock.toString(10)}`);
+            await addNewPool(startBlock, endBlock, rewardPerBlock);
+          } else if (isUserAction) {
+            let user = users[Helper.getRandomInt(0, users.length - 1)];
+            let pid = Helper.getRandomInt(0, poolLength - 1);
+            if (userAction == UserActions.Deposit) {
+              let amount = precisionUnits.mul(new BN(10)).div(new BN(Helper.getRandomInt(1, 20)));
+              let isHarvesting = Helper.getRandomInt(0, 100) <= 50;
+              console.log(`Loop ${i}: Deposit: ${user} ${pid} ${amount.toString(10)} ${isHarvesting}`);
+              await depositAndVerifyData(user, pid, amount, isHarvesting);
+            } else if (userAction == UserActions.Withdraw) {
+              let amount = userInfo[user][pid].amount.div(new BN(Helper.getRandomInt(1, 20)));
+              console.log(`Loop ${i}: Withdraw: ${user} ${pid} ${amount.toString(10)}`);
+              await withdrawAndVerifyData(user, pid, amount, false);
+            } else if (userAction == UserActions.WithdrawAll) {
+              console.log(`Loop ${i}: WithdrawAll: ${user} ${pid} ${userInfo[user][pid].amount.toString(10)}`);
+              await withdrawAndVerifyData(user, pid, userInfo[user][pid].amount, true);
+            } else {
+              console.log(`Loop ${i}: Harvest: ${user} ${pid}`);
+              await harvestAndVerifyData(user, pid);
+            }
+          } else {
+            // admin action
+            let rewardPerBlock = precisionUnits.div(new BN(Helper.getRandomInt(1, 10)));
+            let pid = Helper.getRandomInt(0, poolLength - 1);
+            if (adminAction == AdminActions.UpdatePool) {
+              let endBlock = new BN(currentBlock + Helper.getRandomInt(5, numberRuns - i + 5));
+              if (new BN(currentBlock + 1).gt(poolInfo[pid].endBlock)) {
+                console.log(`Loop ${i}: Expect update pool reverts`);
+                // already ended
+                await expectRevert(
+                  fairLaunch.updatePool(
+                    pid, endBlock, rewardPerBlock, { from: admin }
+                  ),
+                  'update: pool already ended'
+                );
+              } else {
+                console.log(`Loop ${i}: Update pool: ${pid} ${endBlock.toString(10)} ${rewardPerBlock.toString(10)}`);
+                await fairLaunch.updatePool(pid, endBlock, rewardPerBlock, { from: admin });
+                currentBlock = await Helper.getCurrentBlock();
+                poolInfo[pid] = updatePoolReward(poolInfo[pid], currentBlock);
+                poolInfo[pid].endBlock = endBlock;
+                poolInfo[pid].rewardPerBlock = rewardPerBlock;
+              }
+            } else {
+              // renew pool
+              let startBlock = new BN(currentBlock + Helper.getRandomInt(5, 10));
+              let endBlock = startBlock.add(new BN(Helper.getRandomInt(5, numberRuns - i + 5)));
+              let rewardPerBlock = precisionUnits.div(new BN(Helper.getRandomInt(1, 10)));
+              if (new BN(currentBlock + 1).gt(poolInfo[pid].endBlock) || new BN(currentBlock + 1).lt(poolInfo[pid].startBlock)) {
+                await kncToken.transfer(fairLaunch.address, rewardPerBlock.mul(endBlock.sub(startBlock)));
+                await fairLaunch.renewPool(pid, startBlock, endBlock, rewardPerBlock, { from: admin });
+                console.log(`Loop ${i}: Renew pool: ${pid} ${startBlock.toString(10)} ${endBlock.toString(10)} ${rewardPerBlock.toString(10)}`);
+                currentBlock = await Helper.getCurrentBlock();
+                poolInfo[pid] = updatePoolInfoOnRenew(poolInfo[pid], startBlock, endBlock, rewardPerBlock, currentBlock);
+              } else {
+                console.log(`Loop ${i}: Expect renew pool reverts`);
+                // // currently active
+                await expectRevert(
+                  fairLaunch.renewPool(
+                    pid, startBlock, endBlock, rewardPerBlock, { from: admin }
+                  ),
+                  'renew: invalid pool state to renew'
+                );
+              }
+            }
+          }
+        }
+      });
+    });
+  }
 
   const depositAndVerifyData = async (user, pid, amount, isHarvesting) => {
     let poolData = poolInfo[pid];
@@ -946,9 +1090,7 @@ contract('KyberFairLaunch', function (accounts) {
     currentBlock = await Helper.getCurrentBlock();
     let claimedAmount = new BN(0);
     [userInfo[user][pid], poolInfo[pid], claimedAmount] = updateInfoOnHarvest(
-      userInfo[user][pid],
-      poolInfo[pid],
-      currentBlock
+      userInfo[user][pid], poolInfo[pid], currentBlock
     );
     userClaimData[user].iadd(claimedAmount);
 
@@ -960,7 +1102,7 @@ contract('KyberFairLaunch', function (accounts) {
     if (rewardClaimedAmount.gt(new BN(0))) {
       expectEvent(tx, 'Harvest', {
         user: user,
-        pid: pid,
+        pid: new BN(pid),
         blockNumber: new BN(currentBlock),
         lockedAmount: rewardClaimedAmount,
       });
