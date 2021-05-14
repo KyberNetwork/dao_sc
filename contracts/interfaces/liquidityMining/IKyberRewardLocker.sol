@@ -9,20 +9,23 @@ interface IKyberRewardLocker {
     uint64 startBlock;
     uint64 endBlock;
     uint128 quantity;
+    uint128 vestedQuantity;
   }
 
   event VestingEntryCreated(
     IERC20Ext indexed token,
     address indexed beneficiary,
-    uint256 blockNumber,
-    uint256 value
+    uint256 startBlock,
+    uint256 endBlock,
+    uint256 quantity,
+    uint256 index
   );
 
   event Vested(
     IERC20Ext indexed token,
     address indexed beneficiary,
-    uint256 blockNumber,
-    uint256 vestedQuantity
+    uint256 vestedQuantity,
+    uint256 index
   );
 
   /**
@@ -58,6 +61,15 @@ interface IKyberRewardLocker {
     returns (uint256);
 
   /**
+   * @dev claim token for specific vesting schedule from startIndex to endIndex
+   */
+  function vestSchedulesInRange(
+    IERC20Ext token,
+    uint256 startIndex,
+    uint256 endIndex
+  ) external returns (uint256);
+
+  /**
    * @dev length of vesting schedules array
    */
   function numVestingSchedules(address account, IERC20Ext token) external view returns (uint256);
@@ -69,14 +81,7 @@ interface IKyberRewardLocker {
     address account,
     IERC20Ext token,
     uint256 index
-  )
-    external
-    view
-    returns (
-      uint64 startBlock,
-      uint64 endBlock,
-      uint128 quantity
-    );
+  ) external view returns (VestingSchedule memory);
 
   /**
    * @dev get vesting shedules array

@@ -28,11 +28,6 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     mapping(uint256 => VestingSchedule) data;
   }
 
-  struct VestingConfig {
-    uint64 lockDuration;
-    uint64 negligibleBlockDifference;
-  }
-
   uint256 private constant MAX_REWARD_CONTRACTS_SIZE = 10;
 
   /// @dev whitelist of reward contracts
@@ -47,16 +42,12 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
   /// @dev An account's total vested reward per token
   mapping(address => mapping(IERC20Ext => uint256)) public accountVestedBalance;
 
-  /// @dev lock config
-  mapping(IERC20Ext => VestingConfig) public vestingConfigPerToken;
+  /// @dev vesting duration for earch token
+  mapping(IERC20Ext => uint256) public vestingDurationPerToken;
 
   /* ========== EVENTS ========== */
   event RewardContractAdded(address indexed rewardContract, bool isAdded);
-  event SetVestingConfig(
-    IERC20Ext indexed token,
-    uint64 lockDuration,
-    uint64 negligibleBlockDifference
-  );
+  event SetVestingDuration(IERC20Ext indexed token, uint64 vestingDuration);
 
   /* ========== MODIFIERS ========== */
 
@@ -89,17 +80,10 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     emit RewardContractAdded(_rewardContract, false);
   }
 
-  function setVestingConfig(
-    IERC20Ext token,
-    uint64 _lockDuration,
-    uint64 _negligibleBlockDifference
-  ) external onlyAdmin {
-    vestingConfigPerToken[token] = VestingConfig({
-      lockDuration: _lockDuration,
-      negligibleBlockDifference: _negligibleBlockDifference
-    });
+  function setVestingDuration(IERC20Ext token, uint64 _vestingDuration) external onlyAdmin {
+    vestingDurationPerToken[token] = _vestingDuration;
 
-    emit SetVestingConfig(token, _lockDuration, _negligibleBlockDifference);
+    emit SetVestingDuration(token, _vestingDuration);
   }
 
   function lock(
@@ -123,48 +107,19 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
 
     VestingSchedules storage schedules = accountVestingSchedules[account][token];
     uint256 schedulesLength = schedules.length;
+    uint256 endBlock = startBlock.add(vestingDurationPerToken[token]);
+    // append new schedule
+    schedules.data[schedulesLength] = VestingSchedule({
+      startBlock: startBlock.toUint64(),
+      endBlock: endBlock.toUint64(),
+      quantity: quantity.toUint128(),
+      vestedQuantity: 0
+    });
+    schedules.length = schedulesLength + 1;
+    // record total vesting balance of user
+    accountEscrowedBalance[account][token] = accountEscrowedBalance[account][token].add(quantity);
 
-    VestingConfig memory config = vestingConfigPerToken[token];
-    uint256 endBlock = startBlock.add(config.lockDuration);
-
-    if (schedulesLength == 0) {
-      accountEscrowedBalance[account][token] = quantity;
-      schedules.data[0] = VestingSchedule({
-        startBlock: startBlock.toUint64(),
-        endBlock: endBlock.toUint64(),
-        quantity: quantity.toUint128()
-      });
-      schedules.length = 1;
-    } else {
-      VestingSchedule memory lastSchedule = schedules.data[schedulesLength - 1];
-      uint256 lastLockDuration = uint256(lastSchedule.endBlock).sub(lastSchedule.startBlock);
-      ///  if lockDuration of lastSchedule == current lockDuration
-      /// and the diffrent between startBlock of lastSchedule and startBlock are negligible
-      /// then merge schedule
-      if (
-        lastSchedule.startBlock > startBlock.sub(config.negligibleBlockDifference) &&
-        lastLockDuration == config.lockDuration
-      ) {
-        schedules.data[schedulesLength - 1] = VestingSchedule({
-          startBlock: startBlock.toUint64(),
-          endBlock: endBlock.toUint64(),
-          quantity: uint256(lastSchedule.quantity).add(quantity).toUint128()
-        });
-      } else {
-        // append to storage, the schedule data
-        schedules.data[schedulesLength] = VestingSchedule({
-          startBlock: startBlock.toUint64(),
-          endBlock: endBlock.toUint64(),
-          quantity: quantity.toUint128()
-        });
-        schedules.length = schedulesLength + 1;
-      }
-      accountEscrowedBalance[account][token] = accountEscrowedBalance[account][token].add(
-        quantity
-      );
-    }
-
-    emit VestingEntryCreated(token, account, _blockNumber(), quantity);
+    emit VestingEntryCreated(token, account, startBlock, endBlock, quantity, schedulesLength);
   }
 
   /**
@@ -177,76 +132,64 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     uint256 totalVesting = 0;
     for (uint256 i = 0; i < schedulesLength; i++) {
       VestingSchedule memory schedule = schedules.data[i];
-      if (schedule.quantity == 0) {
-        continue;
-      }
       if (_blockNumber() < schedule.endBlock) {
         continue;
       }
-      totalVesting = totalVesting.add(schedule.quantity);
-      // clear data after vesting
-      schedules.data[i].quantity = 0;
+      uint256 vestQuantity = uint256(schedule.quantity).sub(schedule.vestedQuantity);
+      if (vestQuantity == 0) {
+        continue;
+      }
+      schedules.data[i].vestedQuantity = schedule.quantity;
+      totalVesting = totalVesting.add(vestQuantity);
+
+      emit Vested(token, msg.sender, vestQuantity, i);
     }
-    require(totalVesting != 0, '0 vesting amount');
-    accountEscrowedBalance[msg.sender][token] = accountEscrowedBalance[msg.sender][token].sub(
-      totalVesting
-    );
-    accountVestedBalance[msg.sender][token] = accountVestedBalance[msg.sender][token].add(
-      totalVesting
-    );
+    _completeVesting(token, totalVesting);
 
-    token.safeTransfer(msg.sender, totalVesting);
-
-    emit Vested(token, msg.sender, _blockNumber(), totalVesting);
     return totalVesting;
   }
 
   /**
    * @notice Allow a user to vest with specific schedule
    */
-  function vestScheduleAtIndex(IERC20Ext token, uint256[] calldata indexes)
-    external
+  function vestScheduleAtIndex(IERC20Ext token, uint256[] memory indexes)
+    public
     override
     returns (uint256)
   {
     VestingSchedules storage schedules = accountVestingSchedules[msg.sender][token];
+    uint256 schedulesLength = schedules.length;
     uint256 totalVesting = 0;
     for (uint256 i = 0; i < indexes.length; i++) {
+      require(indexes[i] < schedulesLength, 'invalid schedule index');
       VestingSchedule memory schedule = schedules.data[indexes[i]];
-      uint256 vestQuantity = _getVestingQuantity(
-        schedule.quantity,
-        schedule.startBlock,
-        schedule.endBlock
-      );
+      uint256 vestQuantity = _getVestingQuantity(schedule);
       if (vestQuantity == 0) {
         continue;
       }
+      schedules.data[indexes[i]].vestedQuantity = uint256(schedule.vestedQuantity)
+        .add(vestQuantity)
+        .toUint128();
+
       totalVesting = totalVesting.add(vestQuantity);
 
-      if (vestQuantity == uint256(schedule.quantity)) {
-        schedules.data[indexes[i]].quantity = 0;
-      } else {
-        schedules.data[indexes[i]] = VestingSchedule({
-          startBlock: _blockNumber().toUint64(),
-          endBlock: schedule.endBlock,
-          quantity: uint256(schedule.quantity).sub(vestQuantity).toUint128()
-        });
-      }
+      emit Vested(token, msg.sender, vestQuantity, indexes[i]);
     }
-    require(totalVesting != 0, 'invalid vesting amount');
-
-    accountEscrowedBalance[msg.sender][token] = accountEscrowedBalance[msg.sender][token].sub(
-      totalVesting
-    );
-    accountVestedBalance[msg.sender][token] = accountVestedBalance[msg.sender][token].add(
-      totalVesting
-    );
-
-    token.safeTransfer(msg.sender, totalVesting);
-
-    emit Vested(token, msg.sender, _blockNumber(), totalVesting);
-
+    _completeVesting(token, totalVesting);
     return totalVesting;
+  }
+
+  function vestSchedulesInRange(IERC20Ext token, uint256 startIndex, uint256 endIndex)
+    external
+    override
+    returns (uint256)
+  {
+    require(startIndex <= endIndex, 'startIndex > endIndex');
+    uint256[] memory indexes = new uint256[](endIndex - startIndex + 1);
+    for (uint256 index = startIndex; index <= endIndex; index++) {
+      indexes[index - startIndex] = index;
+    }
+    return vestScheduleAtIndex(token, indexes);
   }
 
   /* ========== VIEW FUNCTIONS ========== */
@@ -270,18 +213,8 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     address account,
     IERC20Ext token,
     uint256 index
-  )
-    external
-    override
-    view
-    returns (
-      uint64 startBlock,
-      uint64 endBlock,
-      uint128 quantity
-    )
-  {
-    VestingSchedule memory schedule = accountVestingSchedules[account][token].data[index];
-    return (schedule.startBlock, schedule.endBlock, schedule.quantity);
+  ) external override view returns (VestingSchedule memory) {
+    return accountVestingSchedules[account][token].data[index];
   }
 
   /**
@@ -313,22 +246,31 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
 
   /* ========== INTERNAL FUNCTIONS ========== */
 
+  function _completeVesting(IERC20Ext token, uint256 totalVesting) internal {
+    require(totalVesting != 0, '0 vesting amount');
+    accountEscrowedBalance[msg.sender][token] = accountEscrowedBalance[msg.sender][token].sub(
+      totalVesting
+    );
+    accountVestedBalance[msg.sender][token] = accountVestedBalance[msg.sender][token].add(
+      totalVesting
+    );
+
+    token.safeTransfer(msg.sender, totalVesting);
+  }
+
   /**
    * @dev implements linear vesting mechanism
-   * @dev this will allow user to claim token early, but slash the rest of token.
    */
-  function _getVestingQuantity(
-    uint256 quantity,
-    uint256 startBlock,
-    uint256 endBlock
-  ) internal view returns (uint256) {
-    if (_blockNumber() >= endBlock) {
-      return quantity;
+  function _getVestingQuantity(VestingSchedule memory schedule) internal view returns (uint256) {
+    if (_blockNumber() >= uint256(schedule.endBlock)) {
+      return uint256(schedule.quantity).sub(schedule.vestedQuantity);
     }
-    if (_blockNumber() <= startBlock) {
+    if (_blockNumber() <= uint256(schedule.startBlock)) {
       return 0;
     }
-    return (_blockNumber() - startBlock).mul(quantity).div(endBlock - startBlock);
+    uint256 lockDuration = uint256(schedule.endBlock).sub(schedule.startBlock);
+    uint256 passedDuration = _blockNumber() - uint256(schedule.startBlock);
+    return passedDuration.mul(schedule.quantity).div(lockDuration).sub(schedule.vestedQuantity);
   }
 
   /**
