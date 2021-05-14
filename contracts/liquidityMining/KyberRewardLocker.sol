@@ -213,9 +213,6 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     uint256 totalVesting = 0;
     for (uint256 i = 0; i < indexes.length; i++) {
       VestingSchedule memory schedule = schedules.data[indexes[i]];
-      if (schedule.quantity == 0) {
-        continue;
-      }
       uint256 vestQuantity = _getVestingQuantity(
         schedule.quantity,
         schedule.startBlock,
@@ -227,9 +224,9 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
       totalVesting = totalVesting.add(vestQuantity);
 
       if (vestQuantity == uint256(schedule.quantity)) {
-        schedules.data[i].quantity = 0;
+        schedules.data[indexes[i]].quantity = 0;
       } else {
-        schedules.data[i] = VestingSchedule({
+        schedules.data[indexes[i]] = VestingSchedule({
           startBlock: _blockNumber().toUint64(),
           endBlock: schedule.endBlock,
           quantity: uint256(schedule.quantity).sub(vestQuantity).toUint128()

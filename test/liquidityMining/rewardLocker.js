@@ -105,7 +105,7 @@ contract('KyberRewardLocker', (accounts) => {
 
     it('lock and vest and claim with half time', async () => {
       let vestingQuantity = new BN(10).pow(new BN(18)).mul(new BN(7));
-      await rewardToken.transfer(rewardContract, vestingQuantity);
+      await rewardToken.transfer(rewardContract, vestingQuantity.mul(new BN(2)));
       await rewardToken.approve(rewardLocker.address, Helper.MAX_ALLOWANCE, {from: rewardContract});
 
       await rewardLocker.setBlockNumber(new BN(7200));
@@ -114,18 +114,34 @@ contract('KyberRewardLocker', (accounts) => {
 
       await rewardLocker.setBlockNumber(new BN(9000));
 
-      txResult = await rewardLocker.vestScheduleAtIndex(rewardToken.address, [new BN(0)], {from: user1});
+      await rewardLocker.lock(rewardToken.address, user1, vestingQuantity, {from: rewardContract});
+
+      await rewardLocker.setBlockNumber(new BN(10800));
+
+      txResult = await rewardLocker.vestScheduleAtIndex(rewardToken.address, [new BN(0), new BN(1)], {from: user1});
       expectEvent(txResult, 'Vested', {
         token: rewardToken.address,
         beneficiary: user1,
-        vestedQuantity: vestingQuantity.div(new BN(2)),
+        vestedQuantity: vestingQuantity.mul(new BN(3)).div(new BN(2)),
       });
 
       await expectEvent.inTransaction(txResult.tx, rewardToken, 'Transfer', {
         from: rewardLocker.address,
         to: user1,
-        value: vestingQuantity.div(new BN(2)),
+        value: vestingQuantity.mul(new BN(3)).div(new BN(2)),
       });
+
+      Helper.assertEqual(await rewardLocker.numVestingSchedules(user1, rewardToken.address), new BN(2));
+
+      let vestingSchedules = await rewardLocker.getVestingSchedules(user1, rewardToken.address);
+      expect(vestingSchedules.length).equals(2);
+      Helper.assertEqual(vestingSchedules[0].startBlock, new BN(7200));
+      Helper.assertEqual(vestingSchedules[0].endBlock, new BN(10800));
+      Helper.assertEqual(vestingSchedules[0].quantity, new BN(0));
+
+      Helper.assertEqual(vestingSchedules[1].startBlock, new BN(10800));
+      Helper.assertEqual(vestingSchedules[1].endBlock, new BN(12600));
+      Helper.assertEqual(vestingSchedules[1].quantity, vestingQuantity.div(new BN(2)));
     });
   });
 });
