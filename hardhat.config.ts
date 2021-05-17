@@ -56,6 +56,10 @@ const config: HardhatUserConfig = {
   mocha: {
     timeout: 0,
   },
+
+  typechain: {
+    target: 'ethers-v5'
+  }
 };
 
 const INFURA_API_KEY: string = process.env.INFURA_API_KEY || '';

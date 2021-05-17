@@ -1,20 +1,22 @@
-import { artifacts } from 'hardhat';
+import {artifacts} from 'hardhat';
 import chai from 'chai';
-import { expect } from 'chai';
+import {expect} from 'chai';
 import * as Helper from '../helper.js';
-import { BigNumber as BN, Contract, ContractTransaction, Wallet } from 'ethers';
-import { solidity } from 'ethereum-waffle';
+import {BigNumber as BN, Contract, ContractTransaction, Wallet} from 'ethers';
+import {solidity} from 'ethereum-waffle';
+
+import {MockRewardLocker, KyberNetworkTokenV2} from '../../typechain';
 
 chai.use(solidity);
 
-const { expectRevert } = require('@openzeppelin/test-helpers');
+const {expectRevert} = require('@openzeppelin/test-helpers');
 const hre = require('hardhat');
 const MAX_ALLOWANCE = BN.from(2).pow(256).sub(1);
 
-let RewardLocker: Contract;
-let KNC: Contract;
-let rewardLocker: Contract;
-let rewardToken: Contract;
+let RewardLocker: MockRewardLocker;
+let KNC: KyberNetworkTokenV2;
+let rewardLocker: MockRewardLocker;
+let rewardToken: KyberNetworkTokenV2;
 let admin: Wallet;
 let user1: Wallet;
 let user2: Wallet;
@@ -26,7 +28,7 @@ let txResult: any;
 
 describe('KyberRewardLocker', () => {
   before('setup', async () => {
-    [admin, user1, user2, rewardContract, rewardContract2, slashingTarget] = await hre.ethers.getSigners();
+    [admin, user1, user2, rewardContract, rewardContract2] = await hre.ethers.getSigners();
 
     RewardLocker = await hre.ethers.getContractFactory('MockRewardLocker');
     KNC = await hre.ethers.getContractFactory('KyberNetworkTokenV2');
@@ -70,82 +72,59 @@ describe('KyberRewardLocker', () => {
 
     it('set vesting config', async () => {
       await expectRevert(
-        rewardLocker.connect(user1).setVestingConfig(rewardToken.address, BN.from(1000), BN.from(10)),
+        rewardLocker.connect(user1).setVestingDuration(rewardToken.address, BN.from(1000)),
         'only admin'
       );
 
-      await expect(rewardLocker.connect(admin).setVestingConfig(rewardToken.address, BN.from(1000), BN.from(10)))
-        .to.emit(rewardLocker, 'SetVestingConfig')
-        .withArgs(rewardToken.address, BN.from(1000), BN.from(10));
+      await expect(rewardLocker.connect(admin).setVestingDuration(rewardToken.address, BN.from(1000)))
+        .to.emit(rewardLocker, 'SetVestingDuration')
+        .withArgs(rewardToken.address, BN.from(1000));
 
-      expect((await rewardLocker.vestingConfigPerToken(rewardToken.address)).lockDuration).to.equal(BN.from(1000));
-    });
-
-    it('set slashing target', async () => {
-      await expectRevert(
-        rewardLocker.connect(user1).setSlashingTarget(rewardToken.address, slashingTarget.address),
-        'only admin'
-      );
-
-      await expect(await rewardLocker.connect(admin).setSlashingTarget(rewardToken.address, slashingTarget.address))
-        .to.emit(rewardLocker, 'SetSlashingTarget')
-        .withArgs(rewardToken.address, slashingTarget.address);
-
-      expect(await rewardLocker.slashingTargets(rewardToken.address)).to.equal(slashingTarget.address);
+      expect(await rewardLocker.vestingDurationPerToken(rewardToken.address)).to.equal(BN.from(1000));
     });
   });
 
   describe('lock and vest', async () => {
     beforeEach('setup', async () => {
       rewardLocker = await RewardLocker.deploy(admin.address);
-      await rewardLocker.connect(admin).addRewardsContract(rewardToken.address, rewardContract.address);
-      await rewardLocker.connect(admin).setVestingConfig(rewardToken.address, BN.from(3600), BN.from(60));
+      await rewardLocker.connect(admin).addRewardsContract(rewardToken.address, admin.address);
+      await rewardLocker.connect(admin).setVestingDuration(rewardToken.address, BN.from(3600));
+
+      await rewardToken.approve(rewardLocker.address, MAX_ALLOWANCE);
     });
 
     it('lock and vest with full time', async () => {
-      let vestingQuantity = BN.from(10).pow(18).mul(7);
-      await rewardToken.transfer(rewardContract.address, vestingQuantity);
-      await rewardToken.connect(rewardContract).approve(rewardLocker.address, MAX_ALLOWANCE);
+      const vestingQuantity = BN.from(10).pow(18).mul(7);
 
-      await rewardLocker.setTimestamp(BN.from(7200));
+      await rewardLocker.setBlockNumber(BN.from(7200));
+      await rewardLocker.lock(rewardToken.address, user1.address, vestingQuantity);
 
-      await rewardLocker.connect(rewardContract).lock(rewardToken.address, user1.address, vestingQuantity);
-
-      let vestingSchedules = await rewardLocker.getVestingSchedules(user1.address, rewardToken.address);
+      const vestingSchedules = await rewardLocker.getVestingSchedules(user1.address, rewardToken.address);
       expect(vestingSchedules.length).to.equal(1);
-      expect(vestingSchedules[0].startTime).to.equal(BN.from(7200));
-      expect(vestingSchedules[0].endTime).to.equal(BN.from(10800));
+      expect(vestingSchedules[0].startBlock).to.equal(BN.from(7200));
+      expect(vestingSchedules[0].endBlock).to.equal(BN.from(10800));
       expect(vestingSchedules[0].quantity).to.equal(vestingQuantity);
 
-      await rewardLocker.setTimestamp(BN.from(10800));
+      await rewardLocker.setBlockNumber(BN.from(10800));
 
       await expect(rewardLocker.connect(user1).vestCompletedSchedules(rewardToken.address))
         .to.emit(rewardLocker, 'Vested')
-        .withArgs(rewardToken.address, user1.address, BN.from(10800), vestingQuantity, BN.from(0));
+        .withArgs(rewardToken.address, user1.address, vestingQuantity, BN.from(0));
     });
 
-    it('lock and vest and burn with half time', async () => {
-      await rewardLocker.connect(admin).setSlashingTarget(rewardToken.address, Helper.zeroAddress);
+    it('lock and vest and claim with half time', async () => {
+      await rewardLocker.setBlockNumber(BN.from(7200));
+      await rewardLocker.lock(rewardToken.address, user1.address, BN.from(10).pow(18).mul(7));
 
-      let vestingQuantity = BN.from(10).pow(18).mul(7);
-      await rewardToken.transfer(rewardContract.address, vestingQuantity);
-      await rewardToken.connect(rewardContract).approve(rewardLocker.address, MAX_ALLOWANCE);
+      await rewardLocker.setBlockNumber(BN.from(9000));
+      await rewardLocker.lock(rewardToken.address, user1.address, BN.from(10).pow(18).mul(8));
 
-      await rewardLocker.setTimestamp(BN.from(7200));
-
-      await rewardLocker.connect(rewardContract).lock(rewardToken.address, user1.address, vestingQuantity);
-
-      await rewardLocker.setTimestamp(BN.from(9000));
-
-      await expect(rewardLocker.connect(user1).vestScheduleAtIndex(rewardToken.address, [BN.from(0)]))
+      await rewardLocker.setBlockNumber(BN.from(10800));
+      await expect(rewardLocker.connect(user1).vestScheduleAtIndex(rewardToken.address, [BN.from(0), BN.from(1)]))
         .to.emit(rewardLocker, 'Vested')
-        .withArgs(
-          rewardToken.address,
-          user1.address,
-          BN.from(9000),
-          vestingQuantity.div(BN.from(2)),
-          vestingQuantity.div(BN.from(2))
-        );
+        .withArgs(rewardToken.address, user1.address, BN.from(10).pow(18).mul(7), BN.from(0))
+        .emit(rewardLocker, 'Vested')
+        .withArgs(rewardToken.address, user1.address, BN.from(10).pow(18).mul(4), BN.from(1));
 
       // await expectEvent.inTransaction(txResult.tx, rewardToken, 'Transfer', {
       //   to: Helper.zeroAddress,
@@ -153,33 +132,34 @@ describe('KyberRewardLocker', () => {
       // });
     });
 
-    it('lock and vest and transfer slashing quantity with half time', async () => {
-      await rewardLocker.connect(admin).setSlashingTarget(rewardToken.address, slashingTarget.address);
+    it('#vestSchedulesInRange', async () => {
+      await rewardLocker.setBlockNumber(BN.from(7200));
+      await rewardLocker.lock(rewardToken.address, user1.address, BN.from(10).pow(18).mul(7));
 
-      let vestingQuantity = BN.from(10).pow(18).mul(7);
-      await rewardToken.transfer(rewardContract.address, vestingQuantity);
-      await rewardToken.connect(rewardContract).approve(rewardLocker.address, MAX_ALLOWANCE);
+      await rewardLocker.setBlockNumber(BN.from(9000));
+      await rewardLocker.lock(rewardToken.address, user1.address, BN.from(10).pow(18).mul(8));
 
-      await rewardLocker.setTimestamp(BN.from(7200));
-
-      await rewardLocker.connect(rewardContract).lock(rewardToken.address, user1.address, vestingQuantity);
-
-      await rewardLocker.setTimestamp(BN.from(9000));
-
-      await expect(rewardLocker.connect(user1).vestScheduleAtIndex(rewardToken.address, [BN.from(0)]))
+      await rewardLocker.setBlockNumber(BN.from(10800));
+      await expect(rewardLocker.connect(user1).vestSchedulesInRange(rewardToken.address, BN.from(0), BN.from(1)))
         .to.emit(rewardLocker, 'Vested')
-        .withArgs(
-          rewardToken.address,
-          user1.address,
-          BN.from(9000),
-          vestingQuantity.div(BN.from(2)),
-          vestingQuantity.div(BN.from(2))
-        );
+        .withArgs(rewardToken.address, user1.address, BN.from(10).pow(18).mul(7), BN.from(0))
+        .emit(rewardLocker, 'Vested')
+        .withArgs(rewardToken.address, user1.address, BN.from(10).pow(18).mul(4), BN.from(1));
 
-      // await expectEvent.inTransaction(txResult.tx, rewardToken, 'Transfer', {
-      //   to: slashingTarget,
-      //   value: vestingQuantity.div(new BN(2)),
-      // });
+      let vestingSchedules = await rewardLocker.getVestingSchedules(user1.address, rewardToken.address);
+      expect(vestingSchedules.length).to.equal(2);
+      expect(vestingSchedules[0].vestedQuantity).to.equal(BN.from(10).pow(18).mul(7));
+      expect(vestingSchedules[1].vestedQuantity).to.equal(BN.from(10).pow(18).mul(4));
+
+      await rewardLocker.setBlockNumber(BN.from(11700));
+      await expect(rewardLocker.connect(user1).vestSchedulesInRange(rewardToken.address, BN.from(0), BN.from(1)))
+        .to.emit(rewardLocker, 'Vested')
+        .withArgs(rewardToken.address, user1.address, BN.from(10).pow(18).mul(2), BN.from(1));
+
+      vestingSchedules = await rewardLocker.getVestingSchedules(user1.address, rewardToken.address);
+      expect(vestingSchedules.length).to.equal(2);
+      expect(vestingSchedules[0].vestedQuantity).to.equal(BN.from(10).pow(18).mul(7));
+      expect(vestingSchedules[1].vestedQuantity).to.equal(BN.from(10).pow(18).mul(6));
     });
   });
 });
