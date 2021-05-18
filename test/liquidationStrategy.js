@@ -275,7 +275,8 @@ contract('LiquidationStrategy', function (accounts) {
           await strategy.isLiquidationEnabledAt(i + currentTime - 20)
         );
       }
-      await strategy.updateLiquidationSchedule(120, 240, 100, {from: admin});
+      currentTime = await Helper.getCurrentBlockTime();
+      await strategy.updateLiquidationSchedule(currentTime, 240, 100, {from: admin});
       Helper.assertEqual(
         checkLiquidationEnabled(currentTime, currentTime, 120, 240, 100),
         await strategy.isLiquidationEnabled()

@@ -61,7 +61,6 @@ contract DMMLiquidationStrategy is PriceOracleLiquidationStrategy {
     uint256[] calldata amountsAMin,
     uint256[] calldata amountsBMin
   ) external {
-    require(isLiquidationEnabled(), 'only when liquidation enabled');
     // check whitelisted liquidator if needed
     if (isWhitelistLiquidatorEnabled()) {
       require(isWhitelistedLiquidator(msg.sender), 'only whitelisted liquidator');
@@ -78,7 +77,7 @@ contract DMMLiquidationStrategy is PriceOracleLiquidationStrategy {
     IPool(treasuryPool()).withdrawFunds(poolTokens, amounts, address(this));
 
     // dmm router will verify pool and token addresses
-    // liquified LP tokens are sent to this contract
+    // liquified LP tokens are sent back to treasury pool
     for (uint256 i; i < poolTokens.length; i++) {
       dmmRouter.removeLiquidity(
         tokensA[i],
@@ -87,7 +86,7 @@ contract DMMLiquidationStrategy is PriceOracleLiquidationStrategy {
         amounts[i],
         amountsAMin[i],
         amountsBMin[i],
-        address(this),
+        treasuryPool(),
         block.timestamp + 3600 // arbitary deadline
       );
     }
