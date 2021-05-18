@@ -3,15 +3,6 @@ pragma solidity 0.7.6;
 
 import {IERC20} from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 
-interface IDMMStruct {
-  struct Swap {
-    uint256 amountOutMin;
-    address[] poolsPath;
-    IERC20[] path;
-    uint256 deadline;
-  }
-}
-
 interface IDMMRouter02 {
   function removeLiquidity(
     IERC20 tokenA,
