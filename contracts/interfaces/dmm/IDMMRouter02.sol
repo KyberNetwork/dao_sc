@@ -23,6 +23,24 @@ interface IDMMRouter02 {
       uint256 liquidity
     );
 
+  function addLiquidityETH(
+    IERC20 token,
+    address pool,
+    uint256 amountTokenDesired,
+    uint256 amountTokenMin,
+    uint256 amountETHMin,
+    uint256[2] memory vReserveRatioBounds,
+    address to,
+    uint256 deadline
+  )
+    external
+    payable
+    returns (
+      uint256 amountToken,
+      uint256 amountETH,
+      uint256 liquidity
+    );
+
   function removeLiquidity(
     IERC20 tokenA,
     IERC20 tokenB,
@@ -33,6 +51,16 @@ interface IDMMRouter02 {
     address to,
     uint256 deadline
   ) external returns (uint256 amountA, uint256 amountB);
+
+  function removeLiquidityETHSupportingFeeOnTransferTokens(
+    IERC20 token,
+    address pool,
+    uint256 liquidity,
+    uint256 amountTokenMin,
+    uint256 amountETHMin,
+    address to,
+    uint256 deadline
+  ) external returns (uint256 amountETH);
 
   function swapExactTokensForTokensSupportingFeeOnTransferTokens(
     uint256 amountIn,

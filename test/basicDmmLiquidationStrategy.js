@@ -18,11 +18,13 @@ let kncAddress = '0xdeFA4e8a7bcBA345F687a2f1456F5Edd9CE97202';
 let usdcAddress = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
 let usdtAddress = '0xdac17f958d2ee523a2206206994597c13d831ec7';
 let usdcUsdtLpAddress = '0x1822456FC778419420cEe4ef48aB1fA3FC5120fc';
+let ethUsdtLpAddress = '0xf8467EF9de03E83B5a778Ac858EA5c2d1FC47188';
 
 let knc;
 let usdc;
 let usdt;
 let usdcUsdtLp;
+let ethUsdtLp;
 
 contract('BasicDMMLiquidationStrategy', function () {
   if (process.env.ALCHEMY_KEY) {
@@ -51,6 +53,7 @@ contract('BasicDMMLiquidationStrategy', function () {
         usdt = await ethers.getContractAt('IERC20', usdtAddress);
         knc = await ethers.getContractAt('IERC20', kncAddress);
         usdcUsdtLp = await ethers.getContractAt('IERC20', usdcUsdtLpAddress);
+        ethUsdtLp = await ethers.getContractAt('IERC20', ethUsdtLpAddress);
         dmmLiquidationStrategy = await DMMLiquidation.deploy(
           admin.address,
           treasuryAddress,
@@ -106,6 +109,11 @@ contract('BasicDMMLiquidationStrategy', function () {
           .removeLiquidity([usdc.address], [usdc.address], [usdc.address], [0], [0], [0]),
         'only whitelisted liquidator'
       );
+
+      await expectRevert(
+        dmmLiquidationStrategy.connect(operator).removeLiquidityETH([usdc.address], [usdc.address], [0], [0], [0]),
+        'only whitelisted liquidator'
+      );
     });
 
     it('should revert for bad input lengths', async () => {
@@ -113,6 +121,7 @@ contract('BasicDMMLiquidationStrategy', function () {
       await dmmLiquidationStrategy.connect(admin).updateWhitelistedLiquidators([admin.address], true);
       await dmmLiquidationStrategy.connect(admin).enableWhitelistedLiquidators();
 
+      // removeLiquidity
       await expectRevert(
         dmmLiquidationStrategy
           .connect(admin)
@@ -154,6 +163,36 @@ contract('BasicDMMLiquidationStrategy', function () {
           .removeLiquidity([usdc.address], [usdc.address], [usdc.address], [0], [0], [0, 0]),
         'bad input length'
       );
+
+      // removeLiquidityETH
+      await expectRevert(
+        dmmLiquidationStrategy
+          .connect(admin)
+          .removeLiquidityETH([usdc.address, knc.address], [usdc.address], [0], [0], [0]),
+        'bad input length'
+      );
+
+      await expectRevert(
+        dmmLiquidationStrategy
+          .connect(admin)
+          .removeLiquidityETH([usdc.address], [usdc.address, knc.address], [0], [0], [0]),
+        'bad input length'
+      );
+
+      await expectRevert(
+        dmmLiquidationStrategy.connect(admin).removeLiquidityETH([usdc.address], [usdc.address], [0, 0], [0], [0]),
+        'bad input length'
+      );
+
+      await expectRevert(
+        dmmLiquidationStrategy.connect(admin).removeLiquidityETH([usdc.address], [usdc.address], [0], [0, 0], [0]),
+        'bad input length'
+      );
+
+      await expectRevert(
+        dmmLiquidationStrategy.connect(admin).removeLiquidityETH([usdc.address], [usdc.address], [0], [0], [0, 0]),
+        'bad input length'
+      );
     });
 
     it('should be able to remove LP tokens and send tokens to treasury', async () => {
@@ -171,7 +210,7 @@ contract('BasicDMMLiquidationStrategy', function () {
       await admin.sendTransaction({
         to: treasuryAdminAddress,
         gasLimit: 80000,
-        value: oneEth
+        value: oneEth,
       });
       await treasuryPool.connect(treasuryAdmin).authorizeStrategies([dmmLiquidationStrategy.address]);
 
@@ -191,7 +230,7 @@ contract('BasicDMMLiquidationStrategy', function () {
       await usdc.connect(admin).approve(dmmRouter.address, MAX_UINT);
       await usdt.connect(admin).approve(dmmRouter.address, MAX_UINT);
 
-      // create USDC-USDT LP tokens, sent to treasury
+      // create USDC-USDT and ETH-USDT LP tokens, sent to treasury
       await dmmRouter
         .connect(admin)
         .addLiquidity(
@@ -207,8 +246,24 @@ contract('BasicDMMLiquidationStrategy', function () {
           MAX_UINT
         );
 
-      // admin give LP token approval to dmmRouter
-      await dmmLiquidationStrategy.connect(admin).setTokenApprovalsOnRouter([usdcUsdtLpAddress], true);
+      await dmmRouter
+        .connect(admin)
+        .addLiquidityETH(
+          usdtAddress,
+          ethUsdtLpAddress,
+          await usdt.balanceOf(admin.address),
+          0,
+          0,
+          [0, MAX_UINT],
+          treasuryAddress,
+          MAX_UINT,
+          {value: oneEth}
+        );
+
+      // admin give LP token approvals to dmmRouter
+      await dmmLiquidationStrategy
+        .connect(admin)
+        .setTokenApprovalsOnRouter([usdcUsdtLpAddress, ethUsdtLpAddress], true);
 
       // get initial token balances
       let usdcBal = await usdc.balanceOf(treasuryAddress);
@@ -228,6 +283,18 @@ contract('BasicDMMLiquidationStrategy', function () {
       Helper.assertGreater((await usdc.balanceOf(treasuryAddress)).toString(), usdcBal.toString());
       Helper.assertGreater((await usdt.balanceOf(treasuryAddress)).toString(), usdtBal.toString());
       Helper.assertEqual((await usdcUsdtLp.balanceOf(treasuryAddress)).toString(), ZERO.toString());
+
+      // get initial balances
+      usdtBal = await usdt.balanceOf(treasuryAddress);
+      ethBal = await ethers.provider.getBalance(treasuryAddress);
+      // attempt liquidity removal
+      await dmmLiquidationStrategy
+        .connect(admin)
+        .removeLiquidityETH([usdtAddress], [ethUsdtLpAddress], [await ethUsdtLp.balanceOf(treasuryAddress)], [0], [0]);
+      // check balances change
+      Helper.assertGreater((await usdt.balanceOf(treasuryAddress)).toString(), usdtBal.toString());
+      Helper.assertGreater((await ethers.provider.getBalance(treasuryAddress)).toString(), ethBal.toString());
+      Helper.assertEqual((await ethUsdtLp.balanceOf(treasuryAddress)).toString(), ZERO.toString());
     });
 
     after('disable mainnet fork', async () => {

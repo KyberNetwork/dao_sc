@@ -91,4 +91,43 @@ contract DMMLiquidationStrategy is PriceOracleLiquidationStrategy {
       );
     }
   }
+
+  /**
+   * @dev Call to break down DMM LP tokens, 1 side being ETH
+   */
+  function removeLiquidityETH(
+    IERC20[] calldata tokens,
+    IERC20Ext[] calldata poolTokens,
+    uint256[] calldata amounts,
+    uint256[] calldata amountsTokenMin,
+    uint256[] calldata amountsETHMin
+  ) external {
+    // check whitelisted liquidator if needed
+    if (isWhitelistLiquidatorEnabled()) {
+      require(isWhitelistedLiquidator(msg.sender), 'only whitelisted liquidator');
+    }
+
+    // check that array lengths are the same
+    require(poolTokens.length == tokens.length, 'bad input length');
+    require(poolTokens.length == amounts.length, 'bad input length');
+    require(poolTokens.length == amountsTokenMin.length, 'bad input length');
+    require(poolTokens.length == amountsETHMin.length, 'bad input length');
+
+    // forward LP tokens from treasury pool to this contract
+    IPool(treasuryPool()).withdrawFunds(poolTokens, amounts, address(this));
+
+    // dmm router will verify pool and token addresses
+    // liquified LP tokens are sent back to treasury pool
+    for (uint256 i; i < poolTokens.length; i++) {
+      dmmRouter.removeLiquidityETHSupportingFeeOnTransferTokens(
+        tokens[i],
+        address(poolTokens[i]),
+        amounts[i],
+        amountsTokenMin[i],
+        amountsETHMin[i],
+        treasuryPool(),
+        block.timestamp + 3600 // arbitary deadline
+      );
+    }
+  }
 }
