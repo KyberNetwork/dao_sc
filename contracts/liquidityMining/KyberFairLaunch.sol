@@ -5,11 +5,11 @@ pragma abicoder v2;
 import {ReentrancyGuard} from '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
+import {SafeCast} from '@openzeppelin/contracts/utils/SafeCast.sol';
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
 import {IKyberFairLaunch} from '../interfaces/liquidityMining/IKyberFairLaunch.sol';
 import {IKyberRewardLocker} from '../interfaces/liquidityMining/IKyberRewardLocker.sol';
-
 
 /// FairLaunch contract for Kyber DMM Liquidity Mining program
 /// Allow stakers to stake LP tokens and receive reward token
@@ -17,6 +17,7 @@ import {IKyberRewardLocker} from '../interfaces/liquidityMining/IKyberRewardLock
 /// Allow extend or renew a pool to continue/restart the LM program
 contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   using SafeMath for uint256;
+  using SafeCast for uint256;
   using SafeERC20 for IERC20Ext;
 
   uint256 public constant BPS = 10000;
@@ -24,9 +25,9 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
 
   // Info of each user.
   struct UserInfo {
-    uint256 amount;               // How many Staking tokens the user has provided.
-    uint128 unclaimedReward;      // Reward that is pending to claim
-    uint128 lastRewardPerShare;   // Last recorded reward per share
+    uint256 amount; // How many Staking tokens the user has provided.
+    uint128 unclaimedReward; // Reward that is pending to claim
+    uint128 lastRewardPerShare; // Last recorded reward per share
 
     //
     // Basically, any point in time, the amount of reward token
@@ -54,9 +55,9 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     uint128 accRewardPerShare;
     uint256 totalStake;
     address stakeToken;
-    uint32  startBlock;
-    uint32  endBlock;
-    uint32  lastRewardBlock;
+    uint32 startBlock;
+    uint32 endBlock;
+    uint32 lastRewardBlock;
   }
 
   // check if a pool exists for a stakeToken
@@ -68,7 +69,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
 
   // Info of each pool.
   uint256 public override poolLength;
-  mapping (uint256 => PoolInfo) public poolInfo;
+  mapping(uint256 => PoolInfo) public poolInfo;
   // Info of each user that stakes Staking tokens.
   mapping(uint256 => mapping(address => UserInfo)) public userInfo;
 
@@ -84,11 +85,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     uint32 indexed endBlock,
     uint256 rewardPerBlock
   );
-  event UpdatePool(
-    uint256 indexed pid,
-    uint32 indexed endBlock,
-    uint256 rewardPerBlock
-  );
+  event UpdatePool(uint256 indexed pid, uint32 indexed endBlock, uint256 rewardPerBlock);
   event Deposit(
     address indexed user,
     uint256 indexed pid,
@@ -126,19 +123,19 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   }
 
   /**
-  *  @dev allow admin to withdraw only reward token
-  */
+   *  @dev allow admin to withdraw only reward token
+   */
   function adminWithdraw(uint256 amount) external onlyAdmin {
     rewardToken.safeTransfer(msg.sender, amount);
   }
 
   /**
-  * @dev Add a new lp to the pool. Can only be called by the admin.
-  * @param _stakeToken: token to be staked to the pool
-  * @param _startBlock: block where the reward starts
-  * @param _endBlock: block where the reward ends
-  * @param _rewardPerBlock: amount of reward token per block for the pool
-  */
+   * @dev Add a new lp to the pool. Can only be called by the admin.
+   * @param _stakeToken: token to be staked to the pool
+   * @param _startBlock: block where the reward starts
+   * @param _endBlock: block where the reward ends
+   * @param _rewardPerBlock: amount of reward token per block for the pool
+   */
   function addPool(
     address _stakeToken,
     uint32 _startBlock,
@@ -148,9 +145,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     require(!poolExists[_stakeToken], 'add: duplicated pool');
     require(_stakeToken != address(0), 'add: invalid stake token');
 
-    require(
-      _startBlock > block.number && _endBlock > _startBlock, 'add: invalid blocks'
-    );
+    require(_startBlock > block.number && _endBlock > _startBlock, 'add: invalid blocks');
 
     poolInfo[poolLength] = PoolInfo({
       stakeToken: _stakeToken,
@@ -166,28 +161,22 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
 
     poolExists[_stakeToken] = true;
 
-    emit AddNewPool(
-      _stakeToken,
-      _startBlock,
-      _endBlock,
-      _rewardPerBlock
-    );
+    emit AddNewPool(_stakeToken, _startBlock, _endBlock, _rewardPerBlock);
   }
 
   /**
-  * @dev Renew a pool to start another liquidity mining program
-  * @param _pid: id of the pool to renew, must be pool that has not started or already ended
-  * @param _startBlock: block where the reward starts
-  * @param _endBlock: block where the reward ends
-  * @param _rewardPerBlock: amount of reward token per block for the pool
-  */
+   * @dev Renew a pool to start another liquidity mining program
+   * @param _pid: id of the pool to renew, must be pool that has not started or already ended
+   * @param _startBlock: block where the reward starts
+   * @param _endBlock: block where the reward ends
+   * @param _rewardPerBlock: amount of reward token per block for the pool
+   */
   function renewPool(
     uint256 _pid,
     uint32 _startBlock,
     uint32 _endBlock,
     uint128 _rewardPerBlock
   ) external override onlyAdmin {
-
     updatePoolRewards(_pid);
 
     PoolInfo storage pool = poolInfo[_pid];
@@ -196,55 +185,38 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
       'renew: invalid pool state to renew'
     );
 
-    // checking data of new pool
-    require(
-      _startBlock > block.number && _endBlock > _startBlock, 'add: invalid blocks'
-    );
+    // check if pool has not started or already ended
+    require(_startBlock > block.number && _endBlock > _startBlock, 'add: invalid blocks');
 
     pool.startBlock = _startBlock;
     pool.endBlock = _endBlock;
     pool.rewardPerBlock = _rewardPerBlock;
     pool.lastRewardBlock = _startBlock;
 
-    emit RenewPool(
-      _pid,
-      _startBlock,
-      _endBlock,
-      _rewardPerBlock
-    );
+    emit RenewPool(_pid, _startBlock, _endBlock, _rewardPerBlock);
   }
 
   /**
-  * @dev Update a pool, allow to change end block, reward per block
-  * @param _pid: pool id to be renew
-  * @param _endBlock: block where the reward ends
-  * @param _rewardPerBlock: amount of reward token per block for the pool,
-  *   0 if we want to stop the pool from accumulating rewards
-  */
+   * @dev Update a pool, allow to change end block, reward per block
+   * @param _pid: pool id to be renew
+   * @param _endBlock: block where the reward ends
+   * @param _rewardPerBlock: amount of reward token per block for the pool,
+   *   0 if we want to stop the pool from accumulating rewards
+   */
   function updatePool(
     uint256 _pid,
     uint32 _endBlock,
     uint128 _rewardPerBlock
   ) external override onlyAdmin {
-
     updatePoolRewards(_pid);
 
     PoolInfo storage pool = poolInfo[_pid];
 
     // should call renew pool if the pool has ended
     require(pool.endBlock > block.number, 'update: pool already ended');
-    require(
-      _endBlock > block.number && _endBlock > pool.startBlock,
-      'update: invalid end block'
-    );
+    require(_endBlock > block.number && _endBlock > pool.startBlock, 'update: invalid end block');
 
-    (
-      pool.endBlock,
-      pool.rewardPerBlock
-    ) = (
-      _endBlock,
-      _rewardPerBlock
-    );
+    (pool.endBlock, pool.rewardPerBlock) = (_endBlock, _rewardPerBlock);
 
     emit UpdatePool(_pid, _endBlock, _rewardPerBlock);
   }
@@ -252,13 +224,16 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   // TODO: deposit with permit
 
   /**
-  * @dev deposit to tokens to accumulate rewards
-  * @param _pid: id of the pool
-  * @param _amount: amount of stakeToken to be deposited
-  * @param _shouldHarvest: whether to harvest the reward or not
-  */
-  function deposit(uint256 _pid, uint256 _amount, bool _shouldHarvest) external override nonReentrant {
-
+   * @dev deposit to tokens to accumulate rewards
+   * @param _pid: id of the pool
+   * @param _amount: amount of stakeToken to be deposited
+   * @param _shouldHarvest: whether to harvest the reward or not
+   */
+  function deposit(
+    uint256 _pid,
+    uint256 _amount,
+    bool _shouldHarvest
+  ) external override nonReentrant {
     // update pool rewards, user's rewards
     updatePoolRewards(_pid);
     _updateUserReward(msg.sender, _pid, _shouldHarvest);
@@ -277,28 +252,28 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   }
 
   /**
-  * @dev withdraw token (of the sender) from pool, also harvest reward
-  * @param _pid: id of the pool
-  * @param _amount: amount of stakeToken to withdraw
-  */
+   * @dev withdraw token (of the sender) from pool, also harvest reward
+   * @param _pid: id of the pool
+   * @param _amount: amount of stakeToken to withdraw
+   */
   function withdraw(uint256 _pid, uint256 _amount) external override nonReentrant {
     _withdraw(_pid, _amount);
   }
 
   /**
-  * @dev withdraw all tokens (of the sender) from pool, also harvest reward
-  * @param _pid: id of the pool
-  */
+   * @dev withdraw all tokens (of the sender) from pool, also harvest reward
+   * @param _pid: id of the pool
+   */
   function withdrawAll(uint256 _pid) external override nonReentrant {
     _withdraw(_pid, userInfo[_pid][msg.sender].amount);
   }
 
   /**
-  * @notice EMERGENCY USAGE ONLY, USER'S REWARD WILL BE RESET
-  * @dev  emergency withdrawal function to allow withdraw all deposited token (of the sender)
-  *   without harvesting the reward
-  * @param _pid: id of the pool
-  */
+   * @notice EMERGENCY USAGE ONLY, USER'S REWARD WILL BE RESET
+   * @dev  emergency withdrawal function to allow withdraw all deposited token (of the sender)
+   *   without harvesting the reward
+   * @param _pid: id of the pool
+   */
   function emergencyWithdraw(uint256 _pid) external override nonReentrant {
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][msg.sender];
@@ -318,20 +293,25 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   }
 
   /**
-  * @dev harvest rewards from multiple pools for the sender
-  */
+   * @dev harvest rewards from multiple pools for the sender
+   */
   function harvestMultiplePools(uint256[] calldata _pids) external override {
-    for(uint256 i = 0; i < _pids.length; i++) {
+    for (uint256 i = 0; i < _pids.length; i++) {
       harvest(_pids[i]);
     }
   }
 
   /**
-  * @dev get pending reward of a user from a pool, mostly for front-end
-  * @param _pid: id of the pool
-  * @param _user: user to check for pending rewards
-  */
-  function pendingReward(uint256 _pid, address _user) external override view returns (uint256 rewards) {
+   * @dev get pending reward of a user from a pool, mostly for front-end
+   * @param _pid: id of the pool
+   * @param _user: user to check for pending rewards
+   */
+  function pendingReward(uint256 _pid, address _user)
+    external
+    override
+    view
+    returns (uint256 rewards)
+  {
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][_user];
     uint256 _accRewardPerShare = pool.accRewardPerShare;
@@ -347,39 +327,40 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   }
 
   /**
-  * @dev harvest reward from pool for the sender
-  * @param _pid: id of the pool
-  */
+   * @dev harvest reward from pool for the sender
+   * @param _pid: id of the pool
+   */
   function harvest(uint256 _pid) public override {
     updatePoolRewards(_pid);
     _updateUserReward(msg.sender, _pid, true);
   }
 
   /**
-  * @dev update reward for one pool
-  */
+   * @dev update reward for one pool
+   */
   function updatePoolRewards(uint256 _pid) public override {
     require(_pid < poolLength, 'invalid pool id');
     PoolInfo storage pool = poolInfo[_pid];
     uint32 lastAccountedBlock = _lastAccountedRewardBlock(_pid);
-    if (lastAccountedBlock <= pool.lastRewardBlock || lastAccountedBlock < pool.startBlock) return;
+    if (lastAccountedBlock <= pool.lastRewardBlock) return;
     uint256 _totalStake = pool.totalStake;
     if (_totalStake == 0) {
       pool.lastRewardBlock = lastAccountedBlock;
       return;
     }
-    uint256 reward = uint256(lastAccountedBlock - pool.lastRewardBlock).mul(uint256(pool.rewardPerBlock));
-    pool.accRewardPerShare = _safeUint128(
-      uint256(pool.accRewardPerShare).add(reward.mul(PRECISION) / _totalStake)
+    uint256 reward = uint256(lastAccountedBlock - pool.lastRewardBlock).mul(
+      uint256(pool.rewardPerBlock)
     );
+    pool.accRewardPerShare = uint256(pool.accRewardPerShare)
+      .add(reward.mul(PRECISION) / _totalStake)
+      .toUint128();
     pool.lastRewardBlock = lastAccountedBlock;
   }
 
   /**
-  * @dev withdraw _amount of stakeToken from pool _pid, also harvest reward for the sender
-  */
+   * @dev withdraw _amount of stakeToken from pool _pid, also harvest reward for the sender
+   */
   function _withdraw(uint256 _pid, uint256 _amount) internal {
-
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][msg.sender];
     require(user.amount >= _amount, 'withdraw: insufficient amount');
@@ -397,9 +378,13 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   }
 
   /**
-  * @dev update reward of _to address from pool _pid, harvest if needed
-  */
-  function _updateUserReward(address _to, uint256 _pid, bool shouldHarvest) internal {
+   * @dev update reward of _to address from pool _pid, harvest if needed
+   */
+  function _updateUserReward(
+    address _to,
+    uint256 _pid,
+    bool shouldHarvest
+  ) internal {
     uint128 lastAccRewardPerShare = poolInfo[_pid].accRewardPerShare;
     UserInfo memory user = userInfo[_pid][_to];
 
@@ -424,7 +409,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
         emit Harvest(_to, _pid, block.number, _pending);
       }
     } else {
-      userInfo[_pid][_to].unclaimedReward = _safeUint128(_pending);
+      userInfo[_pid][_to].unclaimedReward = _pending.toUint128();
     }
 
     // update user last reward per share to the latest pool reward per share
@@ -432,20 +417,10 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   }
 
   /**
-  * @dev returns last accounted reward block, either the current block number or the endBlock of the pool
-  */
+   * @dev returns last accounted reward block, either the current block number or the endBlock of the pool
+   */
   function _lastAccountedRewardBlock(uint256 _pid) internal view returns (uint32 _value) {
     _value = poolInfo[_pid].endBlock;
-    if (_value > block.number) _value = _safeUint32(block.number);
-  }
-
-  function _safeUint32(uint256 value) internal pure returns (uint32) {
-    require(value < 2**32, 'overflow uint32');
-    return uint32(value);
-  }
-
-  function _safeUint128(uint256 value) internal pure returns (uint128) {
-    require(value < 2**128, 'overflow uint32');
-    return uint128(value);
+    if (_value > block.number) _value = block.number.toUint32();
   }
 }

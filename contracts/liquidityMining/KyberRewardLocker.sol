@@ -4,17 +4,12 @@ pragma abicoder v2;
 
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
-import {Math} from '@openzeppelin/contracts/math/Math.sol';
 import {SafeCast} from '@openzeppelin/contracts/utils/SafeCast.sol';
 import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 import {EnumerableSet} from '@openzeppelin/contracts/utils/EnumerableSet.sol';
 import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
 
 import {IKyberRewardLocker} from '../interfaces/liquidityMining/IKyberRewardLocker.sol';
-
-interface IERC20Burnable {
-  function burn(uint256 _value) external;
-}
 
 contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
   using SafeMath for uint256;
