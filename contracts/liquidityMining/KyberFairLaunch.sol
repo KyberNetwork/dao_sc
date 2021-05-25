@@ -221,8 +221,6 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     emit UpdatePool(_pid, _endBlock, _rewardPerBlock);
   }
 
-  // TODO: deposit with permit
-
   /**
    * @dev deposit to tokens to accumulate rewards
    * @param _pid: id of the pool
