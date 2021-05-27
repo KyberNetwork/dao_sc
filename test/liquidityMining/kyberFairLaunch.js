@@ -1090,6 +1090,14 @@ contract('KyberFairLaunch', function (accounts) {
         });
       }
     }
+    if (totalClaimedAmount.gt(new BN(0))) {
+      // expect there is only 1 transfer happens
+      await expectEvent.inTransaction(tx.tx, kncToken, 'Transfer', {
+        from: fairLaunch.address,
+        to: rewardLocker.address,
+        value: totalClaimedAmount,
+      });
+    }
 
     Helper.assertEqual(userClaimData[user], await rewardLocker.lockedAmounts(user, kncToken.address));
     await verifyRewardData(user, poolKncBalance, lockerKncBalance, totalClaimedAmount);
@@ -1121,6 +1129,11 @@ contract('KyberFairLaunch', function (accounts) {
         pid: new BN(pid),
         blockNumber: new BN(currentBlock),
         lockedAmount: rewardClaimedAmount,
+      });
+      await expectEvent.inTransaction(tx.tx, kncToken, 'Transfer', {
+        from: fairLaunch.address,
+        to: rewardLocker.address,
+        value: rewardClaimedAmount,
       });
     }
     Helper.assertEqual(userClaimData[user], await rewardLocker.lockedAmounts(user, kncToken.address));
