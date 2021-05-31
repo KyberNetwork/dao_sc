@@ -35,7 +35,7 @@ interface IKyberRewardLocker {
     IERC20Ext token,
     address account,
     uint256 amount
-  ) external;
+  ) external payable;
 
   /**
    * @dev queue a vesting schedule
@@ -45,7 +45,7 @@ interface IKyberRewardLocker {
     address account,
     uint256 quantity,
     uint256 startBlock
-  ) external;
+  ) external payable;
 
   /**
    * @dev for all completed schedule, claim token

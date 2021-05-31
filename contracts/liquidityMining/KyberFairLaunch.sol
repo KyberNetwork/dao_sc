@@ -64,7 +64,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   mapping(address => bool) public poolExists;
   // contract for locking reward
   IKyberRewardLocker public immutable rewardLocker;
-  // reward token
+  // reward token, use 0x0 for native token
   IERC20Ext public immutable rewardToken;
 
   // Info of each pool.
@@ -314,7 +314,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     }
 
     if (totalRewards > 0) {
-      rewardLocker.lock(rewardToken, account, totalRewards);
+      _lockReward(account, totalRewards);
     }
   }
 
@@ -422,7 +422,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     if (shouldHarvest) {
       userInfo[_pid][_to].unclaimedReward = 0;
       if (_pending > 0) {
-        rewardLocker.lock(rewardToken, _to, _pending);
+        _lockReward(_to, _pending);
         emit Harvest(_to, _pid, block.number, _pending);
       }
     } else {
@@ -439,5 +439,14 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   function _lastAccountedRewardBlock(uint256 _pid) internal view returns (uint32 _value) {
     _value = poolInfo[_pid].endBlock;
     if (_value > block.number) _value = block.number.toUint32();
+  }
+
+  function _lockReward(address _account, uint256 _amount) internal {
+    if (rewardToken == IERC20Ext(0)) {
+      // native token
+      rewardLocker.lock{ value: _amount }(rewardToken, _account, _amount);
+    } else {
+      rewardLocker.lock(rewardToken, _account, _amount);
+    }
   }
 }

@@ -85,7 +85,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     IERC20Ext token,
     address account,
     uint256 quantity
-  ) external override {
+  ) external payable override {
     lockWithStartBlock(token, account, quantity, _blockNumber());
   }
 
@@ -94,11 +94,15 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     address account,
     uint256 quantity,
     uint256 startBlock
-  ) public override onlyRewardsContract(token) {
+  ) public payable override onlyRewardsContract(token) {
     require(quantity > 0, 'Quantity cannot be zero');
 
     // transfer token from reward contract to lock contract
-    token.safeTransferFrom(msg.sender, address(this), quantity);
+    if (token == IERC20Ext(0)) {
+      require(msg.value == quantity, 'Invalid locked quantity');
+    } else {
+      token.safeTransferFrom(msg.sender, address(this), quantity);
+    }
 
     VestingSchedules storage schedules = accountVestingSchedules[account][token];
     uint256 schedulesLength = schedules.length;
@@ -250,7 +254,12 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
       totalVesting
     );
 
-    token.safeTransfer(msg.sender, totalVesting);
+    if (token == IERC20Ext(0)) {
+      (bool success, ) = msg.sender.call{ value: totalVesting }('');
+      require(success, 'fail to transfer');
+    } else {
+      token.safeTransfer(msg.sender, totalVesting);
+    }
   }
 
   /**

@@ -11,7 +11,7 @@ contract SimpleMockRewardLocker {
 
   mapping (address => mapping (IERC20Ext => uint256)) public lockedAmounts;
 
-  function lock(IERC20Ext token, address account, uint256 amount) external {
+  function lock(IERC20Ext token, address account, uint256 amount) external payable {
     token.safeTransferFrom(msg.sender, address(this), amount);
     lockedAmounts[account][token] += amount;
   }
