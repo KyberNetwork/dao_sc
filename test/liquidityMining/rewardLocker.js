@@ -113,7 +113,7 @@ contract('KyberRewardLocker', (accounts) => {
       await rewardLocker.lock(rewardToken.address, user1, precisionUnits.mul(new BN(8)));
 
       await rewardLocker.setBlockNumber(new BN(10800));
-      txResult = await rewardLocker.vestScheduleAtIndex(rewardToken.address, [new BN(0), new BN(1)], {from: user1});
+      txResult = await rewardLocker.vestScheduleAtIndices(rewardToken.address, [new BN(0), new BN(1)], {from: user1});
       expectEvent(txResult, 'Vested', {
         token: rewardToken.address,
         beneficiary: user1,
@@ -138,7 +138,7 @@ contract('KyberRewardLocker', (accounts) => {
       Helper.assertEqual(vestingSchedules[1].vestedQuantity, precisionUnits.mul(new BN(4)));
 
       await rewardLocker.setBlockNumber(new BN(11700));
-      txResult = await rewardLocker.vestScheduleAtIndex(rewardToken.address, [new BN(0), new BN(1)], {from: user1});
+      txResult = await rewardLocker.vestScheduleAtIndices(rewardToken.address, [new BN(0), new BN(1)], {from: user1});
       expectEvent(txResult, 'Vested', {
         token: rewardToken.address,
         beneficiary: user1,
@@ -260,7 +260,7 @@ contract('KyberRewardLocker', (accounts) => {
       await rewardLocker.setBlockNumber(new BN(10800));
       let userBalance = await Helper.getBalancePromise(user1);
       let lockerBalance = await Helper.getBalancePromise(rewardLocker.address);
-      txResult = await rewardLocker.vestScheduleAtIndex(zeroAddress, [new BN(0), new BN(1)], { from: user1, gasPrice: new BN(0) });
+      txResult = await rewardLocker.vestScheduleAtIndices(zeroAddress, [new BN(0), new BN(1)], { from: user1, gasPrice: new BN(0) });
       expectEvent(txResult, 'Vested', {
         token: zeroAddress,
         beneficiary: user1,
@@ -291,7 +291,7 @@ contract('KyberRewardLocker', (accounts) => {
       Helper.assertEqual(vestingSchedules[1].vestedQuantity, vestedAmount2);
 
       await rewardLocker.setBlockNumber(new BN(11700));
-      txResult = await rewardLocker.vestScheduleAtIndex(zeroAddress, [new BN(0), new BN(1)], { from: user1, gasPrice: new BN(0) });
+      txResult = await rewardLocker.vestScheduleAtIndices(zeroAddress, [new BN(0), new BN(1)], { from: user1, gasPrice: new BN(0) });
       let vestedAmount22 = lockedAmount2.div(new BN(4));
       expectEvent(txResult, 'Vested', {
         token: zeroAddress,

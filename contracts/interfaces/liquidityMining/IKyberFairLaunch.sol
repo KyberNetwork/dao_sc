@@ -8,13 +8,13 @@ interface IKyberFairLaunch {
    * @param _stakeToken: token to be staked to the pool
    * @param _startBlock: block where the reward starts
    * @param _endBlock: block where the reward ends
-   * @param _rewardPerBlock: amount of reward token per block for the pool
+   * @param _rewardPerBlocks: amount of reward token per block for the pool
    */
   function addPool(
     address _stakeToken,
     uint32 _startBlock,
     uint32 _endBlock,
-    uint128 _rewardPerBlock
+    uint128[] calldata _rewardPerBlocks
   ) external;
 
   /**
@@ -22,25 +22,25 @@ interface IKyberFairLaunch {
    * @param _pid: id of the pool to renew, must be pool that has not started or already ended
    * @param _startBlock: block where the reward starts
    * @param _endBlock: block where the reward ends
-   * @param _rewardPerBlock: amount of reward token per block for the pool
+   * @param _rewardPerBlocks: amount of reward token per block for the pool
    */
   function renewPool(
     uint256 _pid,
     uint32 _startBlock,
     uint32 _endBlock,
-    uint128 _rewardPerBlock
+    uint128[] calldata _rewardPerBlocks
   ) external;
 
   /**
    * @dev Update a pool, allow to change end block, reward per block
    * @param _pid: pool id to be renew
    * @param _endBlock: block where the reward ends
-   * @param _rewardPerBlock: amount of reward token per block for the pool
+   * @param _rewardPerBlocks: amount of reward token per block for the pool
    */
   function updatePool(
     uint256 _pid,
     uint32 _endBlock,
-    uint128 _rewardPerBlock
+    uint128[] calldata _rewardPerBlocks
   ) external;
 
   /**
@@ -97,9 +97,19 @@ interface IKyberFairLaunch {
   function poolLength() external view returns (uint256);
 
   /**
+  * @dev return list reward tokens
+  */
+
+  function getRewardTokens() external view returns (address[] memory);
+  /**
    * @dev get pending reward of a user from a pool, mostly for front-end
    * @param _pid: id of the pool
    * @param _user: user to check for pending rewards
    */
-  function pendingReward(uint256 _pid, address _user) external view returns (uint256 rewards);
+  function pendingReward(
+    uint256 _pid,
+    address _user
+   )
+    external view
+    returns (uint256[] memory rewards);
 }
