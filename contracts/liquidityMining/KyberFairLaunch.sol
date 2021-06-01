@@ -140,6 +140,8 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     }
   }
 
+  receive() external payable {}
+
   /**
    * @dev allow admin to withdraw only reward token
    */
