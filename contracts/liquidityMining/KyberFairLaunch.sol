@@ -59,12 +59,12 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   // endBlock: the block that the reward ends
   // lastRewardBlock: last block number that rewards distribution occurs
   struct PoolInfo {
-    mapping (address => PoolRewardData) poolRewardData;
     uint256 totalStake;
     address stakeToken;
     uint32 startBlock;
     uint32 endBlock;
     uint32 lastRewardBlock;
+    mapping (address => PoolRewardData) poolRewardData;
   }
 
   // check if a pool exists for a stakeToken

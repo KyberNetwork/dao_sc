@@ -50,7 +50,7 @@ interface IKyberRewardLocker {
   /**
    * @dev vest all completed schedules for multiple tokens
    */
-  function vestCompletedSchedulesMultipleTokens(IERC20Ext[] calldata tokens)
+  function vestCompletedSchedulesForMultipleTokens(IERC20Ext[] calldata tokens)
     external
     returns (uint256[] memory vestedAmounts);
 
@@ -58,7 +58,7 @@ interface IKyberRewardLocker {
    * @dev claim multiple tokens for specific vesting schedule,
    *      if schedule has not ended yet, claiming amounts are linear with vesting blocks
    */
-  function vestScheduleMultipleTokensAtIndices(
+  function vestScheduleForMultipleTokensAtIndices(
     IERC20Ext[] calldata tokens,
     uint256[] calldata indices
   )
@@ -69,7 +69,7 @@ interface IKyberRewardLocker {
    * @dev claim multiple tokens for range of schedules
    *      if schedule has not ended yet, claiming amounts are linear with vesting blocks
    */
-  function vestScheduleMultipleTokensInRange(
+  function vestScheduleForMultipleTokensInRange(
     IERC20Ext[] calldata tokens,
     uint256 startIndex,
     uint256 endIndex

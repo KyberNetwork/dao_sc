@@ -97,10 +97,10 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
   ) public payable override onlyRewardsContract(token) {
     require(quantity > 0, 'Quantity cannot be zero');
 
-    // transfer token from reward contract to lock contract
     if (token == IERC20Ext(0)) {
       require(msg.value == quantity, 'Invalid locked quantity');
     } else {
+      // transfer token from reward contract to lock contract
       token.safeTransferFrom(msg.sender, address(this), quantity);
     }
 
@@ -124,7 +124,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
   /**
    * @dev vest all completed schedules for multiple tokens
    */
-  function vestCompletedSchedulesMultipleTokens(IERC20Ext[] calldata tokens)
+  function vestCompletedSchedulesForMultipleTokens(IERC20Ext[] calldata tokens)
     external override
     returns (uint256[] memory vestedAmounts)
   {
@@ -138,7 +138,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
    * @dev claim multiple tokens for specific vesting schedule,
    *      if schedule has not ended yet, claiming amounts are linear with vesting blocks
    */
-  function vestScheduleMultipleTokensAtIndices(
+  function vestScheduleForMultipleTokensAtIndices(
     IERC20Ext[] calldata tokens,
     uint256[] calldata indices
   )
@@ -155,7 +155,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
    * @dev claim multiple tokens for range of schedules
    *      if schedule has not ended yet, claiming amounts are linear with vesting blocks
    */
-  function vestScheduleMultipleTokensInRange(
+  function vestScheduleForMultipleTokensInRange(
     IERC20Ext[] calldata tokens,
     uint256 startIndex,
     uint256 endIndex
