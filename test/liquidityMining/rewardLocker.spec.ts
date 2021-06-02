@@ -1,38 +1,42 @@
-import {artifacts} from 'hardhat';
-import chai from 'chai';
+import {ethers, waffle} from 'hardhat';
 import {expect} from 'chai';
-import * as Helper from '../helper.js';
-import {BigNumber as BN, Contract, ContractTransaction, Wallet} from 'ethers';
-import {solidity} from 'ethereum-waffle';
+import {BigNumber as BN} from 'ethers';
 
-import {MockRewardLocker, KyberNetworkTokenV2} from '../../typechain';
+import {SignerWithAddress} from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
+const hre = require('hardhat');
 
+import chai from 'chai';
+const {solidity} = waffle;
 chai.use(solidity);
 
-const {expectRevert} = require('@openzeppelin/test-helpers');
-const hre = require('hardhat');
-const MAX_ALLOWANCE = BN.from(2).pow(256).sub(1);
+import {
+  MockRewardLocker,
+  KyberNetworkTokenV2,
+  MockRewardLocker__factory,
+  KyberNetworkTokenV2__factory
+} from '../../typechain';
 
-let RewardLocker: MockRewardLocker;
-let KNC: KyberNetworkTokenV2;
+const MAX_ALLOWANCE = BN.from(2)
+  .pow(256)
+  .sub(1);
+let PRECISION = BN.from(10).pow(18);
+
+let RewardLocker: MockRewardLocker__factory;
+let KNC: KyberNetworkTokenV2__factory;
 let rewardLocker: MockRewardLocker;
 let rewardToken: KyberNetworkTokenV2;
-let admin: Wallet;
-let user1: Wallet;
-let user2: Wallet;
-let rewardContract: Wallet;
-let rewardContract2: Wallet;
-let slashingTarget: Wallet;
-
-let txResult: any;
+let admin: SignerWithAddress;
+let user1: SignerWithAddress;
+let user2: SignerWithAddress;
+let rewardContract: SignerWithAddress;
+let rewardContract2: SignerWithAddress;
 
 describe('KyberRewardLocker', () => {
   before('setup', async () => {
-    [admin, user1, user2, rewardContract, rewardContract2] = await hre.ethers.getSigners();
+    [admin, user1, user2, rewardContract, rewardContract2] = await ethers.getSigners();
 
-    RewardLocker = await hre.ethers.getContractFactory('MockRewardLocker');
-    KNC = await hre.ethers.getContractFactory('KyberNetworkTokenV2');
-
+    RewardLocker = (await ethers.getContractFactory('MockRewardLocker')) as MockRewardLocker__factory;
+    KNC = (await ethers.getContractFactory('KyberNetworkTokenV2')) as KyberNetworkTokenV2__factory;
     rewardToken = await KNC.deploy();
   });
 
@@ -42,10 +46,9 @@ describe('KyberRewardLocker', () => {
     });
 
     it('add/remove reward contract', async () => {
-      await expectRevert(
-        rewardLocker.connect(user1).addRewardsContract(rewardToken.address, rewardContract.address),
-        'only admin'
-      );
+      await expect(
+        rewardLocker.connect(user1).addRewardsContract(rewardToken.address, rewardContract.address)
+      ).to.be.revertedWith('only admin');
 
       await expect(rewardLocker.connect(admin).addRewardsContract(rewardToken.address, rewardContract.address))
         .to.emit(rewardLocker, 'RewardContractAdded')
@@ -53,28 +56,26 @@ describe('KyberRewardLocker', () => {
 
       await rewardLocker.connect(admin).addRewardsContract(rewardToken.address, rewardContract2.address);
 
-      Helper.assertEqual(await rewardLocker.getRewardContractsPerToken(rewardToken.address), [
-        rewardContract,
-        rewardContract2,
+      expect(await rewardLocker.getRewardContractsPerToken(rewardToken.address)).to.eql([
+        rewardContract.address,
+        rewardContract2.address
       ]);
 
-      await expectRevert(
-        rewardLocker.connect(user1).removeRewardsContract(rewardToken.address, rewardContract2.address),
-        'only admin'
-      );
+      await expect(
+        rewardLocker.connect(user1).removeRewardsContract(rewardToken.address, rewardContract2.address)
+      ).to.be.revertedWith('only admin');
 
       await expect(rewardLocker.connect(admin).removeRewardsContract(rewardToken.address, rewardContract2.address))
         .to.emit(rewardLocker, 'RewardContractAdded')
         .withArgs(rewardContract2.address, false);
 
-      Helper.assertEqual(await rewardLocker.getRewardContractsPerToken(rewardToken.address), [rewardContract]);
+      expect(await rewardLocker.getRewardContractsPerToken(rewardToken.address)).to.eql([rewardContract.address]);
     });
 
     it('set vesting config', async () => {
-      await expectRevert(
-        rewardLocker.connect(user1).setVestingDuration(rewardToken.address, BN.from(1000)),
-        'only admin'
-      );
+      await expect(
+        rewardLocker.connect(user1).setVestingDuration(rewardToken.address, BN.from(1000))
+      ).to.be.revertedWith('only admin');
 
       await expect(rewardLocker.connect(admin).setVestingDuration(rewardToken.address, BN.from(1000)))
         .to.emit(rewardLocker, 'SetVestingDuration')
@@ -94,7 +95,7 @@ describe('KyberRewardLocker', () => {
     });
 
     it('lock and vest with full time', async () => {
-      const vestingQuantity = BN.from(10).pow(18).mul(7);
+      const vestingQuantity = BN.from(7).mul(PRECISION);
 
       await rewardLocker.setBlockNumber(BN.from(7200));
       await rewardLocker.lock(rewardToken.address, user1.address, vestingQuantity);
@@ -114,52 +115,49 @@ describe('KyberRewardLocker', () => {
 
     it('lock and vest and claim with half time', async () => {
       await rewardLocker.setBlockNumber(BN.from(7200));
-      await rewardLocker.lock(rewardToken.address, user1.address, BN.from(10).pow(18).mul(7));
+      await rewardLocker.lock(rewardToken.address, user1.address, BN.from(7).mul(PRECISION));
 
       await rewardLocker.setBlockNumber(BN.from(9000));
-      await rewardLocker.lock(rewardToken.address, user1.address, BN.from(10).pow(18).mul(8));
+      await rewardLocker.lock(rewardToken.address, user1.address, BN.from(8).mul(PRECISION));
 
       await rewardLocker.setBlockNumber(BN.from(10800));
       await expect(rewardLocker.connect(user1).vestScheduleAtIndex(rewardToken.address, [BN.from(0), BN.from(1)]))
         .to.emit(rewardLocker, 'Vested')
-        .withArgs(rewardToken.address, user1.address, BN.from(10).pow(18).mul(7), BN.from(0))
-        .emit(rewardLocker, 'Vested')
-        .withArgs(rewardToken.address, user1.address, BN.from(10).pow(18).mul(4), BN.from(1));
-
-      // await expectEvent.inTransaction(txResult.tx, rewardToken, 'Transfer', {
-      //   to: Helper.zeroAddress,
-      //   value: vestingQuantity.div(new BN(2)),
-      // });
+        .withArgs(rewardToken.address, user1.address, BN.from(7).mul(PRECISION), BN.from(0))
+        .to.emit(rewardLocker, 'Vested')
+        .withArgs(rewardToken.address, user1.address, BN.from(4).mul(PRECISION), BN.from(1))
+        .to.emit(rewardToken, 'Transfer')
+        .withArgs(rewardLocker.address, user1.address, BN.from(11).mul(PRECISION));
     });
 
     it('#vestSchedulesInRange', async () => {
       await rewardLocker.setBlockNumber(BN.from(7200));
-      await rewardLocker.lock(rewardToken.address, user1.address, BN.from(10).pow(18).mul(7));
+      await rewardLocker.lock(rewardToken.address, user1.address, BN.from(7).mul(PRECISION));
 
       await rewardLocker.setBlockNumber(BN.from(9000));
-      await rewardLocker.lock(rewardToken.address, user1.address, BN.from(10).pow(18).mul(8));
+      await rewardLocker.lock(rewardToken.address, user1.address, BN.from(8).mul(PRECISION));
 
       await rewardLocker.setBlockNumber(BN.from(10800));
       await expect(rewardLocker.connect(user1).vestSchedulesInRange(rewardToken.address, BN.from(0), BN.from(1)))
         .to.emit(rewardLocker, 'Vested')
-        .withArgs(rewardToken.address, user1.address, BN.from(10).pow(18).mul(7), BN.from(0))
-        .emit(rewardLocker, 'Vested')
-        .withArgs(rewardToken.address, user1.address, BN.from(10).pow(18).mul(4), BN.from(1));
+        .withArgs(rewardToken.address, user1.address, BN.from(7).mul(PRECISION), BN.from(0))
+        .to.emit(rewardLocker, 'Vested')
+        .withArgs(rewardToken.address, user1.address, BN.from(4).mul(PRECISION), BN.from(1));
 
       let vestingSchedules = await rewardLocker.getVestingSchedules(user1.address, rewardToken.address);
       expect(vestingSchedules.length).to.equal(2);
-      expect(vestingSchedules[0].vestedQuantity).to.equal(BN.from(10).pow(18).mul(7));
-      expect(vestingSchedules[1].vestedQuantity).to.equal(BN.from(10).pow(18).mul(4));
+      expect(vestingSchedules[0].vestedQuantity).to.equal(BN.from(7).mul(PRECISION));
+      expect(vestingSchedules[1].vestedQuantity).to.equal(BN.from(4).mul(PRECISION));
 
       await rewardLocker.setBlockNumber(BN.from(11700));
       await expect(rewardLocker.connect(user1).vestSchedulesInRange(rewardToken.address, BN.from(0), BN.from(1)))
         .to.emit(rewardLocker, 'Vested')
-        .withArgs(rewardToken.address, user1.address, BN.from(10).pow(18).mul(2), BN.from(1));
+        .withArgs(rewardToken.address, user1.address, BN.from(2).mul(PRECISION), BN.from(1));
 
       vestingSchedules = await rewardLocker.getVestingSchedules(user1.address, rewardToken.address);
       expect(vestingSchedules.length).to.equal(2);
-      expect(vestingSchedules[0].vestedQuantity).to.equal(BN.from(10).pow(18).mul(7));
-      expect(vestingSchedules[1].vestedQuantity).to.equal(BN.from(10).pow(18).mul(6));
+      expect(vestingSchedules[0].vestedQuantity).to.equal(BN.from(7).mul(PRECISION));
+      expect(vestingSchedules[1].vestedQuantity).to.equal(BN.from(6).mul(PRECISION));
     });
   });
 });
