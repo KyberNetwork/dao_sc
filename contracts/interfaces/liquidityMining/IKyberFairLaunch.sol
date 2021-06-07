@@ -14,7 +14,7 @@ interface IKyberFairLaunch {
     address _stakeToken,
     uint32 _startBlock,
     uint32 _endBlock,
-    uint128[] calldata _rewardPerBlocks
+    uint256[] calldata _rewardPerBlocks
   ) external;
 
   /**
@@ -23,12 +23,13 @@ interface IKyberFairLaunch {
    * @param _startBlock: block where the reward starts
    * @param _endBlock: block where the reward ends
    * @param _rewardPerBlocks: amount of reward token per block for the pool
+   *   0 if we want to stop the pool from accumulating rewards
    */
   function renewPool(
     uint256 _pid,
     uint32 _startBlock,
     uint32 _endBlock,
-    uint128[] calldata _rewardPerBlocks
+    uint256[] calldata _rewardPerBlocks
   ) external;
 
   /**
@@ -36,11 +37,12 @@ interface IKyberFairLaunch {
    * @param _pid: pool id to be renew
    * @param _endBlock: block where the reward ends
    * @param _rewardPerBlocks: amount of reward token per block for the pool
+   *   0 if we want to stop the pool from accumulating rewards
    */
   function updatePool(
     uint256 _pid,
     uint32 _endBlock,
-    uint128[] calldata _rewardPerBlocks
+    uint256[] calldata _rewardPerBlocks
   ) external;
 
   /**
