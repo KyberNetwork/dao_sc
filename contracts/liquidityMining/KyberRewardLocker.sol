@@ -107,6 +107,18 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     VestingSchedules storage schedules = accountVestingSchedules[account][token];
     uint256 schedulesLength = schedules.length;
     uint256 endBlock = startBlock.add(vestingDurationPerToken[token]);
+
+    // combine with the last schedule if they have the same start & end blocks
+    if (schedulesLength > 0) {
+      VestingSchedule storage lastSchedule = schedules.data[schedulesLength - 1];
+      if (lastSchedule.startBlock == startBlock && lastSchedule.endBlock == endBlock) {
+        lastSchedule.quantity = uint256(lastSchedule.quantity).add(quantity).toUint128();
+        accountEscrowedBalance[account][token] = accountEscrowedBalance[account][token].add(quantity);
+        emit VestingEntryCreated(token, account, startBlock, endBlock, quantity, schedulesLength - 1);
+        return;
+      }
+    }
+
     // append new schedule
     schedules.data[schedulesLength] = VestingSchedule({
       startBlock: startBlock.toUint64(),
