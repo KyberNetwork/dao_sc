@@ -13,8 +13,9 @@ import {IKyberRewardLocker} from '../interfaces/liquidityMining/IKyberRewardLock
 
 /// FairLaunch contract for Kyber DMM Liquidity Mining program
 /// Allow stakers to stake LP tokens and receive reward token
-/// Part of the reward will be locked and vested
 /// Allow extend or renew a pool to continue/restart the LM program
+/// When harvesting, rewards will be transferred to RewardLocker
+/// Support multiple reward tokens, the list must be distinct
 contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   using SafeMath for uint256;
   using SafeCast for uint256;
