@@ -29,7 +29,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   // Info of each user.
   struct UserInfo {
     uint256 amount; // How many Staking tokens the user has provided.
-    mapping (address => UserRewardData) userRewardData;
+    mapping (uint256 => UserRewardData) userRewardData;
     //
     // Basically, any point in time, the amount of reward token
     // entitled to a user but is pending to be distributed is:
@@ -62,7 +62,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     uint32 startBlock;
     uint32 endBlock;
     uint32 lastRewardBlock;
-    mapping (address => PoolRewardData) poolRewardData;
+    mapping (uint256 => PoolRewardData) poolRewardData;
   }
 
   // check if a pool exists for a stakeToken
@@ -178,7 +178,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     poolInfo[poolLength].lastRewardBlock = _startBlock;
 
     for(uint256 i = 0; i < _rewardPerBlocks.length; i++) {
-      poolInfo[poolLength].poolRewardData[rewardTokens[i]] = PoolRewardData({
+      poolInfo[poolLength].poolRewardData[i] = PoolRewardData({
         rewardPerBlock: _rewardPerBlocks[i],
         accRewardPerShare: 0
       });
@@ -222,7 +222,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     pool.lastRewardBlock = _startBlock;
 
     for(uint256 i = 0; i < _rewardPerBlocks.length; i++) {
-      pool.poolRewardData[rewardTokens[i]].rewardPerBlock = _rewardPerBlocks[i];
+      pool.poolRewardData[i].rewardPerBlock = _rewardPerBlocks[i];
     }
 
     emit RenewPool(_pid, _startBlock, _endBlock, _rewardPerBlocks);
@@ -251,7 +251,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
 
     pool.endBlock = _endBlock;
     for(uint256 i = 0; i < _rewardPerBlocks.length; i++) {
-      pool.poolRewardData[rewardTokens[i]].rewardPerBlock = _rewardPerBlocks[i];
+      pool.poolRewardData[i].rewardPerBlock = _rewardPerBlocks[i];
     }
 
     emit UpdatePool(_pid, _endBlock, _rewardPerBlocks);
@@ -315,7 +315,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
 
     user.amount = 0;
     for(uint256 i = 0; i < rewardTokens.length; i++) {
-      UserRewardData storage rewardData = user.userRewardData[rewardTokens[i]];
+      UserRewardData storage rewardData = user.userRewardData[i];
       rewardData.lastRewardPerShare = 0;
       rewardData.unclaimedReward = 0;
     }
@@ -346,10 +346,10 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
       _updateUserReward(account, pid, false);
 
       for(uint256 j = 0; j < rTokens.length; j++) {
-        uint256 reward = userInfo[pid][account].userRewardData[rTokens[j]].unclaimedReward;
+        uint256 reward = userInfo[pid][account].userRewardData[j].unclaimedReward;
         if (reward > 0) {
           totalRewards[j] = totalRewards[j].add(reward);
-          userInfo[pid][account].userRewardData[rTokens[j]].unclaimedReward = 0;
+          userInfo[pid][account].userRewardData[j].unclaimedReward = 0;
           emit Harvest(account, pid, rTokens[j], reward, block.number);
         }
       }
@@ -373,25 +373,25 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     view
     returns (uint256[] memory rewards)
   {
-    address[] memory rTokens = rewardTokens;
-    rewards = new uint256[](rTokens.length);
+    uint256 rTokensLength = rewardTokens.length;
+    rewards = new uint256[](rTokensLength);
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][_user];
     uint256 _totalStake = pool.totalStake;
     uint256 _poolLastRewardBlock = pool.lastRewardBlock;
     uint32 lastAccountedBlock = _lastAccountedRewardBlock(_pid);
-    for(uint256 i = 0; i < rTokens.length; i++) {
-      uint256 _accRewardPerShare = pool.poolRewardData[rTokens[i]].accRewardPerShare;
+    for(uint256 i = 0; i < rTokensLength; i++) {
+      uint256 _accRewardPerShare = pool.poolRewardData[i].accRewardPerShare;
       if (lastAccountedBlock > _poolLastRewardBlock && _totalStake != 0) {
         uint256 reward = (lastAccountedBlock - _poolLastRewardBlock)
-          .mul(pool.poolRewardData[rTokens[i]].rewardPerBlock);
+          .mul(pool.poolRewardData[i].rewardPerBlock);
         _accRewardPerShare = _accRewardPerShare.add(reward.mul(PRECISION) / _totalStake);
       }
 
       rewards[i] = user.amount.mul(
-        _accRewardPerShare.sub(user.userRewardData[rTokens[i]].lastRewardPerShare)
+        _accRewardPerShare.sub(user.userRewardData[i].lastRewardPerShare)
         ) / PRECISION;
-      rewards[i] = rewards[i].add(user.userRewardData[rTokens[i]].unclaimedReward);
+      rewards[i] = rewards[i].add(user.userRewardData[i].unclaimedReward);
     }
   }
 
@@ -426,7 +426,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     }
     uint256 numberBlocks = lastAccountedBlock - pool.lastRewardBlock;
     for(uint256 i = 0; i < rewardTokens.length; i++) {
-      PoolRewardData storage rewardData = pool.poolRewardData[rewardTokens[i]];
+      PoolRewardData storage rewardData = pool.poolRewardData[i];
       uint256 reward = numberBlocks.mul(rewardData.rewardPerBlock);
       rewardData.accRewardPerShare = rewardData.accRewardPerShare.add(reward.mul(PRECISION) / _totalStake);
     }
@@ -462,22 +462,22 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     bool shouldHarvest
   ) internal {
     uint256 userAmount = userInfo[_pid][_to].amount;
-    address[] memory rTokens = rewardTokens;
+    uint256 rTokensLength = rewardTokens.length;
 
     if (userAmount == 0) {
       // update user last reward per share to the latest pool reward per share
       // by right if user.amount is 0, user.unclaimedReward should be 0 as well,
       // except when user uses emergencyWithdraw function
-      for(uint256 i = 0; i < rTokens.length; i++) {
-        userInfo[_pid][_to].userRewardData[rTokens[i]].lastRewardPerShare =
-          poolInfo[_pid].poolRewardData[rTokens[i]].accRewardPerShare;
+      for(uint256 i = 0; i < rTokensLength; i++) {
+        userInfo[_pid][_to].userRewardData[i].lastRewardPerShare =
+          poolInfo[_pid].poolRewardData[i].accRewardPerShare;
       }
       return;
     }
 
-    for(uint256 i = 0; i < rTokens.length; i++) {
-      uint256 lastAccRewardPerShare = poolInfo[_pid].poolRewardData[rTokens[i]].accRewardPerShare;
-      UserRewardData storage rewardData = userInfo[_pid][_to].userRewardData[rTokens[i]];
+    for(uint256 i = 0; i < rTokensLength; i++) {
+      uint256 lastAccRewardPerShare = poolInfo[_pid].poolRewardData[i].accRewardPerShare;
+      UserRewardData storage rewardData = userInfo[_pid][_to].userRewardData[i];
       // user's unclaim reward + user's amount * (pool's accRewardPerShare - user's lastRewardPerShare) / precision
       uint256 _pending = userAmount.mul(lastAccRewardPerShare.sub(rewardData.lastRewardPerShare)) / PRECISION;
       _pending = _pending.add(rewardData.unclaimedReward);
@@ -487,8 +487,8 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
       rewardData.lastRewardPerShare = lastAccRewardPerShare;
 
       if (shouldHarvest && _pending > 0) {
-        _lockReward(IERC20Ext(rTokens[i]), _to, _pending);
-        emit Harvest(_to, _pid, rTokens[i], _pending, block.number);
+        _lockReward(IERC20Ext(rewardTokens[i]), _to, _pending);
+        emit Harvest(_to, _pid, rewardTokens[i], _pending, block.number);
       }
     }
   }
