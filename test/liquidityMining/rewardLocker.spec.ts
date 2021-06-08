@@ -121,7 +121,7 @@ describe('KyberRewardLocker', () => {
       await rewardLocker.lock(rewardToken.address, user1.address, BN.from(8).mul(PRECISION));
 
       await rewardLocker.setBlockNumber(BN.from(10800));
-      await expect(rewardLocker.connect(user1).vestScheduleAtIndex(rewardToken.address, [BN.from(0), BN.from(1)]))
+      await expect(rewardLocker.connect(user1).vestScheduleAtIndices(rewardToken.address, [BN.from(0), BN.from(1)]))
         .to.emit(rewardLocker, 'Vested')
         .withArgs(rewardToken.address, user1.address, BN.from(7).mul(PRECISION), BN.from(0))
         .to.emit(rewardLocker, 'Vested')
