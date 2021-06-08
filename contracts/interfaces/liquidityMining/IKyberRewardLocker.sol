@@ -21,6 +21,13 @@ interface IKyberRewardLocker {
     uint256 index
   );
 
+  event VestingEntryQueued(
+    uint256 indexed index,
+    IERC20Ext indexed token,
+    address indexed beneficiary,
+    uint256 quantity
+  );
+
   event Vested(
     IERC20Ext indexed token,
     address indexed beneficiary,

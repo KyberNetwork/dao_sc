@@ -379,9 +379,9 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     UserInfo storage user = userInfo[_pid][_user];
     uint256 _totalStake = pool.totalStake;
     uint256 _poolLastRewardBlock = pool.lastRewardBlock;
+    uint32 lastAccountedBlock = _lastAccountedRewardBlock(_pid);
     for(uint256 i = 0; i < rTokens.length; i++) {
       uint256 _accRewardPerShare = pool.poolRewardData[rTokens[i]].accRewardPerShare;
-      uint32 lastAccountedBlock = _lastAccountedRewardBlock(_pid);
       if (lastAccountedBlock > _poolLastRewardBlock && _totalStake != 0) {
         uint256 reward = (lastAccountedBlock - _poolLastRewardBlock)
           .mul(pool.poolRewardData[rTokens[i]].rewardPerBlock);

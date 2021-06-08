@@ -114,7 +114,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
       if (lastSchedule.startBlock == startBlock && lastSchedule.endBlock == endBlock) {
         lastSchedule.quantity = uint256(lastSchedule.quantity).add(quantity).toUint128();
         accountEscrowedBalance[account][token] = accountEscrowedBalance[account][token].add(quantity);
-        emit VestingEntryCreated(token, account, startBlock, endBlock, quantity, schedulesLength - 1);
+        emit VestingEntryQueued(schedulesLength - 1, token, account, quantity);
         return;
       }
     }
