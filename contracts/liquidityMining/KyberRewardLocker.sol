@@ -85,8 +85,37 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     IERC20Ext token,
     address account,
     uint256 quantity
-  ) external payable override {
+  ) external override payable {
     lockWithStartBlock(token, account, quantity, _blockNumber());
+  }
+
+  /**
+   * @dev vest all completed schedules for multiple tokens
+   */
+  function vestCompletedSchedulesForMultipleTokens(IERC20Ext[] calldata tokens)
+    external
+    override
+    returns (uint256[] memory vestedAmounts)
+  {
+    vestedAmounts = new uint256[](tokens.length);
+    for (uint256 i = 0; i < tokens.length; i++) {
+      vestedAmounts[i] = vestCompletedSchedules(tokens[i]);
+    }
+  }
+
+  /**
+   * @dev claim multiple tokens for specific vesting schedule,
+   *      if schedule has not ended yet, claiming amounts are linear with vesting blocks
+   */
+  function vestScheduleForMultipleTokensAtIndices(
+    IERC20Ext[] calldata tokens,
+    uint256[][] calldata indices
+  ) external override returns (uint256[] memory vestedAmounts) {
+    require(tokens.length == indices.length, 'tokens.length != indices.length');
+    vestedAmounts = new uint256[](tokens.length);
+    for (uint256 i = 0; i < tokens.length; i++) {
+      vestedAmounts[i] = vestScheduleAtIndices(tokens[i], indices[i]);
+    }
   }
 
   function lockWithStartBlock(
@@ -94,11 +123,11 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     address account,
     uint256 quantity,
     uint256 startBlock
-  ) public payable override onlyRewardsContract(token) {
-    require(quantity > 0, 'Quantity cannot be zero');
+  ) public override payable onlyRewardsContract(token) {
+    require(quantity > 0, '0 quantity');
 
     if (token == IERC20Ext(0)) {
-      require(msg.value == quantity, 'Invalid locked quantity');
+      require(msg.value == quantity, 'Invalid msg.value');
     } else {
       // transfer token from reward contract to lock contract
       token.safeTransferFrom(msg.sender, address(this), quantity);
@@ -113,7 +142,9 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
       VestingSchedule storage lastSchedule = schedules.data[schedulesLength - 1];
       if (lastSchedule.startBlock == startBlock && lastSchedule.endBlock == endBlock) {
         lastSchedule.quantity = uint256(lastSchedule.quantity).add(quantity).toUint128();
-        accountEscrowedBalance[account][token] = accountEscrowedBalance[account][token].add(quantity);
+        accountEscrowedBalance[account][token] = accountEscrowedBalance[account][token].add(
+          quantity
+        );
         emit VestingEntryQueued(schedulesLength - 1, token, account, quantity);
         return;
       }
@@ -133,53 +164,6 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     emit VestingEntryCreated(token, account, startBlock, endBlock, quantity, schedulesLength);
   }
 
-  /**
-   * @dev vest all completed schedules for multiple tokens
-   */
-  function vestCompletedSchedulesForMultipleTokens(IERC20Ext[] calldata tokens)
-    external override
-    returns (uint256[] memory vestedAmounts)
-  {
-    vestedAmounts = new uint256[](tokens.length);
-    for(uint256 i = 0; i < tokens.length; i++) {
-      vestedAmounts[i] = vestCompletedSchedules(tokens[i]);
-    }
-  }
-
-  /**
-   * @dev claim multiple tokens for specific vesting schedule,
-   *      if schedule has not ended yet, claiming amounts are linear with vesting blocks
-   */
-  function vestScheduleForMultipleTokensAtIndices(
-    IERC20Ext[] calldata tokens,
-    uint256[] calldata indices
-  )
-    external override
-    returns (uint256[] memory vestedAmounts)
-  {
-    vestedAmounts = new uint256[](tokens.length);
-    for(uint256 i = 0; i < tokens.length; i++) {
-      vestedAmounts[i] = vestScheduleAtIndices(tokens[i], indices);
-    }
-  }
-
-  /**
-   * @dev claim multiple tokens for range of schedules
-   *      if schedule has not ended yet, claiming amounts are linear with vesting blocks
-   */
-  function vestScheduleForMultipleTokensInRange(
-    IERC20Ext[] calldata tokens,
-    uint256 startIndex,
-    uint256 endIndex
-  )
-    external override
-    returns (uint256[] memory vestedAmounts)
-  {
-    vestedAmounts = new uint256[](tokens.length);
-    for(uint256 i = 0; i < tokens.length; i++) {
-      vestedAmounts[i] = vestSchedulesInRange(tokens[i], startIndex, endIndex);
-    }
-  }
   /**
    * @dev Allow a user to vest all ended schedules
    */
@@ -237,11 +221,11 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     return totalVesting;
   }
 
-  function vestSchedulesInRange(IERC20Ext token, uint256 startIndex, uint256 endIndex)
-    public
-    override
-    returns (uint256)
-  {
+  function vestSchedulesInRange(
+    IERC20Ext token,
+    uint256 startIndex,
+    uint256 endIndex
+  ) public override returns (uint256) {
     require(startIndex <= endIndex, 'startIndex > endIndex');
     uint256[] memory indexes = new uint256[](endIndex - startIndex + 1);
     for (uint256 index = startIndex; index <= endIndex; index++) {
@@ -314,7 +298,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     );
 
     if (token == IERC20Ext(0)) {
-      (bool success, ) = msg.sender.call{ value: totalVesting }('');
+      (bool success, ) = msg.sender.call{value: totalVesting}('');
       require(success, 'fail to transfer');
     } else {
       token.safeTransfer(msg.sender, totalVesting);

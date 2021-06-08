@@ -1,4 +1,4 @@
-const accounts = require(`./test-wallets.js`).accounts;
+const accounts = require(`./test-wallets`).accounts;
 
 module.exports = {
   mocha: {
