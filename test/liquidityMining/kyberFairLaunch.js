@@ -63,6 +63,7 @@ contract('KyberFairLaunch', function (accounts) {
       }
     }
     fairLaunch = await KyberFairLaunch.new(admin, addresses, rewardLocker.address);
+    Helper.assertEqual(addresses, await fairLaunch.getRewardTokens());
     for (let i = 0; i < tokens.length; i++) {
       await tokens[i].approve(fairLaunch.address, new BN(2).pow(new BN(255)), {from: user1});
       await tokens[i].approve(fairLaunch.address, new BN(2).pow(new BN(255)), {from: user2});
@@ -236,6 +237,19 @@ contract('KyberFairLaunch', function (accounts) {
       let startBlock = new BN(currentBlock).add(new BN(10));
       let endBlock = startBlock.add(new BN(10));
       await expectRevert(fairLaunch.updatePool(1, endBlock, [precisionUnits, precisionUnits], {from: admin}), 'invalid pool id');
+    });
+
+    it('revert invalid length', async () => {
+      currentBlock = await Helper.getCurrentBlock();
+      let startBlock = new BN(currentBlock).add(new BN(2));
+      let endBlock = startBlock.add(new BN(10));
+      let rewardPerBlocks = [precisionUnits, precisionUnits];
+      await fairLaunch.addPool(tokens[0].address, startBlock, endBlock, rewardPerBlocks, {from: admin});
+
+      await expectRevert(
+        fairLaunch.updatePool(0, endBlock, [precisionUnits], {from: admin}),
+        'update: invalid length'
+      );
     });
 
     it('revert pool has ended', async () => {

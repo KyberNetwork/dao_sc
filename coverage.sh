@@ -13,5 +13,5 @@ if [ -n "$FILE" ]
 then
     yarn hardhat coverage --testfiles test/liquidityMining/rewardLocker.spec.ts --solcoverjs ".solcover.js" --temp ""
 else
-    yarn buidler coverage --testfiles "" --solcoverjs ".solcover.js" --temp ""
+    yarn hardhat coverage --testfiles "" --solcoverjs ".solcover.js" --temp ""
 fi

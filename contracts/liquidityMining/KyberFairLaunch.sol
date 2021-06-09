@@ -247,7 +247,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
 
     // should call renew pool if the pool has ended
     require(pool.endBlock > block.number, 'update: pool already ended');
-    require(rewardTokens.length == _rewardPerBlocks.length, 'renew: invalid length');
+    require(rewardTokens.length == _rewardPerBlocks.length, 'update: invalid length');
     require(_endBlock > block.number && _endBlock > pool.startBlock, 'update: invalid end block');
 
     pool.endBlock = _endBlock;
