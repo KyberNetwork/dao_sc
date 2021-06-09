@@ -76,9 +76,9 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
 
   // Info of each pool.
   uint256 public override poolLength;
-  mapping(uint256 => PoolInfo) public poolInfo;
+  mapping(uint256 => PoolInfo) internal poolInfo;
   // Info of each user that stakes Staking tokens.
-  mapping(uint256 => mapping(address => UserInfo)) public userInfo;
+  mapping(uint256 => mapping(address => UserInfo)) internal userInfo;
 
   event AddNewPool(
     address indexed stakeToken,
@@ -368,7 +368,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
    * @param _pid: id of the pool
    * @param _user: user to check for pending rewards
    */
-  function pendingReward(uint256 _pid, address _user)
+  function pendingRewards(uint256 _pid, address _user)
     external
     override
     view
@@ -397,10 +397,68 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   }
 
   /**
-  * @dev return list reward tokens
-  */
+   * @dev return list reward tokens
+   */
   function getRewardTokens() external override view returns (address[] memory) {
     return rewardTokens;
+  }
+
+  /**
+   * @dev return full details of a pool
+   */
+  function getPoolInfo(uint256 _pid)
+    external override view
+    returns (
+      uint256 totalStake,
+      address stakeToken,
+      uint32 startBlock,
+      uint32 endBlock,
+      uint32 lastRewardBlock,
+      uint256[] memory rewardPerBlocks,
+      uint256[] memory accRewardPerShares
+    )
+  {
+    PoolInfo storage pool = poolInfo[_pid];
+    (
+      totalStake,
+      stakeToken,
+      startBlock,
+      endBlock,
+      lastRewardBlock
+    ) = (
+      pool.totalStake,
+      pool.stakeToken,
+      pool.startBlock,
+      pool.endBlock,
+      pool.lastRewardBlock
+    );
+    rewardPerBlocks = new uint256[](rewardTokens.length);
+    accRewardPerShares = new uint256[](rewardTokens.length);
+    for(uint256 i = 0; i < rewardTokens.length; i++) {
+      rewardPerBlocks[i] = pool.poolRewardData[i].rewardPerBlock;
+      accRewardPerShares[i] = pool.poolRewardData[i].accRewardPerShare;
+    }
+  }
+
+  /**
+   * @dev get user's info
+   */
+  function getUserInfo(uint256 _pid, address _account)
+    external override view
+    returns (
+      uint256 amount,
+      uint256[] memory unclaimedRewards,
+      uint256[] memory lastRewardPerShares
+    )
+  {
+    UserInfo storage user = userInfo[_pid][_account];
+    amount = user.amount;
+    unclaimedRewards = new uint256[](rewardTokens.length);
+    lastRewardPerShares = new uint256[](rewardTokens.length);
+    for(uint256 i = 0; i < rewardTokens.length; i++) {
+      unclaimedRewards[i] = user.userRewardData[i].unclaimedReward;
+      lastRewardPerShares[i] = user.userRewardData[i].lastRewardPerShare;
+    }
   }
 
   /**
