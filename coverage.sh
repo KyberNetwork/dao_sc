@@ -11,7 +11,7 @@ yarn hardhat clean
 yarn hardhat compile
 if [ -n "$FILE" ]
 then
-    yarn hardhat coverage --testfiles test/liquidityMining/rewardLocker.spec.ts --solcoverjs ".solcover.js" --temp ""
+    yarn hardhat coverage --testfiles $FILE --solcoverjs ".solcover.js" --temp ""
 else
     yarn hardhat coverage --testfiles "" --solcoverjs ".solcover.js" --temp ""
 fi
