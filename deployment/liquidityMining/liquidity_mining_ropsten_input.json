@@ -1,0 +1,55 @@
+{
+    "LockerDuration": 200000,
+    "FairLaunchConfigs": [
+        {
+            "rewardTokens": [
+                "0x8B4DDF9F13f382aff76D262F6C8C50E6d7961b94",
+                "0x0000000000000000000000000000000000000000"
+            ],
+            "poolInfo": [
+                {
+                    "stakeToken": "0x4f54c52d446605f324f30ddd79547d607255612e",
+                    "startBlock": 10480000,
+                    "endBlock": 10680000,
+                    "rewardPerBlocks": [
+                        1000000000,
+                        100000000
+                    ]
+                },
+                {
+                    "stakeToken": "0x26b8d1680b8450dda51fa7d4753cdca9766717bd",
+                    "startBlock": 10480000,
+                    "endBlock": 10680000,
+                    "rewardPerBlocks": [
+                        2000000000,
+                        200000000
+                    ]
+                }
+            ]
+        },
+        {
+            "rewardTokens": [
+                "0x8B4DDF9F13f382aff76D262F6C8C50E6d7961b94"
+            ],
+            "poolInfo": [
+                {
+                    "stakeToken": "0xb26a8395ba1997a4c9a47d1589234bcd3ff468f3",
+                    "startBlock": 10480000,
+                    "endBlock": 10680000,
+                    "rewardPerBlocks": [
+                        1000000000
+                    ]
+                },
+                {
+                    "stakeToken": "0x03abe515bcdda4c01f1e98666e2406d837b1b597",
+                    "startBlock": 10480000,
+                    "endBlock": 10680000,
+                    "rewardPerBlocks": [
+                        2000000000
+                    ]
+                }
+            ]
+        }
+    ],
+    "outputFilename": "liquidity_mining_ropsten_output.json"
+}

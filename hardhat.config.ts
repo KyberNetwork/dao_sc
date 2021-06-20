@@ -13,6 +13,7 @@ dotenv.config();
 
 import './deployment/katanaDeployment.js';
 import './deployment/deployInternalGovernance.js';
+import './deployment/liquidityMining/deployLiquidityMining.js';
 import { accounts } from './test-wallets';
 
 const config: HardhatUserConfig = {
@@ -65,6 +66,7 @@ const config: HardhatUserConfig = {
 const INFURA_API_KEY: string = process.env.INFURA_API_KEY || '';
 const PRIVATE_KEY: string = process.env.PRIVATE_KEY || '';
 const ETHERSCAN_KEY: string = process.env.ETHERSCAN_KEY || '';
+const POLYGONSCAN_KEY: string = process.env.POLYGONSCAN_KEY || '';
 
 if (INFURA_API_KEY != '' && PRIVATE_KEY != '') {
   config.networks!.kovan = {
@@ -90,11 +92,23 @@ if (INFURA_API_KEY != '' && PRIVATE_KEY != '') {
     accounts: [PRIVATE_KEY],
     timeout: 20000,
   };
+
+  config.networks!.polygon = {
+    url: `https://rpc-mainnet.maticvigil.com/`,
+    accounts: [PRIVATE_KEY],
+    timeout: 20000,
+  };
+
+  config.networks!.mumbai = {
+    url: `https://rpc-mumbai.maticvigil.com/`,
+    accounts: [PRIVATE_KEY],
+    timeout: 20000,
+  };
 }
 
-if (ETHERSCAN_KEY != '') {
+if (ETHERSCAN_KEY != '' || POLYGONSCAN_KEY != '') {
   config.etherscan = {
-    apiKey: ETHERSCAN_KEY,
+    apiKey: ETHERSCAN_KEY == '' ? POLYGONSCAN_KEY : ETHERSCAN_KEY,
   };
 }
 

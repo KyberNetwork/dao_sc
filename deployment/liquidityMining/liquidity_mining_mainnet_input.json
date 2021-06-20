@@ -1,0 +1,53 @@
+{
+    "LockerDuration": 200000,
+    "FairLaunchConfigs": [
+        {
+            "rewardTokens": [
+                "0xdeFA4e8a7bcBA345F687a2f1456F5Edd9CE97202"
+            ],
+            "poolInfo": [
+                {
+                    "stakeToken": "",
+                    "startBlock": 12735000,
+                    "endBlock": 13335000,
+                    "rewardPerBlocks": [
+                        4200000000000000000
+                    ]
+                },
+                {
+                    "stakeToken": "",
+                    "startBlock": 12735000,
+                    "endBlock": 13335000,
+                    "rewardPerBlocks": [
+                        4200000000000000000
+                    ]
+                },
+                {
+                    "stakeToken": "",
+                    "startBlock": 12735000,
+                    "endBlock": 13335000,
+                    "rewardPerBlocks": [
+                        4200000000000000000
+                    ]
+                },
+                {
+                    "stakeToken": "",
+                    "startBlock": 12735000,
+                    "endBlock": 13335000,
+                    "rewardPerBlocks": [
+                        4200000000000000000
+                    ]
+                },
+                {
+                    "stakeToken": "",
+                    "startBlock": 12735000,
+                    "endBlock": 13335000,
+                    "rewardPerBlocks": [
+                        4200000000000000000
+                    ]
+                }
+            ]
+        }
+    ],
+    "outputFilename": "liquidity_mining_mainnet_output.json"
+}
