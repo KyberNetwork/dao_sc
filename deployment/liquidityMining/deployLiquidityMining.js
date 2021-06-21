@@ -1,5 +1,4 @@
 require('@nomiclabs/hardhat-ethers');
-const inquirer = require('inquirer');
 const fs = require('fs');
 const path = require('path');
 const configPath = path.join(__dirname, './liquidity_mining_mainnet_input.json');
@@ -28,8 +27,9 @@ let lockerDuration;
 let fairLaunchConfigs = [];
 let outputFilename;
 
-task('deployLiquidityMining', 'deploy liquidity mining contracts').setAction(
-  async (taskArgs, hre) => {
+task('deployLiquidityMining', 'deploy liquidity mining contracts')
+  .addParam('gasprice', 'The gas price (in gwei) for all transactions')
+  .setAction(async (taskArgs, hre) => {
     parseInput(configParams);
 
     const BN = ethers.BigNumber;
@@ -38,7 +38,8 @@ task('deployLiquidityMining', 'deploy liquidity mining contracts').setAction(
     console.log(`Deployer address: ${deployerAddress}`)
 
     let outputData = {};
-    gasPrice = new BN.from(10).mul(new BN.from(10).pow(new BN.from(9)));
+    gasPrice = new BN.from(10**9 * taskArgs.gasprice);
+    console.log(`Deploy gas price: ${gasPrice.toString(10)} (${taskArgs.gasprice} gweis)`);
 
     const KyberRewardLocker = await ethers.getContractFactory('KyberRewardLocker');
     let rewardLocker;
