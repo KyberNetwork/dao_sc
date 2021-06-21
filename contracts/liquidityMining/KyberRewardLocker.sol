@@ -23,7 +23,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     mapping(uint256 => VestingSchedule) data;
   }
 
-  uint256 private constant MAX_REWARD_CONTRACTS_SIZE = 10;
+  uint256 private constant MAX_REWARD_CONTRACTS_SIZE = 100;
 
   /// @dev whitelist of reward contracts
   mapping(IERC20Ext => EnumerableSet.AddressSet) internal rewardContractsPerToken;
