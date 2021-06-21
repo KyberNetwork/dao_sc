@@ -1,0 +1,47 @@
+{
+    "LockerDuration": 1128000,
+    "FairLaunchConfigs": [
+        {
+            "rewardTokens": [
+                "0x51E8D106C646cA58Caf32A47812e95887C071a62",
+                "0x0000000000000000000000000000000000000000"
+            ],
+            "poolInfo": [
+                {
+                    "stakeToken": "0xe1dAd9E06380bC8962e259dDd6a5257A4f56d525",
+                    "startBlock": 15958000,
+                    "endBlock": 16058000,
+                    "rewardPerBlocks": [
+                        1000000000,
+                        100000000
+                    ]
+                },
+                {
+                    "stakeToken": "0x706eF64b3842a8a6D31d7DC6669e521cCA9f5Ce1",
+                    "startBlock": 15958000,
+                    "endBlock": 16058000,
+                    "rewardPerBlocks": [
+                        1000000000,
+                        100000000
+                    ]
+                }
+            ]
+        },
+        {
+            "rewardTokens": [
+                "0x51E8D106C646cA58Caf32A47812e95887C071a62"
+            ],
+            "poolInfo": [
+                {
+                    "stakeToken": "0x0f0FC5a5029E3d155708356b422D22Cc29f8b3D4",
+                    "startBlock": 15958000,
+                    "endBlock": 16058000,
+                    "rewardPerBlocks": [
+                        1000000000
+                    ]
+                }
+            ]
+        }
+    ],
+    "outputFilename": "liquidity_mining_polygon_output.json"
+}

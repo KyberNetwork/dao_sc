@@ -1,0 +1,47 @@
+{
+    "LockerDuration": 200000,
+    "FairLaunchConfigs": [
+        {
+            "rewardTokens": [
+                "0xFD1f9381Cb641Dc76Fe8087dbcf8ea84a2c77cbE",
+                "0x0000000000000000000000000000000000000000"
+            ],
+            "poolInfo": [
+                {
+                    "stakeToken": "0x967a889dbf977dd9c7b79bf422f5fa50294e56fd",
+                    "startBlock": 15118000,
+                    "endBlock": 15318000,
+                    "rewardPerBlocks": [
+                        1000000000,
+                        100000000
+                    ]
+                },
+                {
+                    "stakeToken": "0x0f7696c307a2eDb5b3Ff631Aba9D834BE6339e6B",
+                    "startBlock": 15118000,
+                    "endBlock": 15318000,
+                    "rewardPerBlocks": [
+                        1000000000,
+                        100000000
+                    ]
+                }
+            ]
+        },
+        {
+            "rewardTokens": [
+                "0xFD1f9381Cb641Dc76Fe8087dbcf8ea84a2c77cbE"
+            ],
+            "poolInfo": [
+                {
+                    "stakeToken": "0x801da4b550d1645f7ad3de8a5349a51b8dea48b8",
+                    "startBlock": 15118000,
+                    "endBlock": 15318000,
+                    "rewardPerBlocks": [
+                        1000000000
+                    ]
+                }
+            ]
+        }
+    ],
+    "outputFilename": "liquidity_mining_mumbai_output.json"
+}
