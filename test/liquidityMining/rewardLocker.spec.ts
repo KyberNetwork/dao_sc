@@ -78,7 +78,7 @@ describe('KyberRewardLocker', () => {
 
       await expect(rewardLocker.connect(admin).addRewardsContract(rewardToken.address, rewardContract.address))
         .to.emit(rewardLocker, 'RewardContractAdded')
-        .withArgs(rewardContract.address, true);
+        .withArgs(rewardContract.address, rewardToken.address, true);
 
       await rewardLocker.connect(admin).addRewardsContract(rewardToken.address, rewardContract2.address);
 
@@ -93,7 +93,7 @@ describe('KyberRewardLocker', () => {
 
       await expect(rewardLocker.connect(admin).removeRewardsContract(rewardToken.address, rewardContract2.address))
         .to.emit(rewardLocker, 'RewardContractAdded')
-        .withArgs(rewardContract2.address, false);
+        .withArgs(rewardContract2.address, rewardToken.address, false);
 
       expect(await rewardLocker.getRewardContractsPerToken(rewardToken.address)).to.eql([rewardContract.address]);
     });

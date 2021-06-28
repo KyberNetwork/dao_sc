@@ -41,7 +41,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
   mapping(IERC20Ext => uint256) public vestingDurationPerToken;
 
   /* ========== EVENTS ========== */
-  event RewardContractAdded(address indexed rewardContract, bool isAdded);
+  event RewardContractAdded(address indexed rewardContract, IERC20Ext indexed token, bool isAdded);
   event SetVestingDuration(IERC20Ext indexed token, uint64 vestingDuration);
 
   /* ========== MODIFIERS ========== */
@@ -63,7 +63,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
     );
     require(rewardContractsPerToken[token].add(_rewardContract), '_rewardContract is added');
 
-    emit RewardContractAdded(_rewardContract, true);
+    emit RewardContractAdded(_rewardContract, token, true);
   }
 
   /**
@@ -72,7 +72,7 @@ contract KyberRewardLocker is IKyberRewardLocker, PermissionAdmin {
   function removeRewardsContract(IERC20Ext token, address _rewardContract) external onlyAdmin {
     require(rewardContractsPerToken[token].remove(_rewardContract), '_rewardContract is removed');
 
-    emit RewardContractAdded(_rewardContract, false);
+    emit RewardContractAdded(_rewardContract, token, false);
   }
 
   function setVestingDuration(IERC20Ext token, uint64 _vestingDuration) external onlyAdmin {
