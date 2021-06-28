@@ -1207,7 +1207,7 @@ contract('KyberFairLaunch', function (accounts) {
       user: user,
       pid: poolData.id,
       blockNumber: new BN(currentBlock),
-      amount: userInfo[user][pid].amount.sub(amount),
+      amount: amount
     });
     Helper.assertEqual(userBalBefore.add(amount), await poolData.stakeToken.balanceOf(user));
     Helper.assertEqual(poolBalBefore.sub(amount), await poolData.stakeToken.balanceOf(fairLaunch.address));

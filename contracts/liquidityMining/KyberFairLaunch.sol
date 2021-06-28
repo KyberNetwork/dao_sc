@@ -509,7 +509,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
 
     IERC20Ext(pool.stakeToken).safeTransfer(msg.sender, _amount);
 
-    emit Withdraw(msg.sender, _pid, block.number, user.amount);
+    emit Withdraw(msg.sender, _pid, block.number, _amount);
   }
 
   /**
