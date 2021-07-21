@@ -190,6 +190,7 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
         if (tokenIns[i] == tokenOut) {
           // allow to forward a whitelist token from treasury -> reward without premium
           minAmountOut = minAmountOut.add(amountIns[i]);
+          continue;
         } else {
           // not allow to liquidate from a whitelisted token to another whitelisted token
           require(
