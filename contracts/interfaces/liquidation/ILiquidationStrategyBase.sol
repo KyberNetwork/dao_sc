@@ -27,10 +27,10 @@ interface ILiquidationStrategyBase {
     IERC20Ext[] calldata sources,
     uint256[] calldata amounts,
     address payable recipient,
-    IERC20Ext[] calldata dests,
+    IERC20Ext dest,
     bytes calldata oracleHint,
     bytes calldata txData
-  ) external returns (uint256[] memory destAmounts);
+  ) external returns (uint256 destAmount);
 
   function isLiquidationEnabled() external view returns (bool);
   function getLiquidationSchedule()

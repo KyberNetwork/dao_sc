@@ -119,7 +119,7 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
   * @param sources list of source tokens to liquidate
   * @param amounts list of amounts corresponding to each source token
   * @param recipient receiver of source tokens
-  * @param dests list of tokens to liquidate to
+  * @param dest dest token to liquidate to
   * @param oracleHint hint for getting data from oracle
   * @param txData data to callback to recipient
   */
@@ -128,12 +128,12 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
     IERC20Ext[] calldata sources,
     uint256[] calldata amounts,
     address payable recipient,
-    IERC20Ext[] calldata dests,
+    IERC20Ext dest,
     bytes calldata oracleHint,
     bytes calldata txData
   )
     external virtual override nonReentrant
-    returns (uint256[] memory destAmounts)
+    returns (uint256 destAmount)
   {
     require(!paused, 'liquidate: only when not paused');
     require(isWhitelistedLiquidator(msg.sender), 'liquidate: only whitelisted liquidator');
@@ -141,28 +141,21 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
     require(isLiquidationEnabled(), 'liquidate: only when liquidation enabled');
 
     // request return data from oracle
-    uint256[] memory minReturns = oracle.getExpectedReturns(
-      msg.sender, sources, amounts, dests, oracleHint
+    uint256 minReturn = oracle.getExpectedReturns(
+      msg.sender, sources, amounts, dest, oracleHint
     );
-    require(minReturns.length == dests.length, 'liquidate: invalid return length');
 
-    uint256[] memory destBalances = new uint256[](dests.length);
-    for(uint256 i = 0; i < destBalances.length; i++) {
-      destBalances[i] = getBalance(dests[i], address(this));
-    }
+    uint256 destBalance = getBalance(dest, address(this));
 
     // request funds from treasury pool to recipient
     _treasuryPool.withdrawFunds(sources, amounts, recipient);
     // callback to recipient to transfer dest amount to reward
     // internal function to prevent stack too deep
-    _liquidationCallback(sources, amounts, recipient, dests, minReturns, txData);
+    _liquidationCallback(sources, amounts, recipient, dest, minReturn, txData);
 
-    destAmounts = new uint256[](dests.length);
-    for(uint256 i = 0; i < destBalances.length; i++) {
-      destAmounts[i] = getBalance(dests[i], address(this)).sub(destBalances[i]);
-      require(destAmounts[i] >= minReturns[i], 'liquidate: low return amount');
-      _transferToken(dests[i], rewardPool(), destAmounts[i]);
-    }
+    destAmount = getBalance(dest, address(this)).sub(destBalance);
+    require(destAmount >= minReturn, 'liquidate: low return amount');
+    _transferToken(dest, rewardPool(), destAmount);
   }
 
   // Whitelisted liquidators
@@ -307,12 +300,12 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
     IERC20Ext[] memory sources,
     uint256[] memory amounts,
     address payable recipient,
-    IERC20Ext[] memory dests,
-    uint256[] memory minReturns,
+    IERC20Ext dest,
+    uint256 minReturn,
     bytes calldata txData
   ) internal {
     ILiquidationCallback(recipient).liquidationCallback(
-      msg.sender, sources, amounts, address(this), dests, minReturns, txData
+      msg.sender, sources, amounts, address(this), dest, minReturn, txData
     );
   }
 }

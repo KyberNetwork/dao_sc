@@ -10,15 +10,15 @@ import {ILiquidationPriceOracleBase} from '../interfaces/liquidation/ILiquidatio
 contract MockLiquidatorWithCallback is Utils {
   using SafeERC20 for IERC20Ext;
 
-  uint256[] public transferBackAmounts;
+  uint256 public transferBackAmount;
   bool public shouldTestReentrancy = false;
 
   constructor( ) {}
 
   receive() external payable {}
 
-  function setTransferBackAmounts(uint256[] memory amounts) external {
-    transferBackAmounts = amounts;
+  function setTransferBackAmounts(uint256 amount) external {
+    transferBackAmount = amount;
   }
 
   function setTestReentrancy(bool shouldTest) external {
@@ -30,23 +30,21 @@ contract MockLiquidatorWithCallback is Utils {
     IERC20Ext[] calldata sources,
     uint256[] calldata amounts,
     address payable recipient,
-    IERC20Ext[] calldata dests,
+    IERC20Ext dest,
     uint256[] calldata,// minReturns,
     bytes calldata txData
   ) external {
     if (shouldTestReentrancy) {
       MockLiquidationStrategy(msg.sender).liquidate(
         ILiquidationPriceOracleBase(MockLiquidationStrategy(msg.sender).getWhitelistedPriceOracleAt(0)),
-        sources, amounts, recipient, dests, '', txData
+        sources, amounts, recipient, dest, '', txData
       );
     }
-    for(uint256 i = 0; i < dests.length; i++) {
-      if (dests[i] == ETH_TOKEN_ADDRESS) {
-        (bool success, ) = msg.sender.call { value: transferBackAmounts[i] }('');
-        require(success, 'transfer failed');
-      } else {
-        dests[i].safeTransfer(msg.sender, transferBackAmounts[i]);
+    if (dest == ETH_TOKEN_ADDRESS) {
+      (bool success, ) = msg.sender.call { value: transferBackAmount }('');
+      require(success, 'transfer failed');
+    } else {
+      dest.safeTransfer(msg.sender, transferBackAmount);
       }
-    }
   }
 }

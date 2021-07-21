@@ -16,15 +16,15 @@ interface ILiquidationPriceOracleBase {
    * @param liquidator address of the liquidator
    * @param tokenIns list of src tokens
    * @param amountIns list of src amounts
-   * @param tokenOuts list of return tokens
+   * @param tokenOut dest token
    * @param hint hint for getting conversion rates
-   * @return minAmountOuts min expected amount for each token out
+   * @return minAmountOut min expected amount for the token out
    */
   function getExpectedReturns(
     address liquidator,
     IERC20Ext[] calldata tokenIns,
     uint256[] calldata amountIns,
-    IERC20Ext[] calldata tokenOuts,
+    IERC20Ext tokenOut,
     bytes calldata hint
-  ) external view returns (uint256[] memory minAmountOuts);
+  ) external view returns (uint256 minAmountOut);
 }
