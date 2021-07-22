@@ -27,6 +27,8 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
   // LIQUIDATE_TOKEN: liquidate list of tokens to a single token
   enum LiquidationType { LIQUIDATE_LP, LIQUIDATE_TOKEN }
 
+  uint64 constant public MAX_PREMIUM_BPS = 2000; // 20%
+
   struct AggregatorProxyData {
     address quoteEthProxy;
     uint8 quoteEthProxyDecimals;
@@ -214,7 +216,9 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
       }
     }
 
-    (amountOutLpTokens, amountOutNormalTokens) = _applyPremiumFor(liquidator, amountOutLpTokens, amountOutNormalTokens);
+    (amountOutLpTokens, amountOutNormalTokens) =
+      _applyPremiumFor(liquidator, amountOutLpTokens, amountOutNormalTokens);
+
     minAmountOut = minAmountOut.add(amountOutLpTokens).add(amountOutNormalTokens);
   }
 
@@ -359,8 +363,8 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     uint64 _liquidateLpBps,
     uint64 _liquidateTokenBps
   ) internal {
-    require(_liquidateLpBps < BPS, 'invalid liquidate lp bps');
-    require(_liquidateTokenBps < BPS, 'invalid liquidate tokens bps');
+    require(_liquidateLpBps <= MAX_PREMIUM_BPS, 'invalid liquidate lp bps');
+    require(_liquidateTokenBps <= MAX_PREMIUM_BPS, 'invalid liquidate tokens bps');
     _defaultPremiumData.liquidateLpBps = _liquidateLpBps;
     _defaultPremiumData.liquidateTokenBps = _liquidateTokenBps;
     emit DefaultPremiumDataSet(_liquidateLpBps, _liquidateTokenBps);
@@ -371,8 +375,8 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     uint64 _liquidateLpBps,
     uint64 _liquidateTokenBps
   ) internal {
-    require(_liquidateLpBps < BPS, 'invalid liquidate lp bps');
-    require(_liquidateTokenBps < BPS, 'invalid liquidate tokens bps');
+    require(_liquidateLpBps <= MAX_PREMIUM_BPS, 'invalid liquidate lp bps');
+    require(_liquidateTokenBps <= MAX_PREMIUM_BPS, 'invalid liquidate tokens bps');
     _groupPremiumData[_liquidator].liquidateLpBps = _liquidateLpBps;
     _groupPremiumData[_liquidator].liquidateTokenBps = _liquidateTokenBps;
     emit UpdateGroupPremiumData(_liquidator, _liquidateLpBps, _liquidateTokenBps);
@@ -492,8 +496,10 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     uint256 rate
   ) internal pure returns (uint256) {
     if (dstDecimals >= srcDecimals) {
+      require(dstDecimals - srcDecimals <= MAX_DECIMALS, 'dst - src > MAX_DECIMALS');
       return srcQty.mul(rate).mul(10**(dstDecimals - srcDecimals)) / PRECISION;
     }
+    require(srcDecimals - dstDecimals <= MAX_DECIMALS, 'src - dst > MAX_DECIMALS');
     return srcQty.mul(rate) / (PRECISION.mul(10**(srcDecimals - dstDecimals)));
   }
 }
