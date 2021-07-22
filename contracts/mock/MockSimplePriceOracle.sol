@@ -15,7 +15,7 @@ contract MockSimplePriceOracle {
     amountOut = _amountOut;
   }
 
-  function getExpectedReturns(
+  function getExpectedReturn(
     address, // liquidator,
     IERC20Ext[] calldata,// tokenIns,
     uint256[] calldata,// amountIns,

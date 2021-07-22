@@ -161,7 +161,7 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
    *     corresponding to the list source token
    * @return minAmountOut min expected amount for the token out
    */
-  function getExpectedReturns(
+  function getExpectedReturn(
     address liquidator,
     IERC20Ext[] calldata tokenIns,
     uint256[] calldata amountIns,
@@ -364,7 +364,7 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     uint64 _liquidateTokenBps
   ) internal {
     require(_liquidateLpBps <= MAX_PREMIUM_BPS, 'invalid liquidate lp bps');
-    require(_liquidateTokenBps <= MAX_PREMIUM_BPS, 'invalid liquidate tokens bps');
+    require(_liquidateTokenBps <= MAX_PREMIUM_BPS, 'invalid liquidate token bps');
     _defaultPremiumData.liquidateLpBps = _liquidateLpBps;
     _defaultPremiumData.liquidateTokenBps = _liquidateTokenBps;
     emit DefaultPremiumDataSet(_liquidateLpBps, _liquidateTokenBps);
@@ -376,7 +376,7 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     uint64 _liquidateTokenBps
   ) internal {
     require(_liquidateLpBps <= MAX_PREMIUM_BPS, 'invalid liquidate lp bps');
-    require(_liquidateTokenBps <= MAX_PREMIUM_BPS, 'invalid liquidate tokens bps');
+    require(_liquidateTokenBps <= MAX_PREMIUM_BPS, 'invalid liquidate token bps');
     _groupPremiumData[_liquidator].liquidateLpBps = _liquidateLpBps;
     _groupPremiumData[_liquidator].liquidateTokenBps = _liquidateTokenBps;
     emit UpdateGroupPremiumData(_liquidator, _liquidateLpBps, _liquidateTokenBps);
@@ -387,12 +387,12 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     returns (uint256 amountFromLPsAfter, uint256 amountFromTokensAfter)
   {
     (uint64 premiumLpBps, uint64 premiumTokenBps) = getPremiumData(liquidator);
-    if (amountFromLPsAfter > 0) {
+    if (amountFromLPs > 0) {
       amountFromLPsAfter = amountFromLPs.sub(
         amountFromLPs.mul(premiumLpBps) / BPS
       );
     }
-    if (amountFromTokensAfter > 0) {
+    if (amountFromTokens > 0) {
       amountFromTokensAfter = amountFromTokens.sub(
         amountFromTokens.mul(premiumTokenBps) / BPS
       );
@@ -432,7 +432,6 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
 
     // calc equivalent (tokens[0], amounts[0]) -> tokenOut
     if (tokens[0] == dest) {
-      rate = PRECISION;
       totalReturn = totalReturn.add(amounts[0]);
     } else {
       rate = isDestEth ? getRateOverEth(address(tokens[0])) :
@@ -445,7 +444,6 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
 
     // calc equivalent (tokens[1], amounts[1]) -> tokenOut
     if (tokens[1] == dest) {
-      rate = PRECISION;
       totalReturn = totalReturn.add(amounts[1]);
     } else {
       rate = isDestEth ? getRateOverEth(address(tokens[1])) :

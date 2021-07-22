@@ -141,7 +141,7 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
     require(isLiquidationEnabled(), 'liquidate: only when liquidation enabled');
 
     // request return data from oracle
-    uint256 minReturn = oracle.getExpectedReturns(
+    uint256 minReturn = oracle.getExpectedReturn(
       msg.sender, sources, amounts, dest, oracleHint
     );
     require(minReturn > 0, 'liquidate: minReturn == 0');

@@ -47,4 +47,8 @@ contract MockDmmChainLinkPriceOracle is KyberDmmChainLinkPriceOracle {
   ) external pure returns (uint256) {
     return _calculateReturnAmount(srcQty, srcDecimals, dstDecimals, rate);
   }
+
+  function getEncodedData(LiquidationType[] calldata types) external pure returns (bytes memory) {
+    return abi.encode(types);
+  }
 }

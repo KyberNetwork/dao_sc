@@ -21,6 +21,7 @@ import {
 } from '../typechain';
 import {_Chain} from 'underscore';
 import {Zero} from '@ethersproject/constants';
+import {encode} from '@ethersproject/base64';
 
 const BPS = BN.from(10000);
 const PRECISION = BN.from(10).pow(18);
@@ -31,9 +32,10 @@ let ChainLink: MockChainkLink__factory;
 let DmmPool: MockDmmPool__factory;
 let Token: KyberNetworkTokenV2__factory;
 
-const REMOVE_LIQUIDITY = '0x0000000000000000000000000000000000000000000000000000000000000000';
-const LIQUIDATE_LP = '0x0000000000000000000000000000000000000000000000000000000000000001';
-const LIQUIDATE_TOKENS = '0x0000000000000000000000000000000000000000000000000000000000000002';
+enum LiquidationType {
+  LP,
+  TOKEN,
+}
 
 let whitelistedTokens;
 let admin;
@@ -106,86 +108,70 @@ describe('KyberDmmChainLinkPriceOracle', () => {
 
     it('update default premium data - reverts', async () => {
       // revert only admin
-      await expect(dmmChainLinkPriceOracle.connect(user).updateDefaultPremiumData(1, 2, 3)).to.be.revertedWith(
+      await expect(dmmChainLinkPriceOracle.connect(user).updateDefaultPremiumData(2, 3)).to.be.revertedWith(
         'only admin'
       );
 
       // update default premium invalid data
-      await expect(dmmChainLinkPriceOracle.connect(admin).updateDefaultPremiumData(10000, 2, 3)).to.be.revertedWith(
-        'invalid remove liquidity bps'
-      );
-      await expect(dmmChainLinkPriceOracle.connect(admin).updateDefaultPremiumData(1, 10000, 3)).to.be.revertedWith(
+      await expect(dmmChainLinkPriceOracle.connect(admin).updateDefaultPremiumData(2001, 3)).to.be.revertedWith(
         'invalid liquidate lp bps'
       );
-      await expect(dmmChainLinkPriceOracle.connect(admin).updateDefaultPremiumData(2, 3, 10000)).to.be.revertedWith(
-        'invalid liquidate tokens bps'
+      await expect(dmmChainLinkPriceOracle.connect(admin).updateDefaultPremiumData(3, 2001)).to.be.revertedWith(
+        'invalid liquidate token bps'
       );
     });
 
     it('update default premium data', async () => {
-      await expect(dmmChainLinkPriceOracle.connect(admin).updateDefaultPremiumData(100, 200, 300))
+      await expect(dmmChainLinkPriceOracle.connect(admin).updateDefaultPremiumData(200, 300))
         .to.emit(dmmChainLinkPriceOracle, 'DefaultPremiumDataSet')
-        .withArgs(BN.from(100), BN.from(200), BN.from(300));
+        .withArgs(BN.from(200), BN.from(300));
       let data = await dmmChainLinkPriceOracle.getDefaultPremiumData();
-      expect(data.removeLiquidityBps).to.eql(BN.from(100));
       expect(data.liquidateLpBps).to.eql(BN.from(200));
-      expect(data.liquidateTokensBps).to.eql(BN.from(300));
+      expect(data.liquidateTokenBps).to.eql(BN.from(300));
     });
 
     it('update group premium data - reverts', async () => {
       // revert only admin
-      await expect(dmmChainLinkPriceOracle.connect(user).updateGroupPremiumData([], [], [], [])).to.be.revertedWith(
+      await expect(dmmChainLinkPriceOracle.connect(user).updateGroupPremiumData([], [], [])).to.be.revertedWith(
         'only admin'
       );
       // update group premium invalid data
       await expect(
-        dmmChainLinkPriceOracle.connect(admin).updateGroupPremiumData([user.address], [], [], [])
+        dmmChainLinkPriceOracle.connect(admin).updateGroupPremiumData([user.address], [], [])
       ).to.be.revertedWith('invalid length');
       await expect(
-        dmmChainLinkPriceOracle.connect(admin).updateGroupPremiumData([user.address], [1, 2], [], [])
+        dmmChainLinkPriceOracle.connect(admin).updateGroupPremiumData([user.address], [2], [3, 4])
       ).to.be.revertedWith('invalid length');
       await expect(
-        dmmChainLinkPriceOracle.connect(admin).updateGroupPremiumData([user.address], [1], [], [])
-      ).to.be.revertedWith('invalid length');
-      await expect(
-        dmmChainLinkPriceOracle.connect(admin).updateGroupPremiumData([user.address], [1], [2], [3, 4])
-      ).to.be.revertedWith('invalid length');
-      await expect(
-        dmmChainLinkPriceOracle.connect(admin).updateGroupPremiumData([user.address], [10000], [0], [0])
-      ).to.be.revertedWith('invalid remove liquidity bps');
-      await expect(
-        dmmChainLinkPriceOracle.connect(admin).updateGroupPremiumData([user.address], [1], [10000], [1])
+        dmmChainLinkPriceOracle.connect(admin).updateGroupPremiumData([user.address], [2001], [0])
       ).to.be.revertedWith('invalid liquidate lp bps');
       await expect(
-        dmmChainLinkPriceOracle.connect(admin).updateGroupPremiumData([user.address], [1], [2], [10000])
-      ).to.be.revertedWith('invalid liquidate tokens bps');
+        dmmChainLinkPriceOracle.connect(admin).updateGroupPremiumData([user.address], [2], [2001])
+      ).to.be.revertedWith('invalid liquidate token bps');
     });
 
     it('update default premium data', async () => {
-      await expect(dmmChainLinkPriceOracle.connect(admin).updateGroupPremiumData([user.address], [100], [200], [300]))
+      await expect(dmmChainLinkPriceOracle.connect(admin).updateGroupPremiumData([user.address], [200], [300]))
         .to.emit(dmmChainLinkPriceOracle, 'UpdateGroupPremiumData')
-        .withArgs(user.address, BN.from(100), BN.from(200), BN.from(300));
+        .withArgs(user.address, BN.from(200), BN.from(300));
 
       let data = await dmmChainLinkPriceOracle.getPremiumData(user.address);
-      expect(data.removeLiquidityBps).to.eql(BN.from(100));
       expect(data.liquidateLpBps).to.eql(BN.from(200));
-      expect(data.liquidateTokensBps).to.eql(BN.from(300));
+      expect(data.liquidateTokenBps).to.eql(BN.from(300));
 
-      await dmmChainLinkPriceOracle.connect(admin).updateDefaultPremiumData(50, 100, 200);
-      await expect(dmmChainLinkPriceOracle.connect(admin).updateGroupPremiumData([user.address], [10], [20], [0]))
+      await dmmChainLinkPriceOracle.connect(admin).updateDefaultPremiumData(100, 200);
+      await expect(dmmChainLinkPriceOracle.connect(admin).updateGroupPremiumData([user.address], [20], [0]))
         .to.emit(dmmChainLinkPriceOracle, 'UpdateGroupPremiumData')
-        .withArgs(user.address, BN.from(10), BN.from(20), BN.from(0));
+        .withArgs(user.address, BN.from(20), BN.from(0));
 
       data = await dmmChainLinkPriceOracle.getPremiumData(user.address);
-      expect(data.removeLiquidityBps).to.eql(BN.from(10));
       expect(data.liquidateLpBps).to.eql(BN.from(20));
-      expect(data.liquidateTokensBps).to.eql(BN.from(0));
+      expect(data.liquidateTokenBps).to.eql(BN.from(0));
 
       // not set premium data for the address yet, it uses default premium
       data = await dmmChainLinkPriceOracle.getPremiumData(admin.address);
-      expect(data.removeLiquidityBps).to.eql(BN.from(50));
       expect(data.liquidateLpBps).to.eql(BN.from(100));
-      expect(data.liquidateTokensBps).to.eql(BN.from(200));
+      expect(data.liquidateTokenBps).to.eql(BN.from(200));
     });
 
     it('update chainlink proxies', async () => {
@@ -271,6 +257,10 @@ describe('KyberDmmChainLinkPriceOracle', () => {
     }
   };
 
+  const encodeLiquidationType = async (types: LiquidationType[]) => {
+    return await dmmChainLinkPriceOracle.getEncodedData(types);
+  };
+
   describe('#get data from chainlink proxies', async () => {
     let chainlink0EthProxy: MockChainkLink;
     let chainlink0UsdProxy: MockChainkLink;
@@ -307,7 +297,7 @@ describe('KyberDmmChainLinkPriceOracle', () => {
       await chainlink0EthProxy.setAnswerData(rate);
       // need to multiply with 10**(18 - 10)
       expect(await dmmChainLinkPriceOracle.getRateOverEth(token0.address)).to.be.eql(
-        convertToDecimals10(rate, proxyEth0Decimal)
+        convertToDecimals18(rate, proxyEth0Decimal)
       );
       expect(await dmmChainLinkPriceOracle.getRateOverUsd(token0.address)).to.be.eql(BN.from(0));
 
@@ -315,7 +305,7 @@ describe('KyberDmmChainLinkPriceOracle', () => {
       await chainlink1UsdProxy.setAnswerData(rate);
       expect(await dmmChainLinkPriceOracle.getRateOverEth(token1.address)).to.be.eql(BN.from(0));
       expect(await dmmChainLinkPriceOracle.getRateOverUsd(token1.address)).to.be.eql(
-        convertToDecimals10(rate, proxyUsd1Decimal)
+        convertToDecimals18(rate, proxyUsd1Decimal)
       );
 
       await dmmChainLinkPriceOracle
@@ -331,7 +321,7 @@ describe('KyberDmmChainLinkPriceOracle', () => {
       await chainlink1UsdProxy.setAnswerData(0);
 
       expect(await dmmChainLinkPriceOracle.getRateOverEth(token1.address)).to.be.eql(
-        convertToDecimals10(rate, proxyEth1Decimal)
+        convertToDecimals18(rate, proxyEth1Decimal)
       );
       expect(await dmmChainLinkPriceOracle.getRateOverUsd(token1.address)).to.be.eql(BN.from(0));
     });
@@ -376,7 +366,7 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         await setChainlinkRates([chainlink0EthProxy, chainlink0UsdProxy], [BN.from(0), usd0Rate]);
 
         // convert to decimals 18
-        usd0Rate = convertToDecimals10(usd0Rate, proxyUsd0Decimal);
+        usd0Rate = convertToDecimals18(usd0Rate, proxyUsd0Decimal);
         let expectedRate = usd0Rate.mul(PRECISION).div(usd1Rate);
 
         // dest token rate over eth is 0
@@ -407,7 +397,7 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         await setChainlinkRates([chainlink0EthProxy, chainlink0UsdProxy], [eth0Rate, BN.from(0)]);
 
         // convert to decimals of 18
-        eth0Rate = convertToDecimals10(eth0Rate, proxyEth0Decimal);
+        eth0Rate = convertToDecimals18(eth0Rate, proxyEth0Decimal);
         let expectedRate = eth0Rate.mul(PRECISION).div(eth1Rate);
 
         // dest rate over usd is 0
@@ -439,8 +429,8 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         await setChainlinkRates([chainlink0EthProxy, chainlink0UsdProxy], [eth0Rate, usd0Rate]);
 
         // convert to decimals of 18
-        eth0Rate = convertToDecimals10(eth0Rate, proxyEth0Decimal);
-        usd0Rate = convertToDecimals10(usd0Rate, proxyUsd0Decimal);
+        eth0Rate = convertToDecimals18(eth0Rate, proxyEth0Decimal);
+        usd0Rate = convertToDecimals18(usd0Rate, proxyUsd0Decimal);
         let expectedEthRate = eth0Rate.mul(PRECISION).div(eth1Rate);
         let expectedUsdRate = usd0Rate.mul(PRECISION).div(usd1Rate);
         let expectedRate = expectedEthRate.add(expectedUsdRate).div(BN.from(2));
@@ -485,8 +475,8 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         await setChainlinkRates([chainlink0EthProxy, chainlink0UsdProxy], [eth0Rate, usd0Rate]);
 
         // convert to decimals of 18
-        eth0Rate = convertToDecimals10(eth0Rate, proxyEth0Decimal);
-        usd0Rate = convertToDecimals10(usd0Rate, proxyUsd0Decimal);
+        eth0Rate = convertToDecimals18(eth0Rate, proxyEth0Decimal);
+        usd0Rate = convertToDecimals18(usd0Rate, proxyUsd0Decimal);
 
         let expectedReturn = calculateDestAmount(amount, await token0.decimals(), 18, eth0Rate);
         let returnFromContract = await dmmChainLinkPriceOracle.getExpectedReturnFromToken(
@@ -577,10 +567,10 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         );
 
         // convert to decimals of 18
-        eth0Rate = convertToDecimals10(eth0Rate, proxyEth0Decimal);
-        usd0Rate = convertToDecimals10(usd0Rate, proxyUsd0Decimal);
-        eth1Rate = convertToDecimals10(eth1Rate, proxyEth1Decimal);
-        usd1Rate = convertToDecimals10(usd1Rate, proxyUsd1Decimal);
+        eth0Rate = convertToDecimals18(eth0Rate, proxyEth0Decimal);
+        usd0Rate = convertToDecimals18(usd0Rate, proxyUsd0Decimal);
+        eth1Rate = convertToDecimals18(eth1Rate, proxyEth1Decimal);
+        usd1Rate = convertToDecimals18(usd1Rate, proxyUsd1Decimal);
 
         let expectedReturn = BN.from(0);
         let returnFromContract = BN.from(0);
@@ -687,155 +677,14 @@ describe('KyberDmmChainLinkPriceOracle', () => {
       dmmPool1 = await DmmPool.deploy();
     });
 
-    it('test remove liquidity - reverts', async () => {
-      await expect(
-        dmmChainLinkPriceOracle.getExpectedReturns(user.address, [], [0], [], REMOVE_LIQUIDITY)
-      ).to.be.revertedWith('invalid length');
-
-      await expect(
-        dmmChainLinkPriceOracle.getExpectedReturns(
-          user.address,
-          [dmmPool0.address, dmmPool1.address],
-          [BN.from(0), BN.from(0)],
-          [token0.address],
-          REMOVE_LIQUIDITY
-        )
-      ).to.be.revertedWith('invalid number token in');
-
-      await expect(
-        dmmChainLinkPriceOracle.getExpectedReturns(
-          user.address,
-          [dmmPool0.address],
-          [BN.from(0)],
-          [token0.address],
-          REMOVE_LIQUIDITY
-        )
-      ).to.be.revertedWith('invalid number token out');
-
-      await expect(
-        dmmChainLinkPriceOracle.getExpectedReturns(
-          user.address,
-          [dmmPool0.address],
-          [BN.from(0)],
-          [token0.address, token1.address, token0.address],
-          REMOVE_LIQUIDITY
-        )
-      ).to.be.revertedWith('invalid number token out');
-
-      await dmmPool0.setData(token0.address, token0.address, 0, 0, 10);
-      await expect(
-        dmmChainLinkPriceOracle.getExpectedReturns(
-          user.address,
-          [dmmPool0.address],
-          [BN.from(0)],
-          [token0.address, token1.address],
-          REMOVE_LIQUIDITY
-        )
-      ).to.be.revertedWith('invalid token out 1');
-
-      await dmmPool0.setData(token1.address, token1.address, 0, 0, 10);
-      await expect(
-        dmmChainLinkPriceOracle.getExpectedReturns(
-          user.address,
-          [dmmPool0.address],
-          [BN.from(0)],
-          [token0.address, token1.address],
-          REMOVE_LIQUIDITY
-        )
-      ).to.be.revertedWith('invalid token out 0');
-
-      await dmmPool0.setData(user.address, token1.address, 0, 0, 10);
-      await expect(
-        dmmChainLinkPriceOracle.getExpectedReturns(
-          user.address,
-          [dmmPool0.address],
-          [BN.from(0)],
-          [token0.address, token1.address],
-          REMOVE_LIQUIDITY
-        )
-      ).to.be.revertedWith('invalid token out 1');
-    });
-
-    it('test remove liquidity', async () => {
-      for (let i = 0; i < 20; i++) {
-        let balance0 = BN.from(Helper.getRandomInt(100000, 1000000));
-        let balance1 = BN.from(Helper.getRandomInt(100000, 1000000));
-        let totalSupply = BN.from(Helper.getRandomInt(10000, 100000));
-        await dmmPool0.setData(token0.address, token1.address, balance0, balance1, totalSupply);
-        let amount = BN.from(Helper.getRandomInt(1, 10000));
-        await dmmChainLinkPriceOracle.connect(admin).updateDefaultPremiumData(0, 0, 0);
-        let minAmountOuts = await dmmChainLinkPriceOracle.getExpectedReturns(
-          user.address,
-          [dmmPool0.address],
-          [amount],
-          [token0.address, token1.address],
-          REMOVE_LIQUIDITY
-        );
-        expect(minAmountOuts).to.be.eql([
-          amount.mul(balance0).div(totalSupply),
-          amount.mul(balance1).div(totalSupply),
-        ]);
-        minAmountOuts = await dmmChainLinkPriceOracle.getExpectedReturns(
-          user.address,
-          [dmmPool0.address],
-          [amount],
-          [token1.address, token0.address],
-          REMOVE_LIQUIDITY
-        );
-        expect(minAmountOuts).to.be.eql([
-          amount.mul(balance1).div(totalSupply),
-          amount.mul(balance0).div(totalSupply),
-        ]);
-        let premiumBps = BN.from(10);
-        await dmmChainLinkPriceOracle.connect(admin).updateDefaultPremiumData(premiumBps, 0, 0);
-        minAmountOuts = await dmmChainLinkPriceOracle.getExpectedReturns(
-          user.address,
-          [dmmPool0.address],
-          [amount],
-          [token0.address, token1.address],
-          REMOVE_LIQUIDITY
-        );
-        expect(minAmountOuts).to.be.eql([
-          applyPremiumBps(amount.mul(balance0).div(totalSupply), premiumBps),
-          applyPremiumBps(amount.mul(balance1).div(totalSupply), premiumBps),
-        ]);
-        premiumBps = BN.from(20);
-        await dmmChainLinkPriceOracle.connect(admin).updateGroupPremiumData([user.address], [premiumBps], [0], [0]);
-        minAmountOuts = await dmmChainLinkPriceOracle.getExpectedReturns(
-          user.address,
-          [dmmPool0.address],
-          [amount],
-          [token0.address, token1.address],
-          REMOVE_LIQUIDITY
-        );
-        expect(minAmountOuts).to.be.eql([
-          applyPremiumBps(amount.mul(balance0).div(totalSupply), premiumBps),
-          applyPremiumBps(amount.mul(balance1).div(totalSupply), premiumBps),
-        ]);
-        await dmmChainLinkPriceOracle.connect(admin).updateDefaultPremiumData(0, 0, 0);
-        await dmmChainLinkPriceOracle.connect(admin).updateGroupPremiumData([user.address], [0], [0], [0]);
-      }
-    });
-
     it('test liquidate LP - reverts', async () => {
-      // must have only 1 dest token
       await expect(
-        dmmChainLinkPriceOracle.getExpectedReturns(
+        dmmChainLinkPriceOracle.getExpectedReturn(
           user.address,
           [dmmPool0.address],
           [BN.from(0)],
-          [token0.address, token1.address],
-          LIQUIDATE_LP
-        )
-      ).to.be.revertedWith('invalid number token out');
-
-      await expect(
-        dmmChainLinkPriceOracle.getExpectedReturns(
-          user.address,
-          [dmmPool0.address],
-          [BN.from(0)],
-          [token0.address],
-          LIQUIDATE_LP
+          token0.address,
+          await encodeLiquidationType([LiquidationType.LP])
         )
       ).to.be.revertedWith('token out must be whitelisted');
 
@@ -851,22 +700,22 @@ describe('KyberDmmChainLinkPriceOracle', () => {
       // revert rate is 0
       await dmmPool0.setData(token1.address, token0.address, 0, 0, 1);
       await expect(
-        dmmChainLinkPriceOracle.getExpectedReturns(
+        dmmChainLinkPriceOracle.getExpectedReturn(
           user.address,
           [dmmPool0.address],
           [BN.from(0)],
-          [token0.address],
-          LIQUIDATE_LP
+          token0.address,
+          await encodeLiquidationType([LiquidationType.LP])
         )
       ).to.be.revertedWith('0 aggregator rate');
       await dmmPool0.setData(token0.address, token1.address, 0, 0, 1);
       await expect(
-        dmmChainLinkPriceOracle.getExpectedReturns(
+        dmmChainLinkPriceOracle.getExpectedReturn(
           user.address,
           [dmmPool0.address],
           [BN.from(0)],
-          [token0.address],
-          LIQUIDATE_LP
+          token0.address,
+          await encodeLiquidationType([LiquidationType.LP])
         )
       ).to.be.revertedWith('0 aggregator rate');
     });
@@ -902,8 +751,8 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         let balance1 = BN.from(Helper.getRandomInt(10000, 1000000));
         let totalSupply = Helper.getRandomInt(1000, 100000);
         await dmmPool0.setData(token0.address, token1.address, balance0, balance1, totalSupply);
-        let premiumBps = Helper.getRandomInt(0, 10000);
-        await dmmChainLinkPriceOracle.updateGroupPremiumData([user.address], [0], [premiumBps], [0]);
+        let premiumBps = Helper.getRandomInt(0, 2000);
+        await dmmChainLinkPriceOracle.updateGroupPremiumData([user.address], [premiumBps], [0]);
         let amount = BN.from(Helper.getRandomInt(0, totalSupply));
         let amount0 = amount.mul(balance0).div(BN.from(totalSupply));
         let amount1 = amount.mul(balance1).div(BN.from(totalSupply));
@@ -932,48 +781,37 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         let returnAmount = returnAmount0.add(returnAmount1);
         returnAmount = applyPremiumBps(returnAmount, premiumBps);
         expect(
-          await dmmChainLinkPriceOracle.getExpectedReturns(
+          await dmmChainLinkPriceOracle.getExpectedReturn(
             user.address,
             [dmmPool0.address],
             [amount],
-            [token2.address],
-            LIQUIDATE_LP
+            token2.address,
+            await encodeLiquidationType([LiquidationType.LP])
           )
-        ).to.be.eql([returnAmount]);
+        ).to.be.eql(returnAmount);
       }
     });
 
     it('test liquidate tokens - reverts', async () => {
-      // must have only 1 dest token
-      await expect(
-        dmmChainLinkPriceOracle.getExpectedReturns(
-          user.address,
-          [token0.address],
-          [BN.from(0)],
-          [token0.address, token1.address],
-          LIQUIDATE_TOKENS
-        )
-      ).to.be.revertedWith('invalid number token out');
-
       await dmmChainLinkPriceOracle.connect(admin).updateWhitelistedTokens([token0.address], false);
       await expect(
-        dmmChainLinkPriceOracle.getExpectedReturns(
+        dmmChainLinkPriceOracle.getExpectedReturn(
           user.address,
           [token0.address],
           [BN.from(0)],
-          [token0.address],
-          LIQUIDATE_TOKENS
+          token0.address,
+          await encodeLiquidationType([LiquidationType.TOKEN])
         )
       ).to.be.revertedWith('token out must be whitelisted');
 
-      await dmmChainLinkPriceOracle.connect(admin).updateWhitelistedTokens([token0.address], true);
+      await dmmChainLinkPriceOracle.connect(admin).updateWhitelistedTokens([token0.address, token1.address], true);
       await expect(
-        dmmChainLinkPriceOracle.getExpectedReturns(
+        dmmChainLinkPriceOracle.getExpectedReturn(
           user.address,
           [token0.address, token1.address],
           [BN.from(0), BN.from(0)],
-          [token0.address],
-          LIQUIDATE_TOKENS
+          token0.address,
+          await encodeLiquidationType([LiquidationType.TOKEN, LiquidationType.TOKEN])
         )
       ).to.be.revertedWith('token in can not be a whitelisted token');
 
@@ -986,13 +824,14 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         );
 
       // revert rate is 0
+      await dmmChainLinkPriceOracle.connect(admin).updateWhitelistedTokens([token1.address], false);
       await expect(
-        dmmChainLinkPriceOracle.getExpectedReturns(
+        dmmChainLinkPriceOracle.getExpectedReturn(
           user.address,
           [token1.address],
           [BN.from(0)],
-          [token0.address],
-          LIQUIDATE_TOKENS
+          token0.address,
+          await encodeLiquidationType([LiquidationType.TOKEN])
         )
       ).to.be.revertedWith('0 aggregator rate');
     });
@@ -1028,8 +867,8 @@ describe('KyberDmmChainLinkPriceOracle', () => {
           [rate0Usd, rate1Usd, rate2Usd]
         );
 
-        let premiumBps = Helper.getRandomInt(0, 10000);
-        await dmmChainLinkPriceOracle.updateGroupPremiumData([user.address], [0], [0], [premiumBps]);
+        let premiumBps = Helper.getRandomInt(0, 2000);
+        await dmmChainLinkPriceOracle.updateGroupPremiumData([user.address], [0], [premiumBps]);
 
         let amount0 = BN.from(Helper.getRandomInt(10000, 100000));
         let amount1 = BN.from(Helper.getRandomInt(10000, 100000));
@@ -1058,26 +897,25 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         let returnAmount = returnAmount0.add(returnAmount1);
         returnAmount = applyPremiumBps(returnAmount, premiumBps);
         expect(
-          await dmmChainLinkPriceOracle.getExpectedReturns(
+          await dmmChainLinkPriceOracle.getExpectedReturn(
             user.address,
             [token0.address, token1.address],
             [amount0, amount1],
-            [token2.address],
-            LIQUIDATE_TOKENS
+            token2.address,
+            await encodeLiquidationType([LiquidationType.TOKEN, LiquidationType.TOKEN])
           )
-        ).to.be.eql([returnAmount]);
+        ).to.be.eql(returnAmount);
 
         // test liquidate same whitelisted token
-        // test liquidate same whitelisted token
         expect(
-          await dmmChainLinkPriceOracle.getExpectedReturns(
+          await dmmChainLinkPriceOracle.getExpectedReturn(
             user.address,
             [token2.address],
             [amount0],
-            [token2.address],
-            LIQUIDATE_TOKENS
+            token2.address,
+            await encodeLiquidationType([LiquidationType.TOKEN])
           )
-        ).to.be.eql([amount0]);
+        ).to.be.eql(amount0);
       }
     });
   });
@@ -1133,7 +971,7 @@ function calculateDestAmount(amount: BN, decimal0: number, decimal1: number, rat
   return amount.mul(rate).div(PRECISION.mul(BN.from(10).pow(decimal0 - decimal1)));
 }
 
-function convertToDecimals10(amount: BN, decimals: number) {
+function convertToDecimals18(amount: BN, decimals: number) {
   if (decimals <= 18) return amount.mul(BN.from(10).pow(18 - decimals));
   return amount.div(BN.from(10).pow(decimals - 18));
 }

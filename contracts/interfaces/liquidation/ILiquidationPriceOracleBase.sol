@@ -20,7 +20,7 @@ interface ILiquidationPriceOracleBase {
    * @param hint hint for getting conversion rates
    * @return minAmountOut min expected amount for the token out
    */
-  function getExpectedReturns(
+  function getExpectedReturn(
     address liquidator,
     IERC20Ext[] calldata tokenIns,
     uint256[] calldata amountIns,
