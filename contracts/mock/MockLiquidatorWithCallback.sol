@@ -17,7 +17,7 @@ contract MockLiquidatorWithCallback is Utils {
 
   receive() external payable {}
 
-  function setTransferBackAmounts(uint256 amount) external {
+  function setTransferBackAmount(uint256 amount) external {
     transferBackAmount = amount;
   }
 
@@ -31,7 +31,7 @@ contract MockLiquidatorWithCallback is Utils {
     uint256[] calldata amounts,
     address payable recipient,
     IERC20Ext dest,
-    uint256[] calldata,// minReturns,
+    uint256, // minReturn
     bytes calldata txData
   ) external {
     if (shouldTestReentrancy) {
@@ -45,6 +45,6 @@ contract MockLiquidatorWithCallback is Utils {
       require(success, 'transfer failed');
     } else {
       dest.safeTransfer(msg.sender, transferBackAmount);
-      }
+    }
   }
 }

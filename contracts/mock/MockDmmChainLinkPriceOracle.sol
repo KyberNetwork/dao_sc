@@ -38,4 +38,13 @@ contract MockDmmChainLinkPriceOracle is KyberDmmChainLinkPriceOracle {
   ) external view returns (uint256) {
     return _getRateWithDestTokenData(src, destTokenRateEth, destTokenRateUsd);
   }
+
+  function calculateReturnAmount(
+    uint256 srcQty,
+    uint256 srcDecimals,
+    uint256 dstDecimals,
+    uint256 rate
+  ) external pure returns (uint256) {
+    return _calculateReturnAmount(srcQty, srcDecimals, dstDecimals, rate);
+  }
 }

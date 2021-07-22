@@ -144,6 +144,7 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
     uint256 minReturn = oracle.getExpectedReturns(
       msg.sender, sources, amounts, dest, oracleHint
     );
+    require(minReturn > 0, 'liquidate: minReturn == 0');
 
     uint256 destBalance = getBalance(dest, address(this));
 

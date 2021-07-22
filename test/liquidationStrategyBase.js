@@ -298,7 +298,7 @@ contract('LiquidationStrategy', function (accounts) {
       Helper.assertEqual(true, await strategy.paused());
 
       await expectRevert(
-        strategy.liquidate(priceOracleStrategy.address, [], [], accounts[1], [zeroAddress], '0x', '0x', {
+        strategy.liquidate(priceOracleStrategy.address, [], [], accounts[1], zeroAddress, '0x', '0x', {
           from: accounts[0],
         }),
         'liquidate: only when not paused'
@@ -317,7 +317,7 @@ contract('LiquidationStrategy', function (accounts) {
       await strategy.updateLiquidationSchedule(0, 1, 0, {from: admin});
       await strategy.updateWhitelistedLiquidators([accounts[0]], true, {from: admin});
       await expectRevert(
-        strategy.liquidate(priceOracleStrategy.address, [], [], accounts[1], [zeroAddress], '0x', '0x', {
+        strategy.liquidate(priceOracleStrategy.address, [], [], accounts[1], zeroAddress, '0x', '0x', {
           from: accounts[0],
         }),
         'liquidate: only when liquidation enabled'
@@ -334,7 +334,7 @@ contract('LiquidationStrategy', function (accounts) {
           [accounts[2]],
           [new BN(10)],
           accounts[1],
-          [accounts[1]],
+          accounts[1],
           '0x',
           '0x',
           {from: accounts[1]}
@@ -348,7 +348,7 @@ contract('LiquidationStrategy', function (accounts) {
       await strategy.updateLiquidationSchedule(0, 1, 1, {from: admin});
       await strategy.updateWhitelistedLiquidators([accounts[1]], true, {from: admin});
       await expectRevert(
-        strategy.liquidate(accounts[0], [accounts[2]], [new BN(10)], accounts[1], [accounts[1]], '0x', '0x', {
+        strategy.liquidate(accounts[0], [accounts[2]], [new BN(10)], accounts[1], accounts[1], '0x', '0x', {
           from: accounts[1],
         }),
         'liquidate: only whitelisted oracle'
@@ -360,7 +360,7 @@ contract('LiquidationStrategy', function (accounts) {
       await strategy.updateLiquidationSchedule(0, 1, 1, {from: admin});
       await strategy.updateWhitelistedLiquidators([accounts[1]], true, {from: admin});
       await expectRevert.unspecified(
-        strategy.liquidate(priceOracleStrategy.address, [], [], accounts[1], [accounts[1]], '0x', '0x', {
+        strategy.liquidate(priceOracleStrategy.address, [], [], accounts[1], accounts[1], '0x', '0x', {
           from: accounts[1],
         })
       );
@@ -379,7 +379,7 @@ contract('LiquidationStrategy', function (accounts) {
           [ethAddress],
           [ethAmount],
           accounts[1],
-          [accounts[1]],
+          accounts[1],
           '0x',
           '0x',
           {from: accounts[1]}
@@ -392,41 +392,25 @@ contract('LiquidationStrategy', function (accounts) {
       await strategy.updateLiquidationSchedule(0, 1, 1, {from: admin});
       await strategy.updateWhitelistedLiquidators([accounts[1]], true, {from: admin});
       let minReturn = new BN(1000);
-      await priceOracleStrategy.setAmountOuts([minReturn, new BN(10)]);
+      await priceOracleStrategy.setAmountOut(minReturn);
 
       let token = await Token.new();
       let ethAmount = new BN(1000);
+      await priceOracleStrategy.setAmountOut(0);
       await expectRevert(
         strategy.liquidate(
           priceOracleStrategy.address,
           [ethAddress],
           [ethAmount],
           accounts[0],
-          [token.address],
+          token.address,
           '0x',
           '0x',
           {
             from: accounts[1],
           }
         ),
-        'liquidate: invalid return length'
-      );
-
-      await priceOracleStrategy.setAmountOuts([]);
-      await expectRevert(
-        strategy.liquidate(
-          priceOracleStrategy.address,
-          [ethAddress],
-          [ethAmount],
-          accounts[0],
-          [token.address],
-          '0x',
-          '0x',
-          {
-            from: accounts[1],
-          }
-        ),
-        'liquidate: invalid return length'
+        'liquidate: minReturn == 0'
       );
 
       await strategy.updateWhitelistedLiquidators([accounts[1]], false, {from: admin});
@@ -441,36 +425,17 @@ contract('LiquidationStrategy', function (accounts) {
       let minReturn = new BN(100);
       await token.transfer(liquidatorCallback.address, minReturn);
       // return less than minReturn by 1 twei
-      await liquidatorCallback.setTransferBackAmounts([minReturn.sub(new BN(1))]);
+      await liquidatorCallback.setTransferBackAmount(minReturn.sub(new BN(1)));
 
       await strategy.updateWhitelistedLiquidators([accounts[1]], true, {from: admin});
-      await priceOracleStrategy.setAmountOuts([minReturn]);
+      await priceOracleStrategy.setAmountOut(minReturn);
       await expectRevert(
         strategy.liquidate(
           priceOracleStrategy.address,
           [ethAddress],
           [ethAmount],
           liquidatorCallback.address,
-          [token.address],
-          '0x',
-          '0x',
-          {
-            from: accounts[1],
-          }
-        ),
-        'liquidate: low return amount'
-      );
-
-      // 2 dest tokens, one is enough, one is not
-      await liquidatorCallback.setTransferBackAmounts([minReturn, ethAmount.sub(new BN(1))]);
-      await priceOracleStrategy.setAmountOuts([minReturn, ethAmount]);
-      await expectRevert(
-        strategy.liquidate(
-          priceOracleStrategy.address,
-          [ethAddress],
-          [ethAmount],
-          liquidatorCallback.address,
-          [token.address, ethAddress],
+          token.address,
           '0x',
           '0x',
           {
@@ -490,7 +455,7 @@ contract('LiquidationStrategy', function (accounts) {
       await Helper.sendEtherWithPromise(accounts[0], treasuryPool.address, ethAmount);
       let token = await Token.new();
       let minReturn = new BN(1000);
-      await priceOracleStrategy.setAmountOuts([minReturn]);
+      await priceOracleStrategy.setAmountOut(minReturn);
 
       await strategy.updateWhitelistedLiquidators([liquidatorCallback.address], true, {from: admin});
 
@@ -501,7 +466,7 @@ contract('LiquidationStrategy', function (accounts) {
           [ethAddress],
           [ethAmount],
           liquidatorCallback.address,
-          [token.address],
+          token.address,
           '0x',
           '0x',
           {
@@ -534,7 +499,7 @@ contract('LiquidationStrategy', function (accounts) {
       await token.transfer(treasuryPool.address, tokenAmount);
 
       let minReturn = new BN(1000);
-      await priceOracleStrategy.setAmountOuts([minReturn]);
+      await priceOracleStrategy.setAmountOut(minReturn);
       await strategy.updateWhitelistedLiquidators([liquidatorCallback.address], true, {from: admin});
 
       await expectRevert.unspecified(
@@ -543,7 +508,7 @@ contract('LiquidationStrategy', function (accounts) {
           [token.address],
           [tokenAmount],
           liquidatorCallback.address,
-          [ethAddress],
+          ethAddress,
           '0x',
           '0x',
           {
@@ -573,9 +538,9 @@ contract('LiquidationStrategy', function (accounts) {
       let minReturn = new BN(100);
       await token.transfer(liquidatorCallback.address, minReturn.mul(new BN(2)));
       let actualReturn = minReturn.add(new BN(2));
-      await liquidatorCallback.setTransferBackAmounts([actualReturn]);
+      await liquidatorCallback.setTransferBackAmount(actualReturn);
 
-      await priceOracleStrategy.setAmountOuts([minReturn]);
+      await priceOracleStrategy.setAmountOut(minReturn);
       await strategy.updateWhitelistedLiquidators([liquidatorCallback.address, accounts[1]], true, {from: admin});
 
       let rewardPoolTokenBal = await token.balanceOf(rewardPool);
@@ -585,7 +550,7 @@ contract('LiquidationStrategy', function (accounts) {
         [ethAddress],
         [ethAmount],
         liquidatorCallback.address,
-        [token.address],
+        token.address,
         '0x',
         '0x',
         {from: accounts[1]}
@@ -597,16 +562,16 @@ contract('LiquidationStrategy', function (accounts) {
       let tokenAmount = new BN(100);
       await token.transfer(treasuryPool.address, tokenAmount);
       minReturn = new BN(100);
-      await priceOracleStrategy.setAmountOuts([minReturn]);
+      await priceOracleStrategy.setAmountOut(minReturn);
       await Helper.sendEtherWithPromise(accounts[0], liquidatorCallback.address, minReturn);
-      await liquidatorCallback.setTransferBackAmounts([minReturn]);
+      await liquidatorCallback.setTransferBackAmount(minReturn);
 
       await strategy.liquidate(
         priceOracleStrategy.address,
         [token.address],
         [tokenAmount],
         liquidatorCallback.address,
-        [ethAddress],
+        ethAddress,
         '0x',
         '0x',
         {from: accounts[1]}

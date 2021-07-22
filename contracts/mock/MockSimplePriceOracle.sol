@@ -7,23 +7,23 @@ import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 
 contract MockSimplePriceOracle {
 
-  uint256[] public amountOuts;
+  uint256 amountOut;
 
   constructor() {}
 
-  function setAmountOuts(uint256[] memory _amountOuts) external {
-    amountOuts = _amountOuts;
+  function setAmountOut(uint256 _amountOut) external {
+    amountOut = _amountOut;
   }
 
   function getExpectedReturns(
     address, // liquidator,
     IERC20Ext[] calldata,// tokenIns,
     uint256[] calldata,// amountIns,
-    IERC20Ext[] calldata,// tokenOuts,
+    IERC20Ext,// tokenOuts,
     bytes calldata// hint
   )
-    external view returns (uint256[] memory minAmountOuts)
+    external view returns (uint256 minAmountOut)
   {
-    minAmountOuts = amountOuts;
+    minAmountOut = amountOut;
   }
 }

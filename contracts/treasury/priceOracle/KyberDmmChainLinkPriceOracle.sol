@@ -421,7 +421,7 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
       rate = isDestEth ? getRateOverEth(address(tokenIn)) :
         _getRateWithDestTokenData(address(tokenIn), destRateEth, destRateUsd);
       require(rate > 0, '0 aggregator rate');
-      return calculateReturnAmount(amountIn, getDecimals(tokenIn), getDecimals(dest), rate);
+      return _calculateReturnAmount(amountIn, getDecimals(tokenIn), getDecimals(dest), rate);
     }
 
     (IERC20Ext[2] memory tokens, uint256[2] memory amounts) = getExpectedTokensFromLp(
@@ -439,7 +439,7 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
         _getRateWithDestTokenData(address(tokens[0]), destRateEth, destRateUsd);
       require(rate > 0, '0 aggregator rate');
       totalReturn = totalReturn.add(
-        calculateReturnAmount(amounts[0], getDecimals(tokens[0]), destTokenDecimals, rate)
+        _calculateReturnAmount(amounts[0], getDecimals(tokens[0]), destTokenDecimals, rate)
       );
     }
 
@@ -452,7 +452,7 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
         _getRateWithDestTokenData(address(tokens[1]), destRateEth, destRateUsd);
         require(rate > 0, '0 aggregator rate');
       totalReturn = totalReturn.add(
-        calculateReturnAmount(amounts[1], getDecimals(tokens[1]), destTokenDecimals, rate)
+        _calculateReturnAmount(amounts[1], getDecimals(tokens[1]), destTokenDecimals, rate)
       );
     }
   }
@@ -489,7 +489,7 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     return rateQuoteEth.add(rateQuoteUsd) / 2;
   }
 
-  function calculateReturnAmount(
+  function _calculateReturnAmount(
     uint256 srcQty,
     uint256 srcDecimals,
     uint256 dstDecimals,
