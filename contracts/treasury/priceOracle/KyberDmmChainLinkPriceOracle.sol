@@ -28,6 +28,8 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
   enum LiquidationType { LIQUIDATE_LP, LIQUIDATE_TOKEN }
 
   uint64 constant public MAX_PREMIUM_BPS = 2000; // 20%
+  // min duration to consider the chainlink rate as a valid data
+  uint256 constant public MIN_DURATION_VALID_CHAINLINK_RATE = 30 minutes;
 
   struct AggregatorProxyData {
     address quoteEthProxy;
@@ -44,6 +46,8 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
   }
 
   address public immutable weth;
+  // min duration in seconds to consider chainlink latest answer as a valid data
+  uint256 public minValidDurationInSeconds;
   PremiumData internal _defaultPremiumData;
   mapping (address => PremiumData) internal _groupPremiumData;
 
@@ -51,13 +55,13 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
   EnumerableSet.AddressSet private _whitelistedTokens;
 
   event DefaultPremiumDataSet(
-    uint64 indexed liquidateLpBps,
-    uint64 indexed liquidateTokenBps
+    uint64 liquidateLpBps,
+    uint64 liquidateTokenBps
   );
   event UpdateGroupPremiumData(
     address indexed liquidator,
-    uint64 indexed liquidateLpBps,
-    uint64 indexed liquidateTokenBps
+    uint64 liquidateLpBps,
+    uint64 liquidateTokenBps
   );
   event UpdateAggregatorProxyData(
     address indexed token,
@@ -65,14 +69,17 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     address indexed quoteUsdProxy
   );
   event WhitelistedTokenUpdated(address indexed token, bool indexed isAdd);
+  event UpdatedMinValidDurationInSeconds(uint256 duration);
 
   constructor(
     address admin,
     address wethAddress,
-    address[] memory whitelistedTokens
+    address[] memory whitelistedTokens,
+    uint256 chainlinkValidDuration
   ) PermissionAdmin(admin) {
     weth = wethAddress;
     _updateWhitelistedToken(whitelistedTokens, true);
+    _setMinValidDuration(chainlinkValidDuration);
   }
 
   /**
@@ -110,6 +117,12 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
       });
       emit UpdateAggregatorProxyData(tokens[i], quoteEthProxies[i], quoteUsdProxies[i]);
     }
+  }
+
+  function updateMinValidDuration(uint256 newDuration)
+    external onlyOperator
+  {
+    _setMinValidDuration(newDuration);
   }
 
   function updateGroupPremiumData(
@@ -298,11 +311,13 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
   function getRateOverEth(address token) public view returns (uint256 rate) {
     if (token == address(ETH_TOKEN_ADDRESS) || token == weth) return PRECISION;
     int256 answer;
+    uint256 updatedAt;
     IChainLinkAggregatorProxy proxy = IChainLinkAggregatorProxy(_tokenData[token].quoteEthProxy);
     if (proxy != IChainLinkAggregatorProxy(0)) {
-      (, answer, , ,) = proxy.latestRoundData();
+      (, answer, , updatedAt,) = proxy.latestRoundData();
     }
     if (answer <= 0) return 0; // safe check in case ChainLink returns invalid data
+    if (updatedAt.add(minValidDurationInSeconds) < block.timestamp) return 0;
     rate = uint256(answer);
     uint256 decimals = uint256(_tokenData[token].quoteEthProxyDecimals);
     rate = (decimals < MAX_DECIMALS) ? rate.mul(10 ** (MAX_DECIMALS - decimals)) :
@@ -314,11 +329,13 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
   */
   function getRateOverUsd(address token) public view returns (uint256 rate) {
     int256 answer;
+    uint256 updatedAt;
     IChainLinkAggregatorProxy proxy = IChainLinkAggregatorProxy(_tokenData[token].quoteUsdProxy);
     if (proxy != IChainLinkAggregatorProxy(0)) {
-      (, answer, , ,) = proxy.latestRoundData();
+      (, answer, , updatedAt,) = proxy.latestRoundData();
     }
     if (answer <= 0) return 0; // safe check in case ChainLink returns invalid data
+    if (updatedAt.add(minValidDurationInSeconds) < block.timestamp) return 0;
     rate = uint256(answer);
     uint256 decimals = uint256(_tokenData[token].quoteUsdProxyDecimals);
     rate = (decimals < MAX_DECIMALS) ? rate.mul(10 ** (MAX_DECIMALS - decimals)) :
@@ -380,6 +397,12 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     _groupPremiumData[_liquidator].liquidateLpBps = _liquidateLpBps;
     _groupPremiumData[_liquidator].liquidateTokenBps = _liquidateTokenBps;
     emit UpdateGroupPremiumData(_liquidator, _liquidateLpBps, _liquidateTokenBps);
+  }
+
+  function _setMinValidDuration(uint256 _duration) internal {
+    require(_duration >= MIN_DURATION_VALID_CHAINLINK_RATE, 'duration is too low');
+    minValidDurationInSeconds = _duration;
+    emit UpdatedMinValidDurationInSeconds(_duration);
   }
 
   function _applyPremiumFor(address liquidator, uint256 amountFromLPs, uint256 amountFromTokens)

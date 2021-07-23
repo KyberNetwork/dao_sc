@@ -7,8 +7,9 @@ contract MockDmmChainLinkPriceOracle is KyberDmmChainLinkPriceOracle {
   constructor(
     address admin,
     address _weth,
-    address[] memory whitelistedTokens
-  ) KyberDmmChainLinkPriceOracle(admin, _weth, whitelistedTokens) {}
+    address[] memory whitelistedTokens,
+    uint256 chainklinkValidDuration
+  ) KyberDmmChainLinkPriceOracle(admin, _weth, whitelistedTokens, chainklinkValidDuration) {}
 
   function getExpectedReturnFromToken(
     IERC20Ext tokenIn,

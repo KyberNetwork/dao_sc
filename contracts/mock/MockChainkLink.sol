@@ -6,13 +6,15 @@ contract MockChainkLink {
 
   uint8 public decimals;
   int256 public _answer;
+  uint256 public updatedAt;
 
   constructor(uint8 _decimals) {
     decimals = _decimals;
   }
 
-  function setAnswerData(int256 _data) external {
+  function setAnswerData(int256 _data, uint256 _updatedAt) external {
     _answer = _data;
+    updatedAt = _updatedAt;
   }
 
   function latestRoundData()
@@ -26,6 +28,6 @@ contract MockChainkLink {
       uint80
     )
   {
-    return (0, _answer, 0, 0, 0);
+    return (0, _answer, 0, updatedAt, 0);
   }
 }

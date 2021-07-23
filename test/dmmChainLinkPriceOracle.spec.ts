@@ -22,6 +22,7 @@ import {
 import {_Chain} from 'underscore';
 import {Zero} from '@ethersproject/constants';
 import {encode} from '@ethersproject/base64';
+import {min} from 'bn.js';
 
 const BPS = BN.from(10000);
 const PRECISION = BN.from(10).pow(18);
@@ -44,6 +45,7 @@ let user;
 let token0: KyberNetworkTokenV2;
 let token1: KyberNetworkTokenV2;
 let weth: KyberNetworkTokenV2;
+let minValidDurationInSeconds = 30 * 60; // 30 mins
 
 describe('KyberDmmChainLinkPriceOracle', () => {
   const [admin, operator, user] = waffle.provider.getWallets();
@@ -62,7 +64,12 @@ describe('KyberDmmChainLinkPriceOracle', () => {
 
   describe('#update data', async () => {
     beforeEach('init contract', async () => {
-      dmmChainLinkPriceOracle = await DmmChainLinkPriceOracle.deploy(admin.address, weth.address, []);
+      dmmChainLinkPriceOracle = await DmmChainLinkPriceOracle.deploy(
+        admin.address,
+        weth.address,
+        [],
+        minValidDurationInSeconds
+      );
     });
 
     it('add/remove whitelist tokens', async () => {
@@ -225,11 +232,38 @@ describe('KyberDmmChainLinkPriceOracle', () => {
       expect(tokenData.quoteEthDecimals).to.be.eql(0);
       expect(tokenData.quoteUsdDecimals).to.be.eql(await chainlink1.decimals());
     });
+
+    it('update min chainlink valid duration', async () => {
+      expect(await dmmChainLinkPriceOracle.minValidDurationInSeconds()).to.be.equal(
+        BN.from(minValidDurationInSeconds)
+      );
+      // revert min duration is low
+      await expect(dmmChainLinkPriceOracle.updateMinValidDuration(minValidDurationInSeconds)).to.be.revertedWith(
+        'only operator'
+      );
+
+      await dmmChainLinkPriceOracle.connect(admin).addOperator(admin.address);
+      await expect(
+        dmmChainLinkPriceOracle.connect(admin).updateMinValidDuration(minValidDurationInSeconds - 1)
+      ).to.be.revertedWith('duration is too low');
+
+      let duration = BN.from(100000);
+      await expect(dmmChainLinkPriceOracle.connect(admin).updateMinValidDuration(duration))
+        .to.emit(dmmChainLinkPriceOracle, 'UpdatedMinValidDurationInSeconds')
+        .withArgs(BN.from(duration));
+
+      expect(await dmmChainLinkPriceOracle.minValidDurationInSeconds()).to.be.equal(BN.from(duration));
+    });
   });
 
   describe('#get data from LP tokens', async () => {
     beforeEach('init contract', async () => {
-      dmmChainLinkPriceOracle = await DmmChainLinkPriceOracle.deploy(admin.address, weth.address, []);
+      dmmChainLinkPriceOracle = await DmmChainLinkPriceOracle.deploy(
+        admin.address,
+        weth.address,
+        [],
+        minValidDurationInSeconds
+      );
     });
 
     it('get expected tokens', async () => {
@@ -253,7 +287,7 @@ describe('KyberDmmChainLinkPriceOracle', () => {
 
   const setChainlinkRates = async (chainlinks: MockChainkLink[], rates: BN[]) => {
     for (let i = 0; i < chainlinks.length; i++) {
-      await chainlinks[i].setAnswerData(rates[i]);
+      await chainlinks[i].setAnswerData(rates[i], await Helper.getCurrentBlockTime());
     }
   };
 
@@ -273,7 +307,12 @@ describe('KyberDmmChainLinkPriceOracle', () => {
     let proxyUsd1Decimal = 19;
 
     beforeEach('init contract', async () => {
-      dmmChainLinkPriceOracle = await DmmChainLinkPriceOracle.deploy(admin.address, weth.address, []);
+      dmmChainLinkPriceOracle = await DmmChainLinkPriceOracle.deploy(
+        admin.address,
+        weth.address,
+        [],
+        minValidDurationInSeconds
+      );
       await dmmChainLinkPriceOracle.connect(admin).addOperator(operator.address);
       chainlink0EthProxy = await ChainLink.deploy(proxyEth0Decimal);
       chainlink0UsdProxy = await ChainLink.deploy(proxyUsd0Decimal);
@@ -294,7 +333,7 @@ describe('KyberDmmChainLinkPriceOracle', () => {
       expect(await dmmChainLinkPriceOracle.getRateOverEth(weth.address)).to.be.eql(PRECISION);
 
       let rate = BN.from(123124);
-      await chainlink0EthProxy.setAnswerData(rate);
+      await setChainlinkRates([chainlink0EthProxy], [rate]);
       // need to multiply with 10**(18 - 10)
       expect(await dmmChainLinkPriceOracle.getRateOverEth(token0.address)).to.be.eql(
         convertToDecimals18(rate, proxyEth0Decimal)
@@ -302,7 +341,7 @@ describe('KyberDmmChainLinkPriceOracle', () => {
       expect(await dmmChainLinkPriceOracle.getRateOverUsd(token0.address)).to.be.eql(BN.from(0));
 
       rate = BN.from(352341);
-      await chainlink1UsdProxy.setAnswerData(rate);
+      await setChainlinkRates([chainlink1UsdProxy], [rate]);
       expect(await dmmChainLinkPriceOracle.getRateOverEth(token1.address)).to.be.eql(BN.from(0));
       expect(await dmmChainLinkPriceOracle.getRateOverUsd(token1.address)).to.be.eql(
         convertToDecimals18(rate, proxyUsd1Decimal)
@@ -317,12 +356,21 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         );
 
       rate = BN.from(542524);
-      await chainlink1EthProxy.setAnswerData(rate);
-      await chainlink1UsdProxy.setAnswerData(0);
+      await setChainlinkRates([chainlink1EthProxy, chainlink1UsdProxy], [rate, BN.from(0)]);
 
       expect(await dmmChainLinkPriceOracle.getRateOverEth(token1.address)).to.be.eql(
         convertToDecimals18(rate, proxyEth1Decimal)
       );
+      expect(await dmmChainLinkPriceOracle.getRateOverUsd(token1.address)).to.be.eql(BN.from(0));
+
+      let duration = BN.from(await dmmChainLinkPriceOracle.minValidDurationInSeconds());
+      let currentTime = BN.from(await Helper.getCurrentBlockTime());
+      // rate is 0 when the valid duration is over
+      await chainlink1EthProxy.setAnswerData(rate, currentTime.sub(duration).sub(BN.from(1)));
+      expect(await dmmChainLinkPriceOracle.getRateOverEth(token1.address)).to.be.eql(BN.from(0));
+
+      // rate is 0 when the valid duration is over
+      await chainlink1UsdProxy.setAnswerData(rate, currentTime.sub(duration).sub(BN.from(1)));
       expect(await dmmChainLinkPriceOracle.getRateOverUsd(token1.address)).to.be.eql(BN.from(0));
     });
 
@@ -377,6 +425,11 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         expect(await dmmChainLinkPriceOracle.getRateWithDestTokenData(token0.address, 1000, usd1Rate)).to.be.eql(
           expectedRate
         );
+        // set rate for eth, but updated time is 0, so it should return rate over eth as 0
+        await chainlink0EthProxy.setAnswerData(100000, 0);
+        expect(await dmmChainLinkPriceOracle.getRateWithDestTokenData(token0.address, 1000, usd1Rate)).to.be.eql(
+          expectedRate
+        );
       }
     });
 
@@ -405,6 +458,11 @@ describe('KyberDmmChainLinkPriceOracle', () => {
           expectedRate
         );
         // src rate over usd is 0
+        expect(await dmmChainLinkPriceOracle.getRateWithDestTokenData(token0.address, eth1Rate, 1000)).to.be.eql(
+          expectedRate
+        );
+        // set rate for usd, but the updated time is 0, so it should return rate over usd as 0
+        await chainlink0UsdProxy.setAnswerData(100000, 0);
         expect(await dmmChainLinkPriceOracle.getRateWithDestTokenData(token0.address, eth1Rate, 1000)).to.be.eql(
           expectedRate
         );
@@ -718,7 +776,12 @@ describe('KyberDmmChainLinkPriceOracle', () => {
     };
 
     beforeEach('init contract', async () => {
-      dmmChainLinkPriceOracle = await DmmChainLinkPriceOracle.deploy(admin.address, weth.address, []);
+      dmmChainLinkPriceOracle = await DmmChainLinkPriceOracle.deploy(
+        admin.address,
+        weth.address,
+        [],
+        minValidDurationInSeconds
+      );
       await dmmChainLinkPriceOracle.connect(admin).addOperator(operator.address);
       chainlink0EthProxy = await ChainLink.deploy(10);
       chainlink0UsdProxy = await ChainLink.deploy(10);
@@ -1050,7 +1113,12 @@ describe('KyberDmmChainLinkPriceOracle', () => {
 
   describe(`#calculate return amount`, async () => {
     beforeEach('init contract', async () => {
-      dmmChainLinkPriceOracle = await DmmChainLinkPriceOracle.deploy(admin.address, weth.address, []);
+      dmmChainLinkPriceOracle = await DmmChainLinkPriceOracle.deploy(
+        admin.address,
+        weth.address,
+        [],
+        minValidDurationInSeconds
+      );
     });
 
     it('revert |dstDecimals - srcDecimals| > MAX_DECIMALS', async () => {
