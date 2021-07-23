@@ -171,7 +171,7 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     external override view
     returns (uint256 minAmountOut)
   {
-    require(tokenIns.length == amountIns.length, 'invalid length');
+    require(tokenIns.length == amountIns.length, 'invalid lengths');
 
     (LiquidationType[] memory hintTypes) = abi.decode(hint, (LiquidationType[]));
     require(hintTypes.length == tokenIns.length, 'invalid lengths');

@@ -619,16 +619,20 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         // both tokens are different from dest token
         // also use average rate over eth and usd
         let token2 = await Token.deploy();
-        let chainlink2EthProxy = await ChainLink.deploy(18);
-        let chainlink2UsdProxy = await ChainLink.deploy(18);
+        let chainlink2EthProxyProxy = await ChainLink.deploy(18);
+        let chainlink2UsdProxyProxy = await ChainLink.deploy(18);
         let eth2Rate = BN.from(Helper.getRandomInt(100, 100000));
         let usd2Rate = BN.from(Helper.getRandomInt(100, 100000));
 
-        await setChainlinkRates([chainlink2EthProxy, chainlink2UsdProxy], [eth2Rate, usd2Rate]);
+        await setChainlinkRates([chainlink2EthProxyProxy, chainlink2UsdProxyProxy], [eth2Rate, usd2Rate]);
 
         await dmmChainLinkPriceOracle
           .connect(operator)
-          .updateAggregatorProxyData([token2.address], [chainlink2EthProxy.address], [chainlink2UsdProxy.address]);
+          .updateAggregatorProxyData(
+            [token2.address],
+            [chainlink2EthProxyProxy.address],
+            [chainlink2UsdProxyProxy.address]
+          );
         returnFromContract = await dmmChainLinkPriceOracle.getExpectedReturnFromToken(
           dmmPool0.address,
           amount,
@@ -663,8 +667,55 @@ describe('KyberDmmChainLinkPriceOracle', () => {
     let chainlink0UsdProxy: MockChainkLink;
     let chainlink1EthProxy: MockChainkLink;
     let chainlink1UsdProxy: MockChainkLink;
+    let chainlink2EthProxy: MockChainkLink;
+    let chainlink2UsdProxy: MockChainkLink;
     let dmmPool0: MockDmmPool;
-    let dmmPool1: MockDmmPool;
+    let rate0Eth: BN;
+    let rate0Usd: BN;
+    let rate1Eth: BN;
+    let rate1Usd: BN;
+    let rate2Eth: BN;
+    let rate2Usd: BN;
+    let token2: KyberNetworkTokenV2;
+
+    const setupChainlinkRates = async () => {
+      rate0Eth = BN.from(Helper.getRandomInt(1000000, 2000000));
+      rate1Eth = BN.from(Helper.getRandomInt(1000000, 2000000));
+      rate2Eth = BN.from(Helper.getRandomInt(1000000, 2000000));
+      rate0Usd = BN.from(Helper.getRandomInt(1000000, 2000000));
+      rate1Usd = BN.from(Helper.getRandomInt(1000000, 2000000));
+      rate2Usd = BN.from(Helper.getRandomInt(1000000, 2000000));
+      await setChainlinkRates(
+        [chainlink0EthProxy, chainlink1EthProxy, chainlink2EthProxy],
+        [rate0Eth, rate1Eth, rate2Eth]
+      );
+      await setChainlinkRates(
+        [chainlink0UsdProxy, chainlink1UsdProxy, chainlink2UsdProxy],
+        [rate0Usd, rate1Usd, rate2Usd]
+      );
+      await dmmChainLinkPriceOracle
+        .connect(operator)
+        .updateAggregatorProxyData(
+          [token0.address, token1.address, token2.address],
+          [chainlink0EthProxy.address, chainlink1EthProxy.address, chainlink2EthProxy.address],
+          [chainlink0UsdProxy.address, chainlink1UsdProxy.address, chainlink2UsdProxy.address]
+        );
+    };
+
+    const setupDataForDmmPool = async (
+      dmmPool: MockDmmPool,
+      token0: KyberNetworkTokenV2,
+      token1: KyberNetworkTokenV2
+    ) => {
+      let balance0 = BN.from(Helper.getRandomInt(10000, 1000000));
+      let balance1 = BN.from(Helper.getRandomInt(10000, 1000000));
+      let totalSupply = Helper.getRandomInt(1000, 100000);
+      await dmmPool.setData(token0.address, token1.address, balance0, balance1, totalSupply);
+      let amount = BN.from(Helper.getRandomInt(0, totalSupply));
+      let amount0 = amount.mul(balance0).div(BN.from(totalSupply));
+      let amount1 = amount.mul(balance1).div(BN.from(totalSupply));
+      return [amount, amount0, amount1];
+    };
 
     beforeEach('init contract', async () => {
       dmmChainLinkPriceOracle = await DmmChainLinkPriceOracle.deploy(admin.address, weth.address, []);
@@ -673,8 +724,42 @@ describe('KyberDmmChainLinkPriceOracle', () => {
       chainlink0UsdProxy = await ChainLink.deploy(10);
       chainlink1EthProxy = await ChainLink.deploy(18);
       chainlink1UsdProxy = await ChainLink.deploy(19);
+      chainlink2EthProxy = await ChainLink.deploy(10);
+      chainlink2UsdProxy = await ChainLink.deploy(10);
+      token2 = await Token.deploy();
       dmmPool0 = await DmmPool.deploy();
-      dmmPool1 = await DmmPool.deploy();
+    });
+
+    it('test reverts', async () => {
+      // tokenIns.length != amountIns.length
+      await expect(
+        dmmChainLinkPriceOracle.getExpectedReturn(
+          user.address,
+          [dmmPool0.address],
+          [BN.from(0), BN.from(0)],
+          token0.address,
+          await encodeLiquidationType([LiquidationType.LP])
+        )
+      ).to.be.revertedWith('invalid lengths');
+      await expect(
+        dmmChainLinkPriceOracle.getExpectedReturn(
+          user.address,
+          [token0.address, token1.address],
+          [BN.from(0)],
+          token0.address,
+          await encodeLiquidationType([LiquidationType.LP])
+        )
+      ).to.be.revertedWith('invalid lengths');
+      // tokenIns.length != hintTypes.length
+      await expect(
+        dmmChainLinkPriceOracle.getExpectedReturn(
+          user.address,
+          [token0.address, token1.address],
+          [BN.from(0), BN.from(0)],
+          token0.address,
+          await encodeLiquidationType([LiquidationType.LP])
+        )
+      ).to.be.revertedWith('invalid lengths');
     });
 
     it('test liquidate LP - reverts', async () => {
@@ -687,7 +772,6 @@ describe('KyberDmmChainLinkPriceOracle', () => {
           await encodeLiquidationType([LiquidationType.LP])
         )
       ).to.be.revertedWith('token out must be whitelisted');
-
       await dmmChainLinkPriceOracle.connect(admin).updateWhitelistedTokens([token0.address], true);
       await dmmChainLinkPriceOracle
         .connect(operator)
@@ -721,41 +805,14 @@ describe('KyberDmmChainLinkPriceOracle', () => {
     });
 
     it('test liquidate LPs', async () => {
-      let token2 = await Token.deploy();
+      await dmmChainLinkPriceOracle.connect(admin).updateWhitelistedTokens([token0.address, token1.address], false);
       await dmmChainLinkPriceOracle.connect(admin).updateWhitelistedTokens([token2.address], true);
-      let chainlink2Eth = await ChainLink.deploy(10);
-      let chainlink2Usd = await ChainLink.deploy(10);
-      await dmmChainLinkPriceOracle
-        .connect(operator)
-        .updateAggregatorProxyData(
-          [token0.address, token1.address, token2.address],
-          [chainlink0EthProxy.address, chainlink1EthProxy.address, chainlink2Eth.address],
-          [chainlink0UsdProxy.address, chainlink1UsdProxy.address, chainlink2Usd.address]
-        );
       for (let i = 0; i < 20; i++) {
-        let rate0Eth = BN.from(Helper.getRandomInt(1000000, 2000000));
-        let rate1Eth = BN.from(Helper.getRandomInt(1000000, 2000000));
-        let rate2Eth = BN.from(Helper.getRandomInt(1000000, 2000000));
-        let rate0Usd = BN.from(Helper.getRandomInt(1000000, 2000000));
-        let rate1Usd = BN.from(Helper.getRandomInt(1000000, 2000000));
-        let rate2Usd = BN.from(Helper.getRandomInt(1000000, 2000000));
-        await setChainlinkRates(
-          [chainlink0EthProxy, chainlink1EthProxy, chainlink2Eth],
-          [rate0Eth, rate1Eth, rate2Eth]
-        );
-        await setChainlinkRates(
-          [chainlink0UsdProxy, chainlink1UsdProxy, chainlink2Usd],
-          [rate0Usd, rate1Usd, rate2Usd]
-        );
-        let balance0 = BN.from(Helper.getRandomInt(10000, 1000000));
-        let balance1 = BN.from(Helper.getRandomInt(10000, 1000000));
-        let totalSupply = Helper.getRandomInt(1000, 100000);
-        await dmmPool0.setData(token0.address, token1.address, balance0, balance1, totalSupply);
+        await setupChainlinkRates();
+        let amount, amount0, amount1: BN;
+        [amount, amount0, amount1] = await setupDataForDmmPool(dmmPool0, token0, token1);
         let premiumBps = Helper.getRandomInt(0, 2000);
         await dmmChainLinkPriceOracle.updateGroupPremiumData([user.address], [premiumBps], [0]);
-        let amount = BN.from(Helper.getRandomInt(0, totalSupply));
-        let amount0 = amount.mul(balance0).div(BN.from(totalSupply));
-        let amount1 = amount.mul(balance1).div(BN.from(totalSupply));
         let rate0 = conversionRate(
           rate0Eth,
           rate0Usd,
@@ -763,8 +820,8 @@ describe('KyberDmmChainLinkPriceOracle', () => {
           rate2Usd,
           await chainlink0EthProxy.decimals(),
           await chainlink0UsdProxy.decimals(),
-          await chainlink2Eth.decimals(),
-          await chainlink2Usd.decimals()
+          await chainlink2EthProxy.decimals(),
+          await chainlink2UsdProxy.decimals()
         );
         let returnAmount0 = calculateDestAmount(amount0, await token0.decimals(), await token2.decimals(), rate0);
         let rate1 = conversionRate(
@@ -774,8 +831,8 @@ describe('KyberDmmChainLinkPriceOracle', () => {
           rate2Usd,
           await chainlink1EthProxy.decimals(),
           await chainlink1UsdProxy.decimals(),
-          await chainlink2Eth.decimals(),
-          await chainlink2Usd.decimals()
+          await chainlink2EthProxy.decimals(),
+          await chainlink2UsdProxy.decimals()
         );
         let returnAmount1 = calculateDestAmount(amount1, await token1.decimals(), await token2.decimals(), rate1);
         let returnAmount = returnAmount0.add(returnAmount1);
@@ -837,39 +894,12 @@ describe('KyberDmmChainLinkPriceOracle', () => {
     });
 
     it('test liquidate tokens', async () => {
-      let token2 = await Token.deploy();
-      await dmmChainLinkPriceOracle.connect(admin).updateWhitelistedTokens([token2.address], true);
-
-      let chainlink2Eth = await ChainLink.deploy(10);
-      let chainlink2Usd = await ChainLink.deploy(10);
-      await dmmChainLinkPriceOracle
-        .connect(operator)
-        .updateAggregatorProxyData(
-          [token0.address, token1.address, token2.address],
-          [chainlink0EthProxy.address, chainlink1EthProxy.address, chainlink2Eth.address],
-          [chainlink0UsdProxy.address, chainlink1UsdProxy.address, chainlink2Usd.address]
-        );
       await dmmChainLinkPriceOracle.connect(admin).updateWhitelistedTokens([token0.address, token1.address], false);
       await dmmChainLinkPriceOracle.connect(admin).updateWhitelistedTokens([token2.address], true);
       for (let i = 0; i < 20; i++) {
-        let rate0Eth = BN.from(Helper.getRandomInt(1000000, 2000000));
-        let rate1Eth = BN.from(Helper.getRandomInt(1000000, 2000000));
-        let rate2Eth = BN.from(Helper.getRandomInt(1000000, 2000000));
-        let rate0Usd = BN.from(Helper.getRandomInt(1000000, 2000000));
-        let rate1Usd = BN.from(Helper.getRandomInt(1000000, 2000000));
-        let rate2Usd = BN.from(Helper.getRandomInt(1000000, 2000000));
-        await setChainlinkRates(
-          [chainlink0EthProxy, chainlink1EthProxy, chainlink2Eth],
-          [rate0Eth, rate1Eth, rate2Eth]
-        );
-        await setChainlinkRates(
-          [chainlink0UsdProxy, chainlink1UsdProxy, chainlink2Usd],
-          [rate0Usd, rate1Usd, rate2Usd]
-        );
-
+        await setupChainlinkRates();
         let premiumBps = Helper.getRandomInt(0, 2000);
         await dmmChainLinkPriceOracle.updateGroupPremiumData([user.address], [0], [premiumBps]);
-
         let amount0 = BN.from(Helper.getRandomInt(10000, 100000));
         let amount1 = BN.from(Helper.getRandomInt(10000, 100000));
         let rate0 = conversionRate(
@@ -879,8 +909,8 @@ describe('KyberDmmChainLinkPriceOracle', () => {
           rate2Usd,
           await chainlink0EthProxy.decimals(),
           await chainlink0UsdProxy.decimals(),
-          await chainlink2Eth.decimals(),
-          await chainlink2Usd.decimals()
+          await chainlink2EthProxy.decimals(),
+          await chainlink2UsdProxy.decimals()
         );
         let returnAmount0 = calculateDestAmount(amount0, await token0.decimals(), await token2.decimals(), rate0);
         let rate1 = conversionRate(
@@ -890,8 +920,8 @@ describe('KyberDmmChainLinkPriceOracle', () => {
           rate2Usd,
           await chainlink1EthProxy.decimals(),
           await chainlink1UsdProxy.decimals(),
-          await chainlink2Eth.decimals(),
-          await chainlink2Usd.decimals()
+          await chainlink2EthProxy.decimals(),
+          await chainlink2UsdProxy.decimals()
         );
         let returnAmount1 = calculateDestAmount(amount1, await token1.decimals(), await token2.decimals(), rate1);
         let returnAmount = returnAmount0.add(returnAmount1);
@@ -916,6 +946,129 @@ describe('KyberDmmChainLinkPriceOracle', () => {
             await encodeLiquidationType([LiquidationType.TOKEN])
           )
         ).to.be.eql(amount0);
+      }
+    });
+
+    it(`test combine lps and tokens`, async () => {
+      await dmmChainLinkPriceOracle.connect(admin).updateWhitelistedTokens([token0.address, token1.address], false);
+      await dmmChainLinkPriceOracle.connect(admin).updateWhitelistedTokens([token2.address], true);
+
+      for (let i = 0; i < 10; i++) {
+        await setupChainlinkRates();
+        let premiumLpBps = Helper.getRandomInt(0, 2000);
+        let premiumTokenBps = Helper.getRandomInt(0, 2000);
+        await dmmChainLinkPriceOracle.updateGroupPremiumData([user.address], [premiumLpBps], [premiumTokenBps]);
+        let rate0 = conversionRate(
+          rate0Eth,
+          rate0Usd,
+          rate2Eth,
+          rate2Usd,
+          await chainlink0EthProxy.decimals(),
+          await chainlink0UsdProxy.decimals(),
+          await chainlink2EthProxy.decimals(),
+          await chainlink2UsdProxy.decimals()
+        );
+        let rate1 = conversionRate(
+          rate1Eth,
+          rate1Usd,
+          rate2Eth,
+          rate2Usd,
+          await chainlink1EthProxy.decimals(),
+          await chainlink1UsdProxy.decimals(),
+          await chainlink2EthProxy.decimals(),
+          await chainlink2UsdProxy.decimals()
+        );
+
+        let amount, amount0, amount1: BN;
+        let tokenIns = [];
+        let amountIns = [];
+        let liquidationTypes = [];
+        let totalReturn = BN.from(0);
+        let totalReturnLp = BN.from(0);
+        let totalReturnToken = BN.from(0);
+
+        // calculate returns for LP tokens
+        let tokens = [token0, token1, token2];
+        for (let j = 0; j < 4; j++) {
+          let dmmPool = await DmmPool.deploy();
+          // ok if _token0 == _token1
+          let _token0 = tokens[Helper.getRandomInt(0, 2)];
+          let _token1 = tokens[Helper.getRandomInt(0, 2)];
+          [amount, amount0, amount1] = await setupDataForDmmPool(dmmPool, _token0, _token1);
+          let returnAmount0 = calculateDestAmount(
+            amount0,
+            await _token0.decimals(),
+            await token2.decimals(),
+            _token0 == token2 ? PRECISION : _token0 == token0 ? rate0 : rate1
+          );
+          let returnAmount1 = calculateDestAmount(
+            amount1,
+            await _token1.decimals(),
+            await token2.decimals(),
+            _token1 == token2 ? PRECISION : _token1 == token0 ? rate0 : rate1
+          );
+          totalReturnLp = totalReturnLp.add(returnAmount0.add(returnAmount1));
+          tokenIns.push(dmmPool.address);
+          amountIns.push(amount);
+          liquidationTypes.push(LiquidationType.LP);
+        }
+
+        // calculate returns for tokens
+        tokens = [token0, token1];
+        for (let j = 0; j < 4; j++) {
+          let _token = tokens[Helper.getRandomInt(0, 1)];
+          amount = BN.from(Helper.getRandomInt(1, 1000000));
+          if (_token == token2) {
+            // no apply premium
+            totalReturn = totalReturn.add(amount);
+          } else {
+            // apply token premium
+            let rate = _token == token0 ? rate0 : rate1;
+            let returnAmount = calculateDestAmount(amount, await _token.decimals(), await token2.decimals(), rate);
+            totalReturnToken = totalReturnToken.add(returnAmount);
+          }
+          tokenIns.push(_token.address);
+          amountIns.push(amount);
+          liquidationTypes.push(LiquidationType.TOKEN);
+        }
+        totalReturnLp = applyPremiumBps(totalReturnLp, premiumLpBps);
+        totalReturnToken = applyPremiumBps(totalReturnToken, premiumTokenBps);
+        totalReturn = totalReturn.add(totalReturnLp).add(totalReturnToken);
+
+        expect(
+          await dmmChainLinkPriceOracle.getExpectedReturn(
+            user.address,
+            tokenIns,
+            amountIns,
+            token2.address,
+            await encodeLiquidationType(liquidationTypes)
+          )
+        ).to.be.eql(totalReturn);
+      }
+    });
+  });
+
+  describe(`#calculate return amount`, async () => {
+    beforeEach('init contract', async () => {
+      dmmChainLinkPriceOracle = await DmmChainLinkPriceOracle.deploy(admin.address, weth.address, []);
+    });
+
+    it('revert |dstDecimals - srcDecimals| > MAX_DECIMALS', async () => {
+      await expect(dmmChainLinkPriceOracle.calculateReturnAmount(10000, 0, 19, 10000)).to.be.revertedWith(
+        'dst - src > MAX_DECIMALS'
+      );
+      await expect(dmmChainLinkPriceOracle.calculateReturnAmount(10000, 19, 0, 10000)).to.be.revertedWith(
+        'src - dst > MAX_DECIMALS'
+      );
+      for (let i = 0; i < 10; i++) {
+        let decimal0 = Helper.getRandomInt(0, 18);
+        let decimal1 = Helper.getRandomInt(0, 18);
+        let amount = BN.from(Helper.getRandomInt(1, 1000000));
+        amount = amount.mul(BN.from(10).pow(decimal0)).div(BN.from(Helper.getRandomInt(1, 1000000)));
+        let rate = PRECISION.div(BN.from(Helper.getRandomInt(1, 1000)));
+        expect(await dmmChainLinkPriceOracle.calculateReturnAmount(amount, decimal0, decimal1, rate)).to.be.equal(
+          calculateDestAmount(amount, decimal0, decimal1, rate)
+        );
       }
     });
   });
