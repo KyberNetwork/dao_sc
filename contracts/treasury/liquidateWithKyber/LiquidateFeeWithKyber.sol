@@ -113,10 +113,13 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Uti
       tokens.length == amounts.length && amounts.length == types.length,
       'invalid lengths'
     );
-    uint256[] memory balances = new uint256[](tradeTokens.length);
-    for(uint256 i = 0; i < balances.length; i++) {
+    // add one extra element if dest is eth
+    uint256 balanceLength = dest == ETH_TOKEN_ADDRESS ? tradeTokens.length + 1 : tradeTokens.length;
+    uint256[] memory balances = new uint256[](balanceLength);
+    for(uint256 i = 0; i < tradeTokens.length; i++) {
       balances[i] = getBalance(tradeTokens[i], address(this));
     }
+    if (dest == ETH_TOKEN_ADDRESS) balances[balanceLength - 1] = address(this).balance;
     bytes memory oracleHint = abi.encode(types);
     bytes memory txData = abi.encode(types, tradeTokens, balances);
     liquidationStrategy.liquidate(
@@ -151,8 +154,13 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Uti
       uint256[] memory balancesBefore
     ) = abi.decode(txData, (LiquidationType[], IERC20Ext[], uint256[]));
 
+    // in case dest is eth, last element will be eth balance of this contract before the callback
+    uint256 destTokenBefore = dest == ETH_TOKEN_ADDRESS ?
+      balancesBefore[balancesBefore.length - 1] :
+      dest.balanceOf(address(this));
+
     _removeLiquidity(sources, amounts, types);
-    uint256 totalReturn = _swapWithKyber(tradeTokens, balancesBefore, dest);
+    uint256 totalReturn = _swapWithKyber(tradeTokens, balancesBefore, dest, destTokenBefore);
 
     require(totalReturn >= minReturn, 'totalReturn < minReturn');
     if (dest == ETH_TOKEN_ADDRESS) {
@@ -191,11 +199,11 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Uti
   function _swapWithKyber(
     IERC20Ext[] memory tradeTokens,
     uint256[] memory balancesBefore,
-    IERC20Ext dest
+    IERC20Ext dest,
+    uint256 destTokenBefore
   )
     internal returns (uint256 totalReturn)
-  {
-    uint256 destBalanceBefore = getBalance(dest, address(this));
+  { 
     for(uint256 i = 0; i < tradeTokens.length; i++) {
       if (tradeTokens[i] == dest) continue;
       uint256 amount = getBalance(tradeTokens[i], address(this)).sub(balancesBefore[i]);
@@ -225,7 +233,7 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Uti
         ''
       );
     }
-    totalReturn = getBalance(dest, address(this)).sub(destBalanceBefore);
+    totalReturn = getBalance(dest, address(this)).sub(destTokenBefore);
   }
 
   function _safeApproveAllowance(IERC20Ext dest, address spender, uint256 amount) internal {

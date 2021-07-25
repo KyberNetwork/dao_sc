@@ -80,47 +80,48 @@ describe('LiquidateFeeWithKyber-Forking', () => {
     await liquidationBase.updateWhitelistedLiquidators([liquidateWithKyber.address], true, {from: admin.address});
   });
 
+  const getTokenBalance = async (token: string, account: string) => {
+    if (token == ethAddress) {
+      return await Helper.getBalancePromise(account);
+    }
+    let tokenContract = await Token.at(token);
+    return await tokenContract.balanceOf(account);
+  }
+
   const liquidateAndVerify = async (
     addresses: string[],
     amounts: BN[],
     types: LiquidationType[],
-    tradeTokens: string[]
+    tradeTokens: string[],
+    dest: string
   ) => {
-    let kncToken = await Token.at(kncAddress);
-    let rewardPoolKncBalance: BN = await kncToken.balanceOf(rewardPool.address);
+    let rewardPoolKncBalance: BN = await getTokenBalance(dest, rewardPool.address);
     let expectedReturn: BN = await priceOracle.getExpectedReturn(
       liquidateWithKyber.address,
       addresses,
       amounts,
-      kncAddress,
+      dest,
       await priceOracle.getEncodedData(types)
     );
+    console.log(`        Expected returns: ${expectedReturn.toString()}`);
+    let balanceLiquidator = await getTokenBalance(dest, liquidateWithKyber.address);
     let balances = [];
     for (let i = 0; i < addresses.length; i++) {
-      if (addresses[i] == ethAddress) {
-        balances.push(await Helper.getBalancePromise(treasuryPool.address));
-        continue;
-      }
-      let token = await Token.at(addresses[i]);
-      balances.push(await token.balanceOf(treasuryPool.address));
+      balances.push(await getTokenBalance(addresses[i], treasuryPool.address));
     }
-    let tx = await liquidateWithKyber.liquidate(addresses, amounts, types, kncAddress, tradeTokens, {
+    let tx = await liquidateWithKyber.liquidate(addresses, amounts, types, dest, tradeTokens, {
       from: user.address,
     });
     // verify balance in treasury pool
     for (let i = 0; i < addresses.length; i++) {
-      if (addresses[i] == ethAddress) {
-        expect(amounts[i].toString()).to.be.eql(
-          balances[i].sub(await Helper.getBalancePromise(treasuryPool.address)).toString()
-        );
-        continue;
-      }
-      let token = await Token.at(addresses[i]);
-      expect(amounts[i].toString()).to.be.eql(balances[i].sub(await token.balanceOf(treasuryPool.address)).toString());
+      let balanceAfter = await getTokenBalance(addresses[i], treasuryPool.address);
+      expect(amounts[i].toString()).to.be.eql(balances[i].sub(balanceAfter).toString());
     }
-    let rewardPoolKncAfter: BN = await kncToken.balanceOf(rewardPool.address);
+    let rewardPoolKncAfter: BN = await getTokenBalance(dest, rewardPool.address);
     // reward pool should receive correct amount of knc
     expect(expectedReturn.toString()).to.be.eql(rewardPoolKncAfter.sub(rewardPoolKncBalance).toString());
+    let premiumDest = (await getTokenBalance(dest, liquidateWithKyber.address)).sub(balanceLiquidator);
+    console.log(`        Premium received: ${premiumDest.toString()}`);
     return tx;
   };
 
@@ -133,7 +134,7 @@ describe('LiquidateFeeWithKyber-Forking', () => {
 
     // transfer knc to callback
     await kncToken.transfer(callbackHandler.address, BN.from(10).pow(21), {from: user.address});
-    tx = await liquidateAndVerify([ethAddress], [ethAmount], [LiquidationType.TOKEN], [ethAddress]);
+    tx = await liquidateAndVerify([ethAddress], [ethAmount], [LiquidationType.TOKEN], [ethAddress], kncAddress);
 
     console.log(`    Liquidate with Kyber eth -> knc gas used: ${getGasUsed(tx)}`);
 
@@ -154,7 +155,7 @@ describe('LiquidateFeeWithKyber-Forking', () => {
     amounts.push(ethAmount);
     types.push(LiquidationType.TOKEN);
 
-    tx = await liquidateAndVerify(tokenAddresses, amounts, types, tokenAddresses);
+    tx = await liquidateAndVerify(tokenAddresses, amounts, types, tokenAddresses, kncAddress);
     console.log(`    Liquidate with Kyber ${tokenAddresses.length} tokens -> knc gas used: ${getGasUsed(tx)}`);
   });
 
@@ -170,44 +171,50 @@ describe('LiquidateFeeWithKyber-Forking', () => {
     }
     let tradeTokens = [ethAddress, wethAddress, kncAddress, wbtcAddress, usdtAddress];
 
-    let tx = await liquidateAndVerify(poolAddresses, amounts, types, tradeTokens);
+    let tx = await liquidateAndVerify(poolAddresses, amounts, types, tradeTokens, kncAddress);
     console.log(`    Liquidate with Kyber ${poolAddresses.length} LP tokens gas used: ${getGasUsed(tx)}`);
   });
 
-  it('liquidate combines tokens', async () => {
-    let amounts = [];
-    let addresses = [];
-    let types = [];
-    for (let i = 0; i < poolAddresses.length; i++) {
-      let token = await Token.at(poolAddresses[i]);
-      let amount = BN.from(1000000);
-      await token.transfer(treasuryPool.address, amount, {from: user.address});
-      amounts.push(amount);
-      addresses.push(poolAddresses[i]);
-      types.push(LiquidationType.LP);
-    }
+  let destTokens = [kncAddress, ethAddress, usdtAddress];
+  let destTokenNames = ["knc", "eth", "usdt"];
+  for (let d = 0; d < destTokens.length; d++) {
+    it(`liquidate combines tokens to ${destTokenNames[d]}`, async () => {
+      await priceOracle.updateWhitelistedTokens(destTokens, false, { from: admin.address });
+      await priceOracle.updateWhitelistedTokens([destTokens[d]], true, { from: admin.address });
+      let amounts = [];
+      let addresses = [];
+      let types = [];
+      for (let i = 0; i < poolAddresses.length; i++) {
+        let token = await Token.at(poolAddresses[i]);
+        let amount = BN.from(1000000);
+        await token.transfer(treasuryPool.address, amount, {from: user.address});
+        amounts.push(amount);
+        addresses.push(poolAddresses[i]);
+        types.push(LiquidationType.LP);
+      }
 
-    let tokenAddresses = [kncAddress, usdtAddress, wbtcAddress];
+      let tokenAddresses = [kncAddress, usdtAddress, wbtcAddress];
 
-    for (let i = 0; i < tokenAddresses.length; i++) {
-      let token = await Token.at(tokenAddresses[i]);
-      let amount = BN.from(1000000);
-      await token.transfer(treasuryPool.address, amount, {from: user.address});
-      addresses.push(tokenAddresses[i]);
-      amounts.push(amount);
+      for (let i = 0; i < tokenAddresses.length; i++) {
+        let token = await Token.at(tokenAddresses[i]);
+        let amount = BN.from(10).pow(await token.decimals() - 2);
+        await token.transfer(treasuryPool.address, amount, {from: user.address});
+        addresses.push(tokenAddresses[i]);
+        amounts.push(amount);
+        types.push(LiquidationType.TOKEN);
+      }
+
+      await Helper.sendEtherWithPromise(user.address, treasuryPool.address, BN.from(10).pow(19));
+      addresses.push(ethAddress);
+      amounts.push(BN.from(10).pow(19)); // 10 eth
       types.push(LiquidationType.TOKEN);
-    }
 
-    await Helper.sendEtherWithPromise(user.address, treasuryPool.address, BN.from(10).pow(19));
-    addresses.push(ethAddress);
-    amounts.push(BN.from(10).pow(19)); // 10 eth
-    types.push(LiquidationType.TOKEN);
+      let tradeTokens = [ethAddress, wethAddress, kncAddress, wbtcAddress, usdtAddress];
 
-    let tradeTokens = [ethAddress, wethAddress, kncAddress, wbtcAddress, usdtAddress];
-
-    let tx = await liquidateAndVerify(addresses, amounts, types, tradeTokens);
-    console.log(`    Liquidate with Kyber combination ${addresses.length} tokens gas used: ${getGasUsed(tx)}`);
-  });
+      let tx = await liquidateAndVerify(addresses, amounts, types, tradeTokens, destTokens[d]);
+      console.log(`    Liquidate with Kyber combination ${addresses.length} tokens gas used: ${getGasUsed(tx)}`);
+    });
+  }
 });
 
 function getGasUsed(tx: Object) {
