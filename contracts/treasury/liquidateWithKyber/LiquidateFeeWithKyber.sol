@@ -155,7 +155,12 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Uti
     uint256 totalReturn = _swapWithKyber(tradeTokens, balancesBefore, dest);
 
     require(totalReturn >= minReturn, 'totalReturn < minReturn');
-    dest.safeTransfer(recipient, minReturn);
+    if (dest == ETH_TOKEN_ADDRESS) {
+      (bool success, ) = recipient.call{ value: minReturn }('');
+      require(success, 'transfer eth failed');
+    } else {
+      dest.safeTransfer(recipient, minReturn);
+    }
 
     emit LiquidatedWithKyber(
       tx.origin,
@@ -202,6 +207,8 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Uti
         // 2 swap calls separately
         IWeth(weth).withdraw(amount);
         isSrcEth = true;
+        // no need to swap
+        if (dest == ETH_TOKEN_ADDRESS) continue;
       }
       if (!isSrcEth) {
         // approve allowance if needed
