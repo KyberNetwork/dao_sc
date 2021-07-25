@@ -12,7 +12,7 @@ import {ILiquidationCallback} from '../interfaces/liquidation/ILiquidationCallba
 import {ILiquidationStrategyBase, ILiquidationPriceOracleBase} from '../interfaces/liquidation/ILiquidationStrategyBase.sol';
 import {IPool} from '../interfaces/liquidation/IPool.sol';
 
-abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, PermissionOperators,
+contract LiquidationStrategyBase is ILiquidationStrategyBase, PermissionOperators,
   Utils, ReentrancyGuard {
 
   using SafeERC20 for IERC20Ext;

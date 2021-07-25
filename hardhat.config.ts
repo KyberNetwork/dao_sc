@@ -16,6 +16,10 @@ import './deployment/deployInternalGovernance.js';
 import './deployment/liquidityMining/deployLiquidityMining.js';
 import { accounts } from './test-wallets';
 
+if (process.env.ETH_NODE_URL == undefined || process.env.FORK_BLOCK == undefined) {
+  throw 'ETH_NODE_URL and FORK_BLOCK are required in .env file';
+}
+
 const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
 
@@ -31,6 +35,10 @@ const config: HardhatUserConfig = {
       timeout: 20000,
     },
     hardhat: {
+      forking: {
+        url: process.env.ETH_NODE_URL,
+        blockNumber: parseInt(process.env.FORK_BLOCK!)
+      },
       accounts: accounts,
     },
   },

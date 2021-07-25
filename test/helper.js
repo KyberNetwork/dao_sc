@@ -1,5 +1,6 @@
 const Math = require('mathjs');
 const BN = web3.utils.BN;
+const hardhat = require('hardhat');
 const {constants, time} = require('@openzeppelin/test-helpers');
 require('chai').use(require('chai-as-promised')).use(require('chai-bn')(BN)).should();
 
@@ -445,5 +446,19 @@ module.exports.mineNewBlockAfter = async function (duration) {
         resolve(res);
       }
     );
+  });
+};
+
+module.exports.resetForking = async function () {
+  await hardhat.network.provider.request({
+    method: 'hardhat_reset',
+    params: [
+      {
+        forking: {
+          jsonRpcUrl: process.env.ETH_NODE_URL,
+          blockNumber: parseInt(process.env.FORK_BLOCK),
+        },
+      },
+    ],
   });
 };

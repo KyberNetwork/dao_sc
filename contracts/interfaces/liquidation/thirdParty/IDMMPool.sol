@@ -5,6 +5,8 @@ import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 
 
 interface IDMMPool {
+  function burn(address to) external returns (uint256 amount0, uint256 amount1);
+
   function getReserves() external view returns (uint112 reserve0, uint112 reserve1);
 
   function token0() external view returns (IERC20Ext);
