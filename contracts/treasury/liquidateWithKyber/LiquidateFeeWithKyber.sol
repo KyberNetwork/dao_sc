@@ -113,13 +113,12 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Uti
       tokens.length == amounts.length && amounts.length == types.length,
       'invalid lengths'
     );
-    // add one extra element if dest is eth
-    uint256 balanceLength = dest == ETH_TOKEN_ADDRESS ? tradeTokens.length + 1 : tradeTokens.length;
-    uint256[] memory balances = new uint256[](balanceLength);
+    // add one extra element for balance of dest token before liquidate call
+    uint256[] memory balances = new uint256[](tradeTokens.length + 1);
     for(uint256 i = 0; i < tradeTokens.length; i++) {
       balances[i] = getBalance(tradeTokens[i], address(this));
     }
-    if (dest == ETH_TOKEN_ADDRESS) balances[balanceLength - 1] = address(this).balance;
+    balances[tradeTokens.length] = getBalance(dest, address(this));
     bytes memory oracleHint = abi.encode(types);
     bytes memory txData = abi.encode(types, tradeTokens, balances);
     liquidationStrategy.liquidate(
@@ -154,10 +153,8 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Uti
       uint256[] memory balancesBefore
     ) = abi.decode(txData, (LiquidationType[], IERC20Ext[], uint256[]));
 
-    // in case dest is eth, last element will be eth balance of this contract before the callback
-    uint256 destTokenBefore = dest == ETH_TOKEN_ADDRESS ?
-      balancesBefore[balancesBefore.length - 1] :
-      dest.balanceOf(address(this));
+    // last element will be the dest token balance of this contract before the callback
+    uint256 destTokenBefore = balancesBefore[balancesBefore.length - 1];
 
     _removeLiquidity(sources, amounts, types);
     uint256 totalReturn = _swapWithKyber(tradeTokens, balancesBefore, dest, destTokenBefore);
