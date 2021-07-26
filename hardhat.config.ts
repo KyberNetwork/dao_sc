@@ -16,10 +16,6 @@ import './deployment/deployInternalGovernance.js';
 import './deployment/liquidityMining/deployLiquidityMining.js';
 import { accounts } from './test-wallets';
 
-if (process.env.ETH_NODE_URL == undefined || process.env.FORK_BLOCK == undefined) {
-  throw 'ETH_NODE_URL and FORK_BLOCK are required in .env file';
-}
-
 const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
 
@@ -35,10 +31,6 @@ const config: HardhatUserConfig = {
       timeout: 20000,
     },
     hardhat: {
-      forking: {
-        url: process.env.ETH_NODE_URL,
-        blockNumber: parseInt(process.env.FORK_BLOCK!)
-      },
       accounts: accounts,
     },
   },
@@ -75,6 +67,15 @@ const INFURA_API_KEY: string = process.env.INFURA_API_KEY || '';
 const PRIVATE_KEY: string = process.env.PRIVATE_KEY || '';
 const ETHERSCAN_KEY: string = process.env.ETHERSCAN_KEY || '';
 const POLYGONSCAN_KEY: string = process.env.POLYGONSCAN_KEY || '';
+const ETH_NODE_URL: string = process.env.ETH_NODE_URL || '';
+const FORK_BLOCK: string = process.env.FORK_BLOCK || ''
+
+if (ETH_NODE_URL != '' && FORK_BLOCK != '') {
+  config.networks!.hardhat!.forking = {
+    url: ETH_NODE_URL,
+    blockNumber: parseInt(FORK_BLOCK)
+  }
+}
 
 if (INFURA_API_KEY != '' && PRIVATE_KEY != '') {
   config.networks!.kovan = {
