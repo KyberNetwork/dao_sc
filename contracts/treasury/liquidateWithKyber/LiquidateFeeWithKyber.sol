@@ -153,11 +153,8 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Uti
       uint256[] memory balancesBefore
     ) = abi.decode(txData, (LiquidationType[], IERC20Ext[], uint256[]));
 
-    // last element will be the dest token balance of this contract before the callback
-    uint256 destTokenBefore = balancesBefore[balancesBefore.length - 1];
-
     _removeLiquidity(sources, amounts, types);
-    uint256 totalReturn = _swapWithKyber(tradeTokens, balancesBefore, dest, destTokenBefore);
+    uint256 totalReturn = _swapWithKyber(tradeTokens, balancesBefore, dest);
 
     require(totalReturn >= minReturn, 'totalReturn < minReturn');
     if (dest == ETH_TOKEN_ADDRESS) {
@@ -196,24 +193,25 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Uti
   function _swapWithKyber(
     IERC20Ext[] memory tradeTokens,
     uint256[] memory balancesBefore,
-    IERC20Ext dest,
-    uint256 destTokenBefore
+    IERC20Ext dest
   )
     internal returns (uint256 totalReturn)
-  { 
+  {
+    // last element is the balance of dest token before calling liquidate function
+    uint256 destTokenBefore = balancesBefore[balancesBefore.length - 1];
     for(uint256 i = 0; i < tradeTokens.length; i++) {
       if (tradeTokens[i] == dest) continue;
       uint256 amount = getBalance(tradeTokens[i], address(this)).sub(balancesBefore[i]);
       if (amount == 0) continue;
       bool isSrcEth = tradeTokens[i] == ETH_TOKEN_ADDRESS;
       if (address(tradeTokens[i]) == weth) {
-        // special case, convert weth -> eth and do the swap to safe gas
+        // special case, convert weth -> eth and do the swap to save gas
         // note: user can put both eth and weth as trade tokens, contract will make
         // 2 swap calls separately
         IWeth(weth).withdraw(amount);
-        isSrcEth = true;
         // no need to swap
         if (dest == ETH_TOKEN_ADDRESS) continue;
+        isSrcEth = true;
       }
       if (!isSrcEth) {
         // approve allowance if needed
@@ -233,10 +231,10 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Uti
     totalReturn = getBalance(dest, address(this)).sub(destTokenBefore);
   }
 
-  function _safeApproveAllowance(IERC20Ext dest, address spender, uint256 amount) internal {
-    if (dest == ETH_TOKEN_ADDRESS) return;
-    if (amount == 0 || dest.allowance(address(this), spender) == 0) {
-      dest.safeApprove(spender, amount);
+  // call approve only if amount is 0 or the current allowance is 0, only for tokens
+  function _safeApproveAllowance(IERC20Ext token, address spender, uint256 amount) internal {
+    if (amount == 0 || token.allowance(address(this), spender) == 0) {
+      token.safeApprove(spender, amount);
     }
   }
 

@@ -8,7 +8,7 @@ import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 contract MockSimpleLiquidatorCallbackHandler is Utils {
   using SafeERC20 for IERC20Ext;
 
-  constructor( ) {}
+  constructor() {}
 
   receive() external payable {}
 
