@@ -41,7 +41,6 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Uti
   address public immutable weth;
 
   ILiquidationStrategyBase public liquidationStrategy;
-  ILiquidationPriceOracleBase public priceOracle;
   IKyberNetworkProxy public kyberProxy;
 
   event LiquidatedWithKyber(
@@ -57,13 +56,11 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Uti
     address admin,
     address wethAddress,
     ILiquidationStrategyBase strategy,
-    ILiquidationPriceOracleBase oracle,
     IKyberNetworkProxy proxy
   ) PermissionAdmin(admin) {
     // no validation for addresses here, since it seems to be redundant
     weth = wethAddress;
     _setLiquidationStrategy(strategy);
-    _setPriceOracle(oracle);
     _setKyberNetworkProxy(proxy);
   }
 
@@ -71,11 +68,9 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Uti
 
   function updateContracts(
     ILiquidationStrategyBase _strategy,
-    ILiquidationPriceOracleBase _oracle,
     IKyberNetworkProxy _proxy
   ) external onlyAdmin {
     _setLiquidationStrategy(_strategy);
-    _setPriceOracle(_oracle);
     _setKyberNetworkProxy(_proxy);
   }
 
@@ -96,6 +91,7 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Uti
    *  To save gas, should specify the list of final tokens to swap to dest token
    *  Pass list of tradeTokens + corresponding balances before the liquidation happens
    *    as txData, will be used to get the received amount of each token to swap
+   * @param priceOracle a whitelisted price oracle
    * @param tokens list of source tokens
    * @param amounts amount of each source token
    * @param types type of each token, either LP or normal token
@@ -103,6 +99,7 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Uti
    * @param tradeTokens list of final tokens to swap to dest token after removing liquidities
    */
   function liquidate(
+    ILiquidationPriceOracleBase priceOracle,
     IERC20Ext[] calldata tokens,
     uint256[] calldata amounts,
     LiquidationType[] calldata types,
@@ -241,12 +238,6 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Uti
   function _setLiquidationStrategy(ILiquidationStrategyBase _contract) internal {
     if (_contract != ILiquidationStrategyBase(0)) {
       liquidationStrategy = _contract;
-    }
-  }
-
-  function _setPriceOracle(ILiquidationPriceOracleBase _oracle) internal {
-    if (_oracle != ILiquidationPriceOracleBase(0)) {
-      priceOracle = _oracle;
     }
   }
 

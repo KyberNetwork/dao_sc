@@ -4,16 +4,17 @@ import {Wallet} from 'ethers';
 
 import {ethAddress, zeroAddress} from '../helper';
 
-import {MockToken, MockDmmChainLinkPriceOracle__factory, IDmmRouter} from '../../typechain';
+import {MockDmmChainLinkPriceOracle__factory} from '../../typechain';
 
-const DmmRouter: IDmmRouter = artifacts.require('IDmmRouter');
-const Token: MockToken = artifacts.require('MockToken');
+const DmmRouter = artifacts.require('IDmmRouter');
+const Token = artifacts.require('MockToken');
 
 const dmmRouterAddress = '0x1c87257f5e8609940bc751a07bb085bb7f8cdbe6';
 const ethKncPoolAddress = '0x61639d6ec06c13a96b5eb9560b359d7c648c7759';
 const ethWbtcPoolAddress = '0x1cf68bbc2b6d3c6cfe1bd3590cf0e10b06a05f17';
 const ethUsdtPoolAddress = '0xce9874c42dce7fffbe5e48b026ff1182733266cb';
 const wbtcUsdtPoolAddress = '0xd343d5dba2fba55eef58189619c05e33cab95ca1';
+const usdcUsdtPoolAddress = '0x306121f1344ac5f84760998484c0176d7bfb7134';
 
 const btcEthProxy = '0xdeb288F737066589598e9214E782fa5A8eD689e8';
 const btcUsdProxy = '0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c';
@@ -38,6 +39,8 @@ module.exports = {
   ethKncPoolAddress,
   ethWbtcPoolAddress,
   ethUsdtPoolAddress,
+  wbtcUsdtPoolAddress,
+  usdcUsdtPoolAddress,
   kncAddress,
   wbtcAddress,
   usdtAddress,
@@ -71,65 +74,70 @@ module.exports.setupLpTokens = async function (user: Wallet) {
   let ethAmount = BN.from(5).mul(BN.from(10).pow(18));
   let bigAmount = BN.from(2).pow(255);
   await router.swapExactETHForTokens(
-    0,
-    [ethKncPoolAddress],
-    [wethAddress, kncAddress],
-    user.address,
-    bigAmount,
+    0, [ethKncPoolAddress], [wethAddress, kncAddress], user.address, bigAmount,
     {from: user.address, value: ethAmount.mul(BN.from(2))} // swap more eth to knc to pay for liquidation
   );
   await router.swapExactETHForTokens(0, [ethUsdtPoolAddress], [wethAddress, usdtAddress], user.address, bigAmount, {
-    from: user.address,
-    value: ethAmount,
+    from: user.address, value: ethAmount,
   });
   await router.swapExactETHForTokens(0, [ethWbtcPoolAddress], [wethAddress, wbtcAddress], user.address, bigAmount, {
-    from: user.address,
-    value: ethAmount,
+    from: user.address, value: ethAmount,
   });
+  await router.swapExactETHForTokens(0, [ethUsdtPoolAddress, usdcUsdtPoolAddress], [wethAddress, usdtAddress, usdcAddress], user.address, bigAmount, {
+    from: user.address, value: ethAmount,
+  });
+
   ethAmount = BN.from(2).mul(BN.from(10).pow(18));
+
+  // Add KNC-ETH
   let kncToken = await Token.at(kncAddress);
   if ((await kncToken.allowance(user.address, dmmRouterAddress)) == 0) {
     await kncToken.approve(dmmRouterAddress, bigAmount, {from: user.address});
   }
   await router.addLiquidityETH(
-    kncAddress,
-    ethKncPoolAddress,
+    kncAddress, ethKncPoolAddress,
     await kncToken.balanceOf(user.address),
-    0,
-    0,
-    [BN.from(0), bigAmount],
-    user.address,
-    bigAmount,
+    0, 0, [BN.from(0), bigAmount], user.address, bigAmount,
     {from: user.address, value: ethAmount}
   );
+  // Add USDT-ETH
   let usdtToken = await Token.at(usdtAddress);
   if ((await usdtToken.allowance(user.address, dmmRouterAddress)) == 0) {
     await usdtToken.approve(dmmRouterAddress, bigAmount, {from: user.address});
   }
   await router.addLiquidityETH(
-    usdtAddress,
-    ethUsdtPoolAddress,
+    usdtAddress, ethUsdtPoolAddress,
     await usdtToken.balanceOf(user.address),
-    0,
-    0,
-    [BN.from(0), bigAmount],
-    user.address,
-    bigAmount,
+    0, 0, [BN.from(0), bigAmount], user.address, bigAmount,
     {from: user.address, value: ethAmount}
   );
+  // Add WBTC-ETH
   let wbtcToken = await Token.at(wbtcAddress);
   if ((await wbtcToken.allowance(user.address, dmmRouterAddress)) == 0) {
     await wbtcToken.approve(dmmRouterAddress, bigAmount, {from: user.address});
   }
   await router.addLiquidityETH(
-    wbtcAddress,
-    ethWbtcPoolAddress,
+    wbtcAddress, ethWbtcPoolAddress,
     await wbtcToken.balanceOf(user.address),
-    0,
-    0,
-    [BN.from(0), bigAmount],
-    user.address,
-    bigAmount,
+    0, 0, [BN.from(0), bigAmount], user.address, bigAmount,
     {from: user.address, value: ethAmount}
+  );
+  // Add WBTC-USDT
+  await router.addLiquidity(
+    wbtcAddress, usdtAddress, wbtcUsdtPoolAddress,
+    3000000, 1000000000, 0, 0, // just hardcoded: 0.03 wbtc, 1000 usdt
+    [BN.from(0), bigAmount], user.address, bigAmount,
+    {from: user.address}
+  );
+  let usdcToken = await Token.at(usdcAddress);
+  if ((await usdcToken.allowance(user.address, dmmRouterAddress)) == 0) {
+    await usdcToken.approve(dmmRouterAddress, bigAmount, {from: user.address});
+  }
+  // Add USDC-USDT
+  await router.addLiquidity(
+    usdcAddress, usdtAddress, usdcUsdtPoolAddress,
+    1000000000, 1000000000, 0, 0, // just hardcoded: 1000 usdc, 1000 usdt
+    [BN.from(0), bigAmount], user.address, bigAmount,
+    {from: user.address}
   );
 };
