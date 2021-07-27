@@ -97,6 +97,8 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Uti
    * @param types type of each token, either LP or normal token
    * @param dest dest token to swap to
    * @param tradeTokens list of final tokens to swap to dest token after removing liquidities
+   * @param checkTreasuryBalance true if it should check balance of each token in treasury pool
+   *    before calling liquidate function to early revert if not enough
    */
   function liquidate(
     ILiquidationPriceOracleBase priceOracle,
@@ -104,12 +106,15 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Uti
     uint256[] calldata amounts,
     LiquidationType[] calldata types,
     IERC20Ext dest,
-    IERC20Ext[] calldata tradeTokens
+    IERC20Ext[] calldata tradeTokens,
+    bool checkTreasuryBalance
   ) external {
     require(
       tokens.length == amounts.length && amounts.length == types.length,
       'invalid lengths'
     );
+    // check if treasury pool has enough balance for this liquidation
+    if (checkTreasuryBalance) _checkTreasuryBalances(tokens, amounts);
     // add one extra element for balance of dest token before liquidate call
     uint256[] memory balances = new uint256[](tradeTokens.length + 1);
     for(uint256 i = 0; i < tradeTokens.length; i++) {
@@ -244,6 +249,20 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Uti
   function _setKyberNetworkProxy(IKyberNetworkProxy _proxy) internal {
     if (_proxy != IKyberNetworkProxy(0)) {
       kyberProxy = _proxy;
+    }
+  }
+
+  function _checkTreasuryBalances(
+    IERC20Ext[] memory tokens,
+    uint256[] memory amounts
+  ) internal view {
+    // early revert in case multiple calls to this liquidate function
+    address treasuryPool = liquidationStrategy.treasuryPool();
+    for(uint256 i = 0; i < tokens.length; i++) {
+      require(
+        getBalance(tokens[i], treasuryPool) >= amounts[i],
+        'not enough balance in treasury pool'
+      );
     }
   }
 }

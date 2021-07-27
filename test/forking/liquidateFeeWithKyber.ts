@@ -104,7 +104,7 @@ describe('LiquidateFeeWithKyber-Forking', () => {
     for (let i = 0; i < addresses.length; i++) {
       balances.push(await getTokenBalance(addresses[i], treasuryPool.address));
     }
-    let tx = await liquidateWithKyber.connect(user).liquidate(priceOracle.address, addresses, amounts, types, dest, tradeTokens);
+    let tx = await liquidateWithKyber.connect(user).liquidate(priceOracle.address, addresses, amounts, types, dest, tradeTokens, true);
     // verify balance in treasury pool
     for (let i = 0; i < addresses.length; i++) {
       let balanceAfter = await getTokenBalance(addresses[i], treasuryPool.address);
@@ -159,7 +159,7 @@ describe('LiquidateFeeWithKyber-Forking', () => {
       amounts.push(amount);
       types.push(LiquidationType.LP);
     }
-    let tradeTokens = [ethAddress, wethAddress, kncAddress, wbtcAddress, usdtAddress];
+    let tradeTokens = [ethAddress, wethAddress, kncAddress, wbtcAddress, usdtAddress, usdcAddress];
 
     let tx = await liquidateAndVerify(poolAddresses, amounts, types, tradeTokens, kncAddress);
     console.log(`    Liquidate with Kyber ${poolAddresses.length} LP tokens gas used: ${(await tx.wait()).gasUsed.toString()}`);
@@ -199,7 +199,7 @@ describe('LiquidateFeeWithKyber-Forking', () => {
       amounts.push(BN.from(10).pow(19)); // 10 eth
       types.push(LiquidationType.TOKEN);
 
-      let tradeTokens = [ethAddress, wethAddress, kncAddress, wbtcAddress, usdtAddress];
+      let tradeTokens = [ethAddress, wethAddress, kncAddress, wbtcAddress, usdtAddress, usdcAddress];
 
       let tx = await liquidateAndVerify(addresses, amounts, types, tradeTokens, destTokens[d]);
       console.log(`    Liquidate with Kyber combination ${addresses.length} tokens gas used: ${(await tx.wait()).gasUsed.toString()}`);
@@ -240,5 +240,55 @@ describe('LiquidateFeeWithKyber-Forking', () => {
 
     let tx = await liquidateAndVerify(addresses, amounts, types, tradeTokens, kncAddress);
     console.log(`    Simulate liquidating all KyberDAO fees with Kyber, gas used: ${(await tx.wait()).gasUsed.toString()}`);
+  });
+
+  it('test reverts', async () => {
+    // invaid lengths
+    await expect(
+      liquidateWithKyber.connect(user).liquidate(priceOracle.address, [], [0], [LiquidationType.LP], kncAddress, [], true)
+    ).to.be.revertedWith('invalid lengths');
+    await expect(
+      liquidateWithKyber.connect(user).liquidate(priceOracle.address, [ethAddress], [0], [], kncAddress, [], true)
+    ).to.be.revertedWith('invalid lengths');
+
+    // not enough tokens in treasury
+    let addresses = [ LiquidationHelper.ethKncPoolAddress ];
+    let token = await Token.attach(addresses[0]);
+    let amounts = [ (await token.balanceOf(treasuryPool.address)).add(BN.from(1)) ];
+    let types = [ LiquidationType.LP ];
+    let tradeTokens = [ethAddress, wethAddress, kncAddress, wbtcAddress, usdtAddress, usdcAddress];
+
+    await expect(
+      liquidateWithKyber.connect(user).liquidate(priceOracle.address, addresses, amounts, types, kncAddress, tradeTokens, true)
+    ).to.be.revertedWith('not enough balance in treasury pool');
+    // no checking for treasury balance before calling liquidate
+    await expect(
+      liquidateWithKyber.connect(user).liquidate(priceOracle.address, addresses, amounts, types, kncAddress, tradeTokens, false)
+    ).to.be.revertedWith('ERC20: transfer amount exceeds balance');
+
+    // invalid data for liquidation callback
+    await expect(
+      liquidateWithKyber.connect(user).liquidationCallback(user.address, addresses, amounts, liquidationBase.address, kncAddress, BN.from(0), '0x')
+    ).to.be.revertedWith('sender != liquidationStrategy');
+    // override liquidation strategy contract to user
+    await liquidateWithKyber.connect(admin).updateContracts(user.address, kyberProxyAddress);
+    await expect(
+      liquidateWithKyber.connect(user).liquidationCallback(user.address, addresses, amounts, liquidationBase.address, kncAddress, BN.from(0), '0x')
+    ).to.be.revertedWith('caller != this address');
+
+    await liquidateWithKyber.connect(admin).updateContracts(liquidationBase.address, kyberProxyAddress);
+
+    // set premium to 0, swap with big amount, expect to get lower total return
+    // 50 eth -> knc should result in around 0.5 -> 1% spread
+    let ethAmount = BN.from(5).mul(BN.from(10).pow(19));
+    await Helper.sendEtherWithPromise(admin.address, treasuryPool.address, ethAmount);
+    let defaultPremium = await priceOracle.getDefaultPremiumData();
+    await priceOracle.connect(admin).updateDefaultPremiumData(0, 0);
+
+    await expect(
+      liquidateWithKyber.connect(user).liquidate(priceOracle.address, [ethAddress], [ethAmount], [LiquidationType.TOKEN], kncAddress, tradeTokens, false)
+    ).to.be.revertedWith('totalReturn < minReturn');
+
+    await priceOracle.connect(admin).updateDefaultPremiumData(defaultPremium.liquidateLpBps, defaultPremium.liquidateTokenBps);
   });
 });
