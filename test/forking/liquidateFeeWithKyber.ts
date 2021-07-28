@@ -115,6 +115,12 @@ describe('LiquidateFeeWithKyber-Forking', () => {
     expect(expectedReturn.toString()).to.be.eql(rewardPoolKncAfter.sub(rewardPoolKncBalance).toString());
     let premiumDest = (await getTokenBalance(dest, liquidateWithKyber.address)).sub(balanceLiquidator);
     console.log(`        Premium received: ${premiumDest.toString()}`);
+    // test withdraw dest token by admin
+    if (dest == ethAddress) {
+      await liquidateWithKyber.connect(admin).withdrawEther(100, admin.address);
+    } else {
+      await liquidateWithKyber.connect(admin).withdrawToken(dest, 100, admin.address);
+    }
     return tx;
   };
 

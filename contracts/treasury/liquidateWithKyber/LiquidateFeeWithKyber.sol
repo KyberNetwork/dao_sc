@@ -4,7 +4,8 @@ pragma solidity 0.7.6;
 import {ILiquidationCallback} from '../../interfaces/liquidation/ILiquidationCallback.sol';
 import {IDMMPool} from '../../interfaces/liquidation/thirdParty/IDMMPool.sol';
 import {ILiquidationStrategyBase, ILiquidationPriceOracleBase} from '../../interfaces/liquidation/ILiquidationStrategyBase.sol';
-import {PermissionAdmin, PermissionOperators} from '@kyber.network/utils-sc/contracts/PermissionOperators.sol';
+import {PermissionOperators} from '@kyber.network/utils-sc/contracts/PermissionOperators.sol';
+import {Withdrawable} from '@kyber.network/utils-sc/contracts/Withdrawable.sol';
 import {Utils} from '@kyber.network/utils-sc/contracts/Utils.sol';
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
@@ -30,7 +31,7 @@ interface IWeth is IERC20Ext {
 }
 
 
-contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Utils {
+contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Withdrawable, Utils {
   using SafeMath for uint256;
   using SafeERC20 for IERC20Ext;
 
@@ -57,7 +58,7 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Uti
     address wethAddress,
     ILiquidationStrategyBase strategy,
     IKyberNetworkProxy proxy
-  ) PermissionAdmin(admin) {
+  ) Withdrawable(admin) {
     // no validation for addresses here, since it seems to be redundant
     weth = wethAddress;
     _setLiquidationStrategy(strategy);
