@@ -523,6 +523,7 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
       totalDestInToken1 = _calculateReturnAmount(amounts[3], _decimals, destTokenDecimals, rate);
     }
     // verify if equivalent dest tokens from virtual balances is within the threshold
+    // note: if the pool is out of support price range, most likely this check will fail
     if (totalDestInToken0 < totalDestInToken1) {
       require(
         totalDestInToken0.mul(BPS + _config.lpDiffThreshold) >= totalDestInToken1.mul(BPS),
