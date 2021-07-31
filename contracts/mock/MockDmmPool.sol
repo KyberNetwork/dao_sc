@@ -76,4 +76,18 @@ contract MockDmmPool {
   {
     (reserve0, reserve1) = (_reserve0, _reserve1);
   }
+
+  function getTradeInfo()
+    external view
+    returns (
+      uint112 reserve0,
+      uint112 reserve1,
+      uint112 _vReserve0,
+      uint112 _vReserve1,
+      uint256 feeInPrecision
+  ) {
+    (reserve0, reserve1) = (_reserve0, _reserve1);
+    (_vReserve0, _vReserve1) = (0, 0);
+    feeInPrecision = 0;
+  }
 }

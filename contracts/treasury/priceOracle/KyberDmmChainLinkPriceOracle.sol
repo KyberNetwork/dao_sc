@@ -29,7 +29,9 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
 
   uint64 constant public MAX_PREMIUM_BPS = 2000; // 20%
   // min duration to consider the chainlink rate as a valid data
-  uint256 constant public MIN_DURATION_VALID_CHAINLINK_RATE = 30 minutes;
+  uint64 constant public MIN_DURATION_VALID_CHAINLINK_RATE = 30 minutes;
+
+  address public immutable weth;
 
   struct AggregatorProxyData {
     address quoteEthProxy;
@@ -37,18 +39,20 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     address quoteUsdProxy;
     uint8 quoteUsdProxyDecimals;
   }
-
   mapping (address => AggregatorProxyData) internal _tokenData;
+
+  struct Config {
+    uint64 liquidateLpBps;            // default liquidate lp bps
+    uint64 liquidateTokenBps;         // default liquidate token bps
+    uint64 minValidDurationInSeconds; // min valid duration in seconds for chainlink
+    uint64 lpDiffThreshold;           // different threshold for price of 2 tokens in the LP 
+  }
+  Config internal _config;
 
   struct PremiumData {
     uint64 liquidateLpBps;
     uint64 liquidateTokenBps;
   }
-
-  address public immutable weth;
-  // min duration in seconds to consider chainlink latest answer as a valid data
-  uint256 public minValidDurationInSeconds;
-  PremiumData internal _defaultPremiumData;
   mapping (address => PremiumData) internal _groupPremiumData;
 
   // list of tokens that can be liquidate to
@@ -69,17 +73,20 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     address indexed quoteUsdProxy
   );
   event WhitelistedTokenUpdated(address indexed token, bool indexed isAdd);
-  event UpdatedMinValidDurationInSeconds(uint256 duration);
+  event UpdatedMinValidDurationInSeconds(uint64 duration);
+  event UpdatedLpDiffThreshold(uint64 threshold);
 
   constructor(
     address admin,
     address wethAddress,
     address[] memory whitelistedTokens,
-    uint256 chainlinkValidDuration
+    uint64 chainlinkValidDuration,
+    uint64 lpDiffThreshold
   ) PermissionAdmin(admin) {
     weth = wethAddress;
     _updateWhitelistedToken(whitelistedTokens, true);
     _setMinValidDuration(chainlinkValidDuration);
+    _setLpDiffThreshold(lpDiffThreshold);
   }
 
   /**
@@ -119,10 +126,16 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     }
   }
 
-  function updateMinValidDuration(uint256 newDuration)
+  function updateMinValidDuration(uint64 newDuration)
     external onlyOperator
   {
     _setMinValidDuration(newDuration);
+  }
+
+  function updateLpDiffThreshold(uint64 threshold)
+    external onlyOperator
+  {
+    _setLpDiffThreshold(threshold);
   }
 
   function updateGroupPremiumData(
@@ -257,7 +270,7 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
   /**
    * @dev Return expect amounts given pool and number of lp tokens
    * @return tokens [token0, token1]
-   * @return amounts [expectedAmount0, expectedAmount1s]
+   * @return amounts [expectedAmount0, expectedAmount1s, virtualBalance0, virtualBalance1]
    */
   function getExpectedTokensFromLp(
     address pool,
@@ -266,12 +279,20 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     public view
     returns (
       IERC20Ext[2] memory tokens,
-      uint256[2] memory amounts
+      uint256[4] memory amounts
     )
   {
     uint256 totalSupply = IERC20Ext(pool).totalSupply();
     (tokens[0], tokens[1]) = (IDMMPool(pool).token0(), IDMMPool(pool).token1());
-    (uint256 amount0, uint256 amount1) = IDMMPool(pool).getReserves();
+    uint256 amount0;
+    uint256 amount1;
+    (
+      amount0,
+      amount1,
+      amounts[2], // virtual balance 0
+      amounts[3], // virtual balance 1
+      // fee in precision
+    ) = IDMMPool(pool).getTradeInfo();
 
     (amounts[0], amounts[1]) = (
       amount0.mul(lpAmount) / totalSupply,
@@ -294,15 +315,26 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     );
   }
 
-  function getDefaultPremiumData()
+  function getConfig()
     external view
     returns (
       uint64 liquidateLpBps,
-      uint64 liquidateTokenBps
+      uint64 liquidateTokenBps,
+      uint64 minValidDurationInSeconds,
+      uint64 lpDiffThreshold
     )
   {
-    liquidateLpBps = _defaultPremiumData.liquidateLpBps;
-    liquidateTokenBps = _defaultPremiumData.liquidateTokenBps;
+    (
+      liquidateLpBps,
+      liquidateTokenBps,
+      minValidDurationInSeconds,
+      lpDiffThreshold
+    ) = (
+        _config.liquidateLpBps,
+        _config.liquidateTokenBps,
+        _config.minValidDurationInSeconds,
+        _config.lpDiffThreshold
+      );
   }
 
   /**
@@ -317,7 +349,7 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
       (, answer, , updatedAt,) = proxy.latestRoundData();
     }
     if (answer <= 0) return 0; // safe check in case ChainLink returns invalid data
-    if (updatedAt.add(minValidDurationInSeconds) < block.timestamp) return 0;
+    if (updatedAt.add(_config.minValidDurationInSeconds) < block.timestamp) return 0;
     rate = uint256(answer);
     uint256 decimals = uint256(_tokenData[token].quoteEthProxyDecimals);
     rate = (decimals < MAX_DECIMALS) ? rate.mul(10 ** (MAX_DECIMALS - decimals)) :
@@ -335,7 +367,7 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
       (, answer, , updatedAt,) = proxy.latestRoundData();
     }
     if (answer <= 0) return 0; // safe check in case ChainLink returns invalid data
-    if (updatedAt.add(minValidDurationInSeconds) < block.timestamp) return 0;
+    if (updatedAt.add(_config.minValidDurationInSeconds) < block.timestamp) return 0;
     rate = uint256(answer);
     uint256 decimals = uint256(_tokenData[token].quoteUsdProxyDecimals);
     rate = (decimals < MAX_DECIMALS) ? rate.mul(10 ** (MAX_DECIMALS - decimals)) :
@@ -357,8 +389,8 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
   {
     PremiumData memory data = _groupPremiumData[liquidator];
     if (data.liquidateLpBps == 0 && data.liquidateTokenBps == 0) {
-      liquidateLpBps = _defaultPremiumData.liquidateLpBps;
-      liquidateTokenBps = _defaultPremiumData.liquidateTokenBps;
+      liquidateLpBps = _config.liquidateLpBps;
+      liquidateTokenBps = _config.liquidateTokenBps;
     } else {
       liquidateLpBps = data.liquidateLpBps;
       liquidateTokenBps = data.liquidateTokenBps;
@@ -382,8 +414,8 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
   ) internal {
     require(_liquidateLpBps <= MAX_PREMIUM_BPS, 'invalid liquidate lp bps');
     require(_liquidateTokenBps <= MAX_PREMIUM_BPS, 'invalid liquidate token bps');
-    _defaultPremiumData.liquidateLpBps = _liquidateLpBps;
-    _defaultPremiumData.liquidateTokenBps = _liquidateTokenBps;
+    _config.liquidateLpBps = _liquidateLpBps;
+    _config.liquidateTokenBps = _liquidateTokenBps;
     emit DefaultPremiumDataSet(_liquidateLpBps, _liquidateTokenBps);
   }
 
@@ -399,10 +431,16 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     emit UpdateGroupPremiumData(_liquidator, _liquidateLpBps, _liquidateTokenBps);
   }
 
-  function _setMinValidDuration(uint256 _duration) internal {
+  function _setMinValidDuration(uint64 _duration) internal {
     require(_duration >= MIN_DURATION_VALID_CHAINLINK_RATE, 'duration is too low');
-    minValidDurationInSeconds = _duration;
+    _config.minValidDurationInSeconds = _duration;
     emit UpdatedMinValidDurationInSeconds(_duration);
+  }
+
+  function _setLpDiffThreshold(uint64 _threshold) internal {
+    require(_threshold <= MAX_PREMIUM_BPS, 'threshold is too high');
+    _config.lpDiffThreshold = _threshold;
+    emit UpdatedLpDiffThreshold(_threshold);
   }
 
   function _applyPremiumFor(address liquidator, uint256 amountFromLPs, uint256 amountFromTokens)
@@ -447,33 +485,53 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
       return _calculateReturnAmount(amountIn, getDecimals(tokenIn), getDecimals(dest), rate);
     }
 
-    (IERC20Ext[2] memory tokens, uint256[2] memory amounts) = getExpectedTokensFromLp(
+    (IERC20Ext[2] memory tokens, uint256[4] memory amounts) = getExpectedTokensFromLp(
       address(tokenIn), amountIn
     );
 
     uint256 destTokenDecimals = getDecimals(dest);
+    uint256 totalDestInToken0;
+    uint256 totalDestInToken1;
 
     // calc equivalent (tokens[0], amounts[0]) -> tokenOut
     if (tokens[0] == dest) {
       totalReturn = totalReturn.add(amounts[0]);
+      totalDestInToken0 = amounts[2];
     } else {
       rate = isDestEth ? getRateOverEth(address(tokens[0])) :
         _getRateWithDestTokenData(address(tokens[0]), destRateEth, destRateUsd);
       require(rate > 0, '0 aggregator rate');
+      uint256 _decimals = getDecimals(tokens[0]);
       totalReturn = totalReturn.add(
-        _calculateReturnAmount(amounts[0], getDecimals(tokens[0]), destTokenDecimals, rate)
+        _calculateReturnAmount(amounts[0], _decimals, destTokenDecimals, rate)
       );
+      totalDestInToken0 = _calculateReturnAmount(amounts[2], _decimals, destTokenDecimals, rate);
     }
 
     // calc equivalent (tokens[1], amounts[1]) -> tokenOut
     if (tokens[1] == dest) {
       totalReturn = totalReturn.add(amounts[1]);
+      totalDestInToken1 = amounts[3];
     } else {
       rate = isDestEth ? getRateOverEth(address(tokens[1])) :
         _getRateWithDestTokenData(address(tokens[1]), destRateEth, destRateUsd);
         require(rate > 0, '0 aggregator rate');
+        uint256 _decimals = getDecimals(tokens[1]);
       totalReturn = totalReturn.add(
-        _calculateReturnAmount(amounts[1], getDecimals(tokens[1]), destTokenDecimals, rate)
+        _calculateReturnAmount(amounts[1], _decimals, destTokenDecimals, rate)
+      );
+      totalDestInToken1 = _calculateReturnAmount(amounts[3], _decimals, destTokenDecimals, rate);
+    }
+    // verify if equivalent dest tokens from virtual balances is within the threshold
+    if (totalDestInToken0 < totalDestInToken1) {
+      require(
+        totalDestInToken0.mul(BPS + _config.lpDiffThreshold) >= totalDestInToken1.mul(BPS),
+        'lpDiffThreshold: out of range'
+      );
+    } else {
+      require(
+        totalDestInToken1.mul(BPS + _config.lpDiffThreshold) >= totalDestInToken0.mul(BPS),
+        'lpDiffThreshold: out of range'
       );
     }
   }

@@ -50,12 +50,13 @@ module.exports = {
 };
 
 const validDuration = 365 * 60 * 60; // 1 year, depends on fork block
+const lpDiffThresold = 200; // 2%
 
 module.exports.setupPriceOracleContract = async function (admin: Wallet) {
   let DmmChainLink = (await ethers.getContractFactory(
     'MockDmmChainLinkPriceOracle'
   )) as MockDmmChainLinkPriceOracle__factory;
-  let priceOracle = await DmmChainLink.deploy(admin.address, wethAddress, [kncAddress], validDuration);
+  let priceOracle = await DmmChainLink.deploy(admin.address, wethAddress, [kncAddress], validDuration, lpDiffThresold);
   await priceOracle.connect(admin).addOperator(admin.address);
   await priceOracle.connect(admin).updateDefaultPremiumData(500, 500);
   await priceOracle

@@ -46,6 +46,7 @@ let token0: KyberNetworkTokenV2;
 let token1: KyberNetworkTokenV2;
 let weth: KyberNetworkTokenV2;
 let minValidDurationInSeconds = 30 * 60; // 30 mins
+let lpThreshold = 200;
 
 describe('KyberDmmChainLinkPriceOracle', () => {
   const [admin, operator, user] = waffle.provider.getWallets();
@@ -68,7 +69,8 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         admin.address,
         weth.address,
         [],
-        minValidDurationInSeconds
+        minValidDurationInSeconds,
+        lpThreshold
       );
     });
 
@@ -132,7 +134,7 @@ describe('KyberDmmChainLinkPriceOracle', () => {
       await expect(dmmChainLinkPriceOracle.connect(admin).updateDefaultPremiumData(200, 300))
         .to.emit(dmmChainLinkPriceOracle, 'DefaultPremiumDataSet')
         .withArgs(BN.from(200), BN.from(300));
-      let data = await dmmChainLinkPriceOracle.getDefaultPremiumData();
+      let data = await dmmChainLinkPriceOracle.getConfig();
       expect(data.liquidateLpBps).to.eql(BN.from(200));
       expect(data.liquidateTokenBps).to.eql(BN.from(300));
     });
@@ -234,7 +236,8 @@ describe('KyberDmmChainLinkPriceOracle', () => {
     });
 
     it('update min chainlink valid duration', async () => {
-      expect(await dmmChainLinkPriceOracle.minValidDurationInSeconds()).to.be.equal(
+      let config = await dmmChainLinkPriceOracle.getConfig()
+      expect(config.minValidDurationInSeconds).to.be.equal(
         BN.from(minValidDurationInSeconds)
       );
       // revert min duration is low
@@ -252,7 +255,8 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         .to.emit(dmmChainLinkPriceOracle, 'UpdatedMinValidDurationInSeconds')
         .withArgs(BN.from(duration));
 
-      expect(await dmmChainLinkPriceOracle.minValidDurationInSeconds()).to.be.equal(BN.from(duration));
+      config = await dmmChainLinkPriceOracle.getConfig()
+      expect(config.minValidDurationInSeconds).to.be.equal(BN.from(duration));
     });
   });
 
@@ -262,7 +266,8 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         admin.address,
         weth.address,
         [],
-        minValidDurationInSeconds
+        minValidDurationInSeconds,
+        lpThreshold
       );
     });
 
@@ -280,7 +285,8 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         let amount1 = amount.mul(balance1).div(totalSupply);
         let data = await dmmChainLinkPriceOracle.getExpectedTokensFromLp(pool.address, amount);
         expect(data.tokens).to.be.eql([token0.address, token1.address]);
-        expect(data.amounts).to.be.eql([amount0, amount1]);
+        expect(data.amounts[0]).to.be.eql(amount0);
+        expect(data.amounts[1]).to.be.eql(amount1);
       }
     });
   });
@@ -311,7 +317,8 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         admin.address,
         weth.address,
         [],
-        minValidDurationInSeconds
+        minValidDurationInSeconds,
+        lpThreshold
       );
       await dmmChainLinkPriceOracle.connect(admin).addOperator(operator.address);
       chainlink0EthProxy = await ChainLink.deploy(proxyEth0Decimal);
@@ -363,7 +370,7 @@ describe('KyberDmmChainLinkPriceOracle', () => {
       );
       expect(await dmmChainLinkPriceOracle.getRateOverUsd(token1.address)).to.be.eql(BN.from(0));
 
-      let duration = BN.from(await dmmChainLinkPriceOracle.minValidDurationInSeconds());
+      let duration = BN.from((await dmmChainLinkPriceOracle.getConfig()).minValidDurationInSeconds);
       let currentTime = BN.from(await Helper.getCurrentBlockTime());
       // rate is 0 when the valid duration is over
       await chainlink1EthProxy.setAnswerData(rate, currentTime.sub(duration).sub(BN.from(1)));
@@ -780,7 +787,8 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         admin.address,
         weth.address,
         [],
-        minValidDurationInSeconds
+        minValidDurationInSeconds,
+        lpThreshold
       );
       await dmmChainLinkPriceOracle.connect(admin).addOperator(operator.address);
       chainlink0EthProxy = await ChainLink.deploy(10);
@@ -1117,7 +1125,8 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         admin.address,
         weth.address,
         [],
-        minValidDurationInSeconds
+        minValidDurationInSeconds,
+        lpThreshold
       );
     });
 

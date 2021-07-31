@@ -37,8 +37,8 @@ const usdcAddress = LiquidationHelper.usdcAddress;
 
 const poolAddresses = [
   LiquidationHelper.ethKncPoolAddress,
-  LiquidationHelper.ethWbtcPoolAddress,
-  LiquidationHelper.ethUsdtPoolAddress,
+  // LiquidationHelper.ethWbtcPoolAddress,
+  // LiquidationHelper.ethUsdtPoolAddress,
 ];
 
 let priceOracle: MockDmmChainLinkPriceOracle;
@@ -166,7 +166,6 @@ describe('LiquidateFeeWithKyber-Forking', () => {
       types.push(LiquidationType.LP);
     }
     let tradeTokens = [ethAddress, wethAddress, kncAddress, wbtcAddress, usdtAddress, usdcAddress];
-
     let tx = await liquidateAndVerify(poolAddresses, amounts, types, tradeTokens, kncAddress);
     console.log(`    Liquidate with Kyber ${poolAddresses.length} LP tokens gas used: ${(await tx.wait()).gasUsed.toString()}`);
   });
@@ -182,7 +181,7 @@ describe('LiquidateFeeWithKyber-Forking', () => {
       let types = [];
       for (let i = 0; i < poolAddresses.length; i++) {
         let token = await Token.attach(poolAddresses[i]);
-        let amount = BN.from(1000000);
+        let amount = (await token.balanceOf(user.address)).div(BN.from(3));
         await token.connect(user).transfer(treasuryPool.address, amount);
         amounts.push(amount);
         addresses.push(poolAddresses[i]);
@@ -288,13 +287,13 @@ describe('LiquidateFeeWithKyber-Forking', () => {
     // 50 eth -> knc should result in around 0.5 -> 1% spread
     let ethAmount = BN.from(5).mul(BN.from(10).pow(19));
     await Helper.sendEtherWithPromise(admin.address, treasuryPool.address, ethAmount);
-    let defaultPremium = await priceOracle.getDefaultPremiumData();
+    let config = await priceOracle.getConfig();
     await priceOracle.connect(admin).updateDefaultPremiumData(0, 0);
 
     await expect(
       liquidateWithKyber.connect(user).liquidate(priceOracle.address, [ethAddress], [ethAmount], [LiquidationType.TOKEN], kncAddress, tradeTokens, false)
     ).to.be.revertedWith('totalReturn < minReturn');
 
-    await priceOracle.connect(admin).updateDefaultPremiumData(defaultPremium.liquidateLpBps, defaultPremium.liquidateTokenBps);
+    await priceOracle.connect(admin).updateDefaultPremiumData(config.liquidateLpBps, config.liquidateTokenBps);
   });
 });
