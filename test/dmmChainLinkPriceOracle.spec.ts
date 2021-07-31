@@ -236,10 +236,8 @@ describe('KyberDmmChainLinkPriceOracle', () => {
     });
 
     it('update min chainlink valid duration', async () => {
-      let config = await dmmChainLinkPriceOracle.getConfig()
-      expect(config.minValidDurationInSeconds).to.be.equal(
-        BN.from(minValidDurationInSeconds)
-      );
+      let config = await dmmChainLinkPriceOracle.getConfig();
+      expect(config.minValidDurationInSeconds).to.be.equal(BN.from(minValidDurationInSeconds));
       // revert min duration is low
       await expect(dmmChainLinkPriceOracle.updateMinValidDuration(minValidDurationInSeconds)).to.be.revertedWith(
         'only operator'
@@ -255,7 +253,7 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         .to.emit(dmmChainLinkPriceOracle, 'UpdatedMinValidDurationInSeconds')
         .withArgs(BN.from(duration));
 
-      config = await dmmChainLinkPriceOracle.getConfig()
+      config = await dmmChainLinkPriceOracle.getConfig();
       expect(config.minValidDurationInSeconds).to.be.equal(BN.from(duration));
     });
   });
