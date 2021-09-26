@@ -17,8 +17,8 @@ module.exports.parseRewards = function (rewardInfo) {
   const leaves = hashElements(treeElements, cycle);
   const tree = new MerkleTree(leaves, keccak256, {sort: true});
   const userRewardsWithProof = treeElements.reduce((memo, {account}, index) => {
-    tokens = mappedTokensAmounts[account].tokens;
-    cumulativeAmounts = mappedTokensAmounts[account].cumulativeAmounts.map((amt) => amt.toHexString());
+    let tokens = mappedTokensAmounts[account].tokens;
+    let cumulativeAmounts = mappedTokensAmounts[account].cumulativeAmounts.map((amt) => amt.toHexString());
 
     memo[account] = {
       index,
