@@ -161,7 +161,7 @@ function convertInputValues(inputValues) {
       inputValue = inputValue * 10 ** numDecimals;
       inputValue = new BN.from(inputValue)
         .mul(ethers.constants.WeiPerEther)
-        .div(new BN.from(10).mul(new BN.from(numDecimals)))
+        .div(new BN.from(10).pow(new BN.from(numDecimals)))
         .toHexString();
       return inputValue;
     }
