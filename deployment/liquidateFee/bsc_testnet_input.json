@@ -1,0 +1,40 @@
+{
+    "contractAddress": "0xf8d3a92b470c339457cb2b70a05d27c3a8983e40",
+    "admin": "0x4BD6037E5CF0cADB0CcE85691A5723BC94Ae2faE",
+    "recipient": "0x4BD6037E5CF0cADB0CcE85691A5723BC94Ae2faE",
+    "dmmRouter": "0x19395624c030a11f58e820c3aefb1f5960d9742a",
+    "destToken": "0x51e8d106c646ca58caf32a47812e95887c071a62",
+    "tokenConfigs": [
+        {
+            "token": "0xae13d989dac2f0debff460ac112a837c89baa7cd",
+            "poolPath": [
+                "0x209d9e4cd05ff6f6aa6abe65c92ef76df36001a6"
+            ],
+            "tokenPath": [
+                "0xae13d989dac2f0debff460ac112a837c89baa7cd",
+                "0x51e8d106c646ca58caf32a47812e95887c071a62"
+            ]
+        },
+        {
+            "token": "0xbb843a2296f9aa49070eb2dcd482f23548238f65",
+            "poolPath": [
+                "0xfe1687d57e48f5152cbbcef9fc590ef045ee96c2",
+                "0x209d9e4cd05ff6f6aa6abe65c92ef76df36001a6"
+            ],
+            "tokenPath": [
+                "0xbb843a2296f9aa49070eb2dcd482f23548238f65",
+                "0xae13d989dac2f0debff460ac112a837c89baa7cd",
+                "0x51e8d106c646ca58caf32a47812e95887c071a62"
+            ]
+        }
+    ],
+    "liquidateTokens": [
+        "0xfe1687d57e48f5152cbbcef9fc590ef045ee96c2",
+        "0x209d9e4cd05ff6f6aa6abe65c92ef76df36001a6"
+    ],
+    "tradeTokens": [
+        "0xbb843a2296f9aa49070eb2dcd482f23548238f65",
+        "0xae13d989dac2f0debff460ac112a837c89baa7cd"
+    ],
+    "outputFilename": "bsc_testnet_output.json"
+}

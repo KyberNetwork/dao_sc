@@ -14,6 +14,7 @@ dotenv.config();
 import './deployment/katanaDeployment.js';
 import './deployment/deployInternalGovernance.js';
 import './deployment/liquidityMining/deployLiquidityMining.js';
+import './deployment/liquidateFee/deployLiquidateFeeWithKyberDMM.js';
 import './deployment/createBinaryProposal.js';
 import './deployment/simFullProposal.js';
 import './deployment/simProposalExecution.js';
@@ -113,6 +114,18 @@ if (INFURA_API_KEY != '' && PRIVATE_KEY != '') {
 
   config.networks!.mumbai = {
     url: `https://rpc-mumbai.maticvigil.com/`,
+    accounts: [PRIVATE_KEY],
+    timeout: 20000,
+  };
+
+  config.networks!.bsc_testnet = {
+    url: `https://data-seed-prebsc-1-s1.binance.org:8545/`,
+    accounts: [PRIVATE_KEY],
+    timeout: 20000,
+  };
+
+  config.networks!.bsc_mainnet = {
+    url: `https://bsc-dataseed.binance.org/`,
     accounts: [PRIVATE_KEY],
     timeout: 20000,
   };

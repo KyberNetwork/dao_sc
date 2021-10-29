@@ -1,0 +1,83 @@
+{
+    "admin": "0x4BD6037E5CF0cADB0CcE85691A5723BC94Ae2faE",
+    "recipient": "0x91c9D4373B077eF8082F468C7c97f2c499e36F5b",
+    "dmmRouter": "0x78df70615ffc8066cc0887917f2Cd72092C86409",
+    "destToken": "0xfe56d5892bdffc7bf58f2e84be1b2c32d21c308b",
+    "tokenConfigs": [
+        {
+            "token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+            "poolPath": [
+                "0x6170b6d96167346896169b35e1e9585feab873bb"
+            ],
+            "tokenPath": [
+                "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+                "0xfe56d5892bdffc7bf58f2e84be1b2c32d21c308b"
+            ]
+        },
+        {
+            "token": "0x55d398326f99059ff775485246999027b3197955",
+            "poolPath": [
+                "0xec303ce1edbebf7e71fc7b350341bb6a6a7a6381",
+                "0x6170b6d96167346896169b35e1e9585feab873bb"
+            ],
+            "tokenPath": [
+                "0x55d398326f99059ff775485246999027b3197955",
+                "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+                "0xfe56d5892bdffc7bf58f2e84be1b2c32d21c308b"
+            ]
+        },
+        {
+            "token": "0x2170ed0880ac9a755fd29b2688956bd959f933f8",
+            "poolPath": [
+                "0xd26fa4d47ab61c03259f0cbc9054890df5c3b7ad",
+                "0x6170b6d96167346896169b35e1e9585feab873bb"
+            ],
+            "tokenPath": [
+                "0x2170ed0880ac9a755fd29b2688956bd959f933f8",
+                "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+                "0xfe56d5892bdffc7bf58f2e84be1b2c32d21c308b"
+            ]
+        },
+        {
+            "token": "0x633237c6fa30fae46cc5bb22014da30e50a718cc",
+            "poolPath": [
+                "0xf81e106c5b44ba9a993fc1f456a4c8e54c47cf34",
+                "0xec303ce1edbebf7e71fc7b350341bb6a6a7a6381",
+                "0x6170b6d96167346896169b35e1e9585feab873bb"
+            ],
+            "tokenPath": [
+                "0x633237c6fa30fae46cc5bb22014da30e50a718cc",
+                "0x55d398326f99059ff775485246999027b3197955",
+                "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+                "0xfe56d5892bdffc7bf58f2e84be1b2c32d21c308b"
+            ]
+        },
+        {
+            "token": "0xe8176d414560cfe1bf82fd73b986823b89e4f545",
+            "poolPath": [
+                "0x2d49f16c9ad4f1145bb27c9af71474f468a697c8",
+                "0x6170b6d96167346896169b35e1e9585feab873bb"
+            ],
+            "tokenPath": [
+                "0xe8176d414560cfe1bf82fd73b986823b89e4f545",
+                "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+                "0xfe56d5892bdffc7bf58f2e84be1b2c32d21c308b"
+            ]
+        }
+    ],
+    "liquidateTokens": [
+        "0xec303ce1edbebf7e71fc7b350341bb6a6a7a6381",
+        "0x6170b6d96167346896169b35e1e9585feab873bb",
+        "0xd26fa4d47ab61c03259f0cbc9054890df5c3b7ad",
+        "0xf81e106c5b44ba9a993fc1f456a4c8e54c47cf34",
+        "0x2d49f16c9ad4f1145bb27c9af71474f468a697c8"
+    ],
+    "tradeTokens": [
+        "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+        "0x55d398326f99059ff775485246999027b3197955",
+        "0x2170ed0880ac9a755fd29b2688956bd959f933f8",
+        "0x633237c6fa30fae46cc5bb22014da30e50a718cc",
+        "0xe8176d414560cfe1bf82fd73b986823b89e4f545"
+    ],
+    "outputFilename": "bsc_mainnet_output.json"
+}
