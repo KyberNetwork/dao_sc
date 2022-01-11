@@ -1454,7 +1454,7 @@ function updateInfoOnDeposit(userData, poolData, amount, currentBlock, isHarvest
     if (isHarvesting) userData.unclaimedRewards[i] = new BN(0);
     userData.lastRewardPerShares[i] = poolData.accRewardPerShares[i];
   }
-
+ 
   return [userData, poolData, claimedAmounts];
 }
 

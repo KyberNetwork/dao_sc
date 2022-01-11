@@ -87,7 +87,7 @@ function getBalancePromise(account) {
   });
 }
 
-module.exports.getBalancePromise = getBalancePromise;
+module.exports.getBalancePromise = precisionUnits;
 
 module.exports.getCurrentBlock = function () {
   return new Promise(function (fulfill, reject) {

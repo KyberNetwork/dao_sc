@@ -8,7 +8,7 @@ import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
 import {IKyberFairLaunchV2} from '../interfaces/liquidityMining/IKyberFairLaunchV2.sol';
-import {IKyberRewardLocker} from '../interfaces/liquidityMining/IKyberRewardLocker.sol';
+import {IKyberRewardLockerV2} from '../interfaces/liquidityMining/IKyberRewardLockerV2.sol';
 import {GeneratedToken} from './GeneratedToken.sol';
 
 /// FairLaunch contract for Kyber DMM Liquidity Mining program
@@ -21,8 +21,6 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
   using SafeMath for uint256;
   using SafeERC20 for IERC20Ext;
 
-  uint256 internal constant PRECISION = 1e12;
-
   struct UserRewardData {
     uint256 unclaimedReward;
     uint256 lastRewardPerShare;
@@ -30,7 +28,7 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
   // Info of each user.
   struct UserInfo {
     uint256 amount; // How many Staking tokens the user has provided.
-    mapping (uint256 => UserRewardData) userRewardData;
+    mapping(uint256 => UserRewardData) userRewardData;
     //
     // Basically, any point in time, the amount of reward token
     // entitled to a user but is pending to be distributed is:
@@ -48,6 +46,7 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
     uint256 rewardPerSecond;
     uint256 accRewardPerShare;
   }
+
   // Info of each pool
   // poolRewardData: reward data for each reward token
   //      rewardPerSecond: amount of reward token per second
@@ -58,6 +57,7 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
   // startTime: the time that the reward starts
   // endTime: the time that the reward ends
   // lastRewardTime: last time that rewards distribution occurs
+  // vestingDuration: time vesting for token
   struct PoolInfo {
     uint256 totalStake;
     address stakeToken;
@@ -65,7 +65,8 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
     uint32 startTime;
     uint32 endTime;
     uint32 lastRewardTime;
-    mapping (uint256 => PoolRewardData) poolRewardData;
+    uint32 vestingDuration;
+    mapping(uint256 => PoolRewardData) poolRewardData;
   }
 
   // check if a pool exists for a stakeToken
@@ -74,10 +75,13 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
   // don't validate values or length by trusting the deployer
   address[] public rewardTokens;
   // contract for locking reward
-  IKyberRewardLocker public immutable rewardLocker;
+  IKyberRewardLockerV2 public immutable rewardLocker;
 
   // Info of each pool.
   uint256 public override poolLength;
+
+  uint256 internal constant PRECISION = 1e12;
+
   mapping(uint256 => PoolInfo) internal poolInfo;
   // Info of each user that stakes Staking tokens.
   mapping(uint256 => mapping(address => UserInfo)) internal userInfo;
@@ -86,17 +90,16 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
     address indexed stakeToken,
     address indexed generatedToken,
     uint32 startTime,
-    uint32 endTime
+    uint32 endTime,
+    uint32 vestingDuration
   );
   event RenewPool(
     uint256 indexed pid,
     uint32 indexed startTime,
-    uint32 indexed endTime
+    uint32 indexed endTime,
+    uint32 vestingDuration
   );
-  event UpdatePool(
-    uint256 indexed pid,
-    uint32 indexed endTime
-  );
+  event UpdatePool(uint256 indexed pid, uint32 indexed endTime, uint32 indexed vestingDuration);
   event Deposit(
     address indexed user,
     uint256 indexed pid,
@@ -126,13 +129,13 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
   constructor(
     address _admin,
     address[] memory _rewardTokens,
-    IKyberRewardLocker _rewardLocker
+    IKyberRewardLockerV2 _rewardLocker
   ) PermissionAdmin(_admin) {
     rewardTokens = _rewardTokens;
     rewardLocker = _rewardLocker;
 
     // approve allowance to reward locker
-    for(uint256 i = 0; i < _rewardTokens.length; i++) {
+    for (uint256 i = 0; i < _rewardTokens.length; i++) {
       if (_rewardTokens[i] != address(0)) {
         IERC20Ext(_rewardTokens[i]).safeApprove(address(_rewardLocker), type(uint256).max);
       }
@@ -147,7 +150,7 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
   function adminWithdraw(uint256 rewardTokenIndex, uint256 amount) external onlyAdmin {
     IERC20Ext rewardToken = IERC20Ext(rewardTokens[rewardTokenIndex]);
     if (rewardToken == IERC20Ext(0)) {
-      (bool success, ) = msg.sender.call{ value: amount }('');
+      (bool success, ) = msg.sender.call{value: amount}('');
       require(success, 'transfer reward token failed');
     } else {
       rewardToken.safeTransfer(msg.sender, amount);
@@ -159,15 +162,19 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
    * @param _stakeToken: token to be staked to the pool
    * @param _startTime: time where the reward starts
    * @param _endTime: time where the reward ends
+   * @param _vestingDuration: time vesting for token
    * @param _rewardPerSeconds: amount of reward token per second for the pool for each reward token
-   * @param _hasGeneratedToken: whether to create a new token
+   * @param _tokenName: name of the generated token
+   * @param _tokenSymbol: symbol of the generated token
    */
   function addPool(
     address _stakeToken,
     uint32 _startTime,
     uint32 _endTime,
+    uint32 _vestingDuration,
     uint256[] calldata _rewardPerSeconds,
-    bool _hasGeneratedToken
+    string memory _tokenName,
+    string memory _tokenSymbol
   ) external override onlyAdmin {
     require(!poolExists[_stakeToken], 'add: duplicated pool');
     require(_stakeToken != address(0), 'add: invalid stake token');
@@ -176,11 +183,8 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
     require(_startTime > _getBlockTime() && _endTime > _startTime, 'add: invalid times');
 
     GeneratedToken _generatedToken;
-    if (_hasGeneratedToken) {
-      _generatedToken = new GeneratedToken(
-        string(abi.encodePacked('KStake - ', GeneratedToken(_stakeToken).name())),
-        string(abi.encodePacked('stk', GeneratedToken(_stakeToken).symbol()))
-      );
+    if (bytes(_tokenName).length != 0 && bytes(_tokenSymbol).length != 0) {
+      _generatedToken = new GeneratedToken(_tokenName, _tokenSymbol);
       poolInfo[poolLength].generatedToken = _generatedToken;
     }
 
@@ -188,8 +192,9 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
     poolInfo[poolLength].startTime = _startTime;
     poolInfo[poolLength].endTime = _endTime;
     poolInfo[poolLength].lastRewardTime = _startTime;
+    poolInfo[poolLength].vestingDuration = _vestingDuration;
 
-    for(uint256 i = 0; i < _rewardPerSeconds.length; i++) {
+    for (uint256 i = 0; i < _rewardPerSeconds.length; i++) {
       poolInfo[poolLength].poolRewardData[i] = PoolRewardData({
         rewardPerSecond: _rewardPerSeconds[i],
         accRewardPerShare: 0
@@ -199,7 +204,7 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
     poolLength++;
     poolExists[_stakeToken] = true;
 
-    emit AddNewPool(_stakeToken, address(_generatedToken), _startTime, _endTime);
+    emit AddNewPool(_stakeToken, address(_generatedToken), _startTime, _endTime, _vestingDuration);
   }
 
   /**
@@ -207,6 +212,7 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
    * @param _pid: id of the pool to renew, must be pool that has not started or already ended
    * @param _startTime: time where the reward starts
    * @param _endTime: time where the reward ends
+   * @param _vestingDuration: time vesting for token
    * @param _rewardPerSeconds: amount of reward token per second for the pool
    *   0 if we want to stop the pool from accumulating rewards
    */
@@ -214,6 +220,7 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
     uint256 _pid,
     uint32 _startTime,
     uint32 _endTime,
+    uint32 _vestingDuration,
     uint256[] calldata _rewardPerSeconds
   ) external override onlyAdmin {
     updatePoolRewards(_pid);
@@ -231,24 +238,27 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
     pool.startTime = _startTime;
     pool.endTime = _endTime;
     pool.lastRewardTime = _startTime;
+    pool.vestingDuration = _vestingDuration;
 
-    for(uint256 i = 0; i < _rewardPerSeconds.length; i++) {
+    for (uint256 i = 0; i < _rewardPerSeconds.length; i++) {
       pool.poolRewardData[i].rewardPerSecond = _rewardPerSeconds[i];
     }
 
-    emit RenewPool(_pid, _startTime, _endTime);
+    emit RenewPool(_pid, _startTime, _endTime, _vestingDuration);
   }
 
   /**
    * @dev Update a pool, allow to change end time, reward per second
    * @param _pid: pool id to be renew
    * @param _endTime: time where the reward ends
+   * @param _vestingDuration: time vesting for token
    * @param _rewardPerSeconds: amount of reward token per second for the pool,
    *   0 if we want to stop the pool from accumulating rewards
    */
   function updatePool(
     uint256 _pid,
     uint32 _endTime,
+    uint32 _vestingDuration,
     uint256[] calldata _rewardPerSeconds
   ) external override onlyAdmin {
     updatePoolRewards(_pid);
@@ -261,11 +271,12 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
     require(_endTime > _getBlockTime() && _endTime > pool.startTime, 'update: invalid end time');
 
     pool.endTime = _endTime;
-    for(uint256 i = 0; i < _rewardPerSeconds.length; i++) {
+    pool.vestingDuration = _vestingDuration;
+    for (uint256 i = 0; i < _rewardPerSeconds.length; i++) {
       pool.poolRewardData[i].rewardPerSecond = _rewardPerSeconds[i];
     }
 
-    emit UpdatePool(_pid, _endTime);
+    emit UpdatePool(_pid, _endTime, _vestingDuration);
   }
 
   /**
@@ -330,7 +341,7 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
     uint256 amount = user.amount;
 
     user.amount = 0;
-    for(uint256 i = 0; i < rewardTokens.length; i++) {
+    for (uint256 i = 0; i < rewardTokens.length; i++) {
       UserRewardData storage rewardData = user.userRewardData[i];
       rewardData.lastRewardPerShare = 0;
       rewardData.unclaimedReward = 0;
@@ -354,30 +365,45 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
    *   combine rewards from all pools and only transfer once to save gas
    */
   function harvestMultiplePools(uint256[] calldata _pids) external override {
-    address[] memory rTokens = rewardTokens;
-    uint256[] memory totalRewards = new uint256[](rTokens.length);
-    address account = msg.sender;
-    uint256 pid;
+    require(_pids.length > 0, 'harvest: empty pool ids');
 
-    for (uint256 i = 0; i < _pids.length; i++) {
-      pid = _pids[i];
-      updatePoolRewards(pid);
-      // update user reward without harvesting
-      _updateUserReward(account, pid, false);
+    // check pids, if have save vesting duration 
+    if (_isSameVestingDuration(_pids)) {
+      address[] memory rTokens = rewardTokens;
+      uint256[] memory totalRewards = new uint256[](rTokens.length);
+      address account = msg.sender;
+      uint256 pid;
 
-      for(uint256 j = 0; j < rTokens.length; j++) {
-        uint256 reward = userInfo[pid][account].userRewardData[j].unclaimedReward;
-        if (reward > 0) {
-          totalRewards[j] = totalRewards[j].add(reward);
-          userInfo[pid][account].userRewardData[j].unclaimedReward = 0;
-          emit Harvest(account, pid, rTokens[j], reward, _getBlockTime());
+      for (uint256 i = 0; i < _pids.length; i++) {
+        pid = _pids[i];
+        updatePoolRewards(pid);
+        // update user reward without harvesting
+        _updateUserReward(account, pid, false);
+
+        for (uint256 j = 0; j < rTokens.length; j++) {
+          uint256 reward = userInfo[pid][account].userRewardData[j].unclaimedReward;
+          if (reward > 0) {
+            totalRewards[j] = totalRewards[j].add(reward);
+            userInfo[pid][account].userRewardData[j].unclaimedReward = 0;
+            emit Harvest(account, pid, rTokens[j], reward, _getBlockTime());
+          }
         }
       }
-    }
 
-    for(uint256 i = 0; i < totalRewards.length; i++) {
-      if (totalRewards[i] > 0) {
-        _lockReward(IERC20Ext(rTokens[i]), account, totalRewards[i]);
+      for (uint256 i = 0; i < totalRewards.length; i++) {
+        if (totalRewards[i] > 0) {
+          _lockReward(
+            IERC20Ext(rTokens[i]),
+            account,
+            totalRewards[i],
+            poolInfo[_pids[0]].vestingDuration // use same duration
+          );
+        }
+      }
+    } 
+    else {     // else harvest one by one
+      for (uint256 i = 0; i < _pids.length; i++) {
+        harvest(_pids[i]);
       }
     }
   }
@@ -400,17 +426,18 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
     uint256 _totalStake = pool.totalStake;
     uint256 _poolLastRewardTime = pool.lastRewardTime;
     uint32 lastAccountedTime = _lastAccountedRewardTime(_pid);
-    for(uint256 i = 0; i < rTokensLength; i++) {
+    for (uint256 i = 0; i < rTokensLength; i++) {
       uint256 _accRewardPerShare = pool.poolRewardData[i].accRewardPerShare;
       if (lastAccountedTime > _poolLastRewardTime && _totalStake != 0) {
-        uint256 reward = (lastAccountedTime - _poolLastRewardTime)
-          .mul(pool.poolRewardData[i].rewardPerSecond);
+        uint256 reward = (lastAccountedTime - _poolLastRewardTime).mul(
+          pool.poolRewardData[i].rewardPerSecond
+        );
         _accRewardPerShare = _accRewardPerShare.add(reward.mul(PRECISION) / _totalStake);
       }
 
-      rewards[i] = user.amount.mul(
-        _accRewardPerShare.sub(user.userRewardData[i].lastRewardPerShare)
-        ) / PRECISION;
+      rewards[i] =
+        user.amount.mul(_accRewardPerShare.sub(user.userRewardData[i].lastRewardPerShare)) /
+        PRECISION;
       rewards[i] = rewards[i].add(user.userRewardData[i].unclaimedReward);
     }
   }
@@ -426,7 +453,9 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
    * @dev Return full details of a pool
    */
   function getPoolInfo(uint256 _pid)
-    external override view
+    external
+    override
+    view
     returns (
       uint256 totalStake,
       address stakeToken,
@@ -434,29 +463,22 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
       uint32 startTime,
       uint32 endTime,
       uint32 lastRewardTime,
+      uint32 vestingDuration,
       uint256[] memory rewardPerSeconds,
       uint256[] memory accRewardPerShares
     )
   {
     PoolInfo storage pool = poolInfo[_pid];
-    (
-      totalStake,
-      stakeToken,
-      generatedToken,
-      startTime,
-      endTime,
-      lastRewardTime
-    ) = (
-      pool.totalStake,
-      pool.stakeToken,
-      address(pool.generatedToken),
-      pool.startTime,
-      pool.endTime,
-      pool.lastRewardTime
-    );
+    totalStake = pool.totalStake;
+    stakeToken = pool.stakeToken;
+    generatedToken = address(pool.generatedToken);
+    startTime = pool.startTime;
+    endTime = pool.endTime;
+    lastRewardTime = pool.lastRewardTime;
+    vestingDuration = pool.vestingDuration;
     rewardPerSeconds = new uint256[](rewardTokens.length);
     accRewardPerShares = new uint256[](rewardTokens.length);
-    for(uint256 i = 0; i < rewardTokens.length; i++) {
+    for (uint256 i = 0; i < rewardTokens.length; i++) {
       rewardPerSeconds[i] = pool.poolRewardData[i].rewardPerSecond;
       accRewardPerShares[i] = pool.poolRewardData[i].accRewardPerShare;
     }
@@ -466,7 +488,9 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
    * @dev Return user's info including deposited amount and reward data
    */
   function getUserInfo(uint256 _pid, address _account)
-    external override view
+    external
+    override
+    view
     returns (
       uint256 amount,
       uint256[] memory unclaimedRewards,
@@ -477,7 +501,7 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
     amount = user.amount;
     unclaimedRewards = new uint256[](rewardTokens.length);
     lastRewardPerShares = new uint256[](rewardTokens.length);
-    for(uint256 i = 0; i < rewardTokens.length; i++) {
+    for (uint256 i = 0; i < rewardTokens.length; i++) {
       unclaimedRewards[i] = user.userRewardData[i].unclaimedReward;
       lastRewardPerShares[i] = user.userRewardData[i].lastRewardPerShare;
     }
@@ -506,10 +530,12 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
       return;
     }
     uint256 secondsPassed = lastAccountedTime - pool.lastRewardTime;
-    for(uint256 i = 0; i < rewardTokens.length; i++) {
+    for (uint256 i = 0; i < rewardTokens.length; i++) {
       PoolRewardData storage rewardData = pool.poolRewardData[i];
       uint256 reward = secondsPassed.mul(rewardData.rewardPerSecond);
-      rewardData.accRewardPerShare = rewardData.accRewardPerShare.add(reward.mul(PRECISION) / _totalStake);
+      rewardData.accRewardPerShare = rewardData.accRewardPerShare.add(
+        reward.mul(PRECISION) / _totalStake
+      );
     }
     pool.lastRewardTime = lastAccountedTime;
   }
@@ -553,18 +579,19 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
       // update user last reward per share to the latest pool reward per share
       // by right if user.amount is 0, user.unclaimedReward should be 0 as well,
       // except when user uses emergencyWithdraw function
-      for(uint256 i = 0; i < rTokensLength; i++) {
-        userInfo[_pid][_to].userRewardData[i].lastRewardPerShare =
-          poolInfo[_pid].poolRewardData[i].accRewardPerShare;
+      for (uint256 i = 0; i < rTokensLength; i++) {
+        userInfo[_pid][_to].userRewardData[i].lastRewardPerShare = poolInfo[_pid].poolRewardData[i]
+          .accRewardPerShare;
       }
       return;
     }
 
-    for(uint256 i = 0; i < rTokensLength; i++) {
+    for (uint256 i = 0; i < rTokensLength; i++) {
       uint256 lastAccRewardPerShare = poolInfo[_pid].poolRewardData[i].accRewardPerShare;
       UserRewardData storage rewardData = userInfo[_pid][_to].userRewardData[i];
       // user's unclaim reward + user's amount * (pool's accRewardPerShare - user's lastRewardPerShare) / precision
-      uint256 _pending = userAmount.mul(lastAccRewardPerShare.sub(rewardData.lastRewardPerShare)) / PRECISION;
+      uint256 _pending = userAmount.mul(lastAccRewardPerShare.sub(rewardData.lastRewardPerShare)) /
+        PRECISION;
       _pending = _pending.add(rewardData.unclaimedReward);
 
       rewardData.unclaimedReward = shouldHarvest ? 0 : _pending;
@@ -572,10 +599,23 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
       rewardData.lastRewardPerShare = lastAccRewardPerShare;
 
       if (shouldHarvest && _pending > 0) {
-        _lockReward(IERC20Ext(rewardTokens[i]), _to, _pending);
+        _lockReward(IERC20Ext(rewardTokens[i]), _to, _pending, poolInfo[_pid].vestingDuration);
         emit Harvest(_to, _pid, rewardTokens[i], _pending, _getBlockTime());
       }
     }
+  }
+
+  /**
+   * @dev Call locker contract to lock rewards
+   */
+  function _lockReward(
+    IERC20Ext token,
+    address _account,
+    uint256 _amount,
+    uint32 _vestingDuration
+  ) internal {
+    uint256 value = token == IERC20Ext(0) ? _amount : 0;
+    rewardLocker.lock{value: value}(token, _account, _amount, _vestingDuration);
   }
 
   /**
@@ -586,15 +626,16 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
     if (_value > _getBlockTime()) _value = _getBlockTime();
   }
 
-  /**
-   * @dev Call locker contract to lock rewards
-   */
-  function _lockReward(IERC20Ext token, address _account, uint256 _amount) internal {
-    uint256 value = token == IERC20Ext(0) ? _amount : 0;
-    rewardLocker.lock{ value: value }(token, _account, _amount);
+  function _getBlockTime() internal virtual view returns (uint32) {
+    return uint32(block.timestamp);
   }
 
-  function _getBlockTime() internal view virtual returns (uint32) {
-    return uint32(block.timestamp);
+  function _isSameVestingDuration(uint256[] calldata _pids) private view returns (bool) {
+    uint256 val = poolInfo[_pids[0]].vestingDuration;
+    for (uint256 i = 1; i < _pids.length; i++) {
+      if(poolInfo[_pids[i]].vestingDuration == val) continue;
+      else return false;
+    }
+    return true;
   }
 }
