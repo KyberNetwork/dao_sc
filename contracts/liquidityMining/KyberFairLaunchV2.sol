@@ -367,43 +367,42 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
   function harvestMultiplePools(uint256[] calldata _pids) external override {
     require(_pids.length > 0, 'harvest: empty pool ids');
 
-    // check pids, if have save vesting duration 
-    if (_isSameVestingDuration(_pids)) {
-      address[] memory rTokens = rewardTokens;
-      uint256[] memory totalRewards = new uint256[](rTokens.length);
-      address account = msg.sender;
-      uint256 pid;
-
-      for (uint256 i = 0; i < _pids.length; i++) {
-        pid = _pids[i];
-        updatePoolRewards(pid);
-        // update user reward without harvesting
-        _updateUserReward(account, pid, false);
-
-        for (uint256 j = 0; j < rTokens.length; j++) {
-          uint256 reward = userInfo[pid][account].userRewardData[j].unclaimedReward;
-          if (reward > 0) {
-            totalRewards[j] = totalRewards[j].add(reward);
-            userInfo[pid][account].userRewardData[j].unclaimedReward = 0;
-            emit Harvest(account, pid, rTokens[j], reward, _getBlockTime());
-          }
-        }
-      }
-
-      for (uint256 i = 0; i < totalRewards.length; i++) {
-        if (totalRewards[i] > 0) {
-          _lockReward(
-            IERC20Ext(rTokens[i]),
-            account,
-            totalRewards[i],
-            poolInfo[_pids[0]].vestingDuration // use same duration
-          );
-        }
-      }
-    } 
-    else {     // else harvest one by one
+    if (!_isSameVestingDuration(_pids)) {
+      //harvest one by one if pools not have same vesting duration
       for (uint256 i = 0; i < _pids.length; i++) {
         harvest(_pids[i]);
+      }
+      return;
+    }
+    address[] memory rTokens = rewardTokens;
+    uint256[] memory totalRewards = new uint256[](rTokens.length);
+    address account = msg.sender;
+    uint256 pid;
+
+    for (uint256 i = 0; i < _pids.length; i++) {
+      pid = _pids[i];
+      updatePoolRewards(pid);
+      // update user reward without harvesting
+      _updateUserReward(account, pid, false);
+
+      for (uint256 j = 0; j < rTokens.length; j++) {
+        uint256 reward = userInfo[pid][account].userRewardData[j].unclaimedReward;
+        if (reward > 0) {
+          totalRewards[j] = totalRewards[j].add(reward);
+          userInfo[pid][account].userRewardData[j].unclaimedReward = 0;
+          emit Harvest(account, pid, rTokens[j], reward, _getBlockTime());
+        }
+      }
+    }
+
+    for (uint256 i = 0; i < totalRewards.length; i++) {
+      if (totalRewards[i] > 0) {
+        _lockReward(
+          IERC20Ext(rTokens[i]),
+          account,
+          totalRewards[i],
+          poolInfo[_pids[0]].vestingDuration // use same duration
+        );
       }
     }
   }
@@ -633,8 +632,7 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
   function _isSameVestingDuration(uint256[] calldata _pids) private view returns (bool) {
     uint256 val = poolInfo[_pids[0]].vestingDuration;
     for (uint256 i = 1; i < _pids.length; i++) {
-      if(poolInfo[_pids[i]].vestingDuration == val) continue;
-      else return false;
+      if (poolInfo[_pids[i]].vestingDuration != val) return false;
     }
     return true;
   }

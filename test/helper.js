@@ -351,43 +351,11 @@ module.exports.txAtBlock = async function (block, txFunc) {
 };
 
 module.exports.increaseNextBlockTimestamp = async function (duration) {
-  currentChainTime = await module.exports.getCurrentBlockTime();
-  return new Promise((resolve, reject) => {
-    web3.currentProvider.send.bind(web3.currentProvider)(
-      {
-        jsonrpc: '2.0',
-        method: 'evm_setNextBlockTimestamp',
-        params: [currentChainTime + duration],
-        id: new Date().getTime(),
-      },
-      (err, res) => {
-        if (err) {
-          return reject(err);
-        }
-        console.log(`next block timestamp will be: ${currentChainTime + duration}`);
-        resolve(res);
-      }
-    );
-  });
+  await time.increase(duration)
 };
 
 module.exports.setNextBlockTimestamp = async function (timestamp) {
-  return new Promise((resolve, reject) => {
-    web3.currentProvider.send.bind(web3.currentProvider)(
-      {
-        jsonrpc: '2.0',
-        method: 'evm_setNextBlockTimestamp',
-        params: [timestamp],
-        id: new Date().getTime(),
-      },
-      (err, res) => {
-        if (err) {
-          return reject(err);
-        }
-        resolve(res);
-      }
-    );
-  });
+  await time.increaseTo(timestamp)
 };
 
 module.exports.txAtTime = async function (timestamp, txFunc) {
@@ -429,20 +397,20 @@ module.exports.mineNewBlockAt = async function (timestamp) {
 };
 
 module.exports.mineNewBlockAfter = async function (duration) {
-  currentChainTime = await module.exports.getCurrentBlockTime();
+  let currentChainTime = await module.exports.getCurrentBlockTime();
   return new Promise((resolve, reject) => {
     web3.currentProvider.send.bind(web3.currentProvider)(
       {
         jsonrpc: '2.0',
         method: 'evm_mine',
-        params: [currentChainTime + duration],
+        params: [new BN(currentChainTime).add(new BN(duration))],
         id: new Date().getTime(),
       },
       (err, res) => {
         if (err) {
           return reject(err);
         }
-        console.log(`mined new block at: ${currentChainTime + duration}`);
+        console.log(`mined new block at: ${new BN(currentChainTime).add(new BN(duration))}`);
         resolve(res);
       }
     );
