@@ -2,7 +2,7 @@ import '@nomiclabs/hardhat-truffle5';
 import '@nomiclabs/hardhat-waffle';
 import '@nomiclabs/hardhat-web3';
 import '@nomiclabs/hardhat-etherscan';
-// import 'hardhat-gas-reporter';
+import 'hardhat-gas-reporter';
 import 'solidity-coverage';
 import '@openzeppelin/hardhat-upgrades';
 import 'hardhat-typechain';
@@ -23,10 +23,10 @@ import { accounts } from './test-wallets';
 const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
 
-//   gasReporter: {
-//     currency: 'USD',
-//     gasPrice: 100,
-//   },
+  gasReporter: {
+    currency: 'USD',
+    gasPrice: 100,
+  },
 
   networks: {
     develop: {
