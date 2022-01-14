@@ -21,11 +21,10 @@ async function verifyContract(hre, contractAddress, ctorArgs) {
 
 let deployerAddress;
 let lockerAddress;
-let lockerDuration;
 let fairLaunchConfigs = [];
 let outputFilename;
 
-task('deployLiquidityMiningV2', 'deploy liquidity mining contracts')
+task('deployLiquidityMiningV2', 'deploy liquidity mining V2 contracts')
   .addParam('input', 'The input file')
   .addParam('gasprice', 'The gas price (in gwei) for all transactions')
   .setAction(async (taskArgs, hre) => {
@@ -40,24 +39,31 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining contracts')
 
     let outputData = {};
     gasPrice = new BN.from(10**9 * taskArgs.gasprice);
-    console.log(`Deploy gas price: ${gasPrice.toString(10)} (${taskArgs.gasprice} gweis)`);
+    console.log(`Deploy gas price: ${gasPrice.toString()} (${taskArgs.gasprice} gweis)`);
 
     let precision = new BN.from(10).pow(new BN.from(18));
 
-    const KyberRewardLocker = await ethers.getContractFactory('KyberRewardLocker');
+    const KyberRewardLockerV2 = await ethers.getContractFactory('KyberRewardLockerV2');
     let rewardLocker;
     if (lockerAddress == undefined) {
-        rewardLocker = await KyberRewardLocker.deploy(deployerAddress, { gasPrice: gasPrice });
+        rewardLocker = await KyberRewardLockerV2.deploy(deployerAddress, { gasPrice: gasPrice });
         await rewardLocker.deployed();
         lockerAddress = rewardLocker.address;
     } else {
-        rewardLocker = await KyberRewardLocker.attach(lockerAddress);
+        rewardLocker = await KyberRewardLockerV2.attach(lockerAddress);
     }
-    console.log(`RewardLocker address: ${rewardLocker.address}`);
-    outputData["RewardLocker"] = rewardLocker.address;
-    outputData["LockerDuration"] = lockerDuration;
+    console.log(`RewardLockerV2 address: ${rewardLocker.address}`);
+    outputData["RewardLockerV2"] = rewardLocker.address;
+
+    // FOR TESTING LOCALLY
+    // let MockToken = await ethers.getContractFactory('MockToken');
+    // let rewardToken = await MockToken.deploy('R', 'R', new BN.from(1_000_000));
+    // END
 
     for (let i = 0; i < fairLaunchConfigs.length; i++) {
+      // FOR TESTING LOCALLY
+      // fairLaunchConfigs[i].rewardTokens = [rewardToken.address];
+      // END
       if (fairLaunchConfigs[i].address != undefined) {
         console.log(`FairLaunch ${i}: ${fairLaunchConfigs[i].address}`);
         continue;
@@ -87,14 +93,6 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining contracts')
           contractData.rewardTokens[j],
           fairLaunch.address
         );
-        await rewardLocker.setVestingDuration(
-          contractData.rewardTokens[j], lockerDuration,
-          { gasPrice: gasPrice }
-        );
-        let MockToken = await ethers.getContractFactory('MockToken');
-        let token = await MockToken.attach(contractData.rewardTokens[j]);
-        let amount = precision.mul(new BN.from(3000));
-        await token.transfer(fairLaunch.address, amount, { gasPrice: gasPrice });
       }
 
       console.log(`Add Pools to FairLaunch`);
@@ -105,17 +103,20 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining contracts')
         let duration = new BN.from(poolData.endTime - poolData.startTime);
         let rewardPerSeconds = [];
         for (let k = 0; k < poolData.totalRewards.length; k++) {
-          rewardPerSeconds.push(
-            new BN.from(poolData.totalRewards[k]).mul(precision).div(duration)
-          )
+          let rewardPerSecond = new BN.from(poolData.totalRewards[k]).mul(precision).div(duration);
+          rewardPerSeconds.push(rewardPerSecond);
+          console.log(`${contractData.rewardTokens[k]} reward per second: ${rewardPerSecond}`);
         }
+        console.log(`length: ${rewardPerSeconds.length}`);
         if (poolExist == false) {
           await fairLaunch.addPool(
             poolData.stakeToken,
             poolData.startTime,
             poolData.endTime,
-            poolData.totalRewards,
-            j == 0,
+            poolData.vestingDuration,
+            rewardPerSeconds,
+            poolData.name,
+            poolData.symbol,
             { gasPrice: gasPrice }
           );
           console.log(`Add pool with stakeToken: ${poolData.stakeToken} startTime: ${poolData.startTime} endTime: ${poolData.endTime}`);
@@ -123,10 +124,10 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining contracts')
       }
     }
 
-    // console.log(`Verify reward locker at: ${rewardLocker.address}`);
-    // await verifyContract(hre, rewardLocker.address, [deployerAddress]);
+    console.log(`Verify reward locker at: ${rewardLocker.address}`);
+    await verifyContract(hre, rewardLocker.address, [deployerAddress]);
     for (let i = 0; i < fairLaunchConfigs.length; i++) {
-      console.log(`Verify fairlaunch  at: ${fairLaunchConfigs[i].address}`);
+      console.log(`Verify fairlaunch at: ${fairLaunchConfigs[i].address}`);
       await verifyContract(
         hre, fairLaunchConfigs[i].address,
         [deployerAddress, fairLaunchConfigs[i].rewardTokens, rewardLocker.address]
@@ -140,8 +141,7 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining contracts')
 );
 
 function parseInput(jsonInput) {
-  lockerAddress = jsonInput["RewardLocker"];
-  lockerDuration = jsonInput["LockerDuration"];
+  lockerAddress = jsonInput["RewardLockerV2"];
   fairLaunchConfigs = [];
   let configs = jsonInput["FairLaunches"];
   if (configs == undefined) configs = [];
@@ -159,7 +159,10 @@ function parseInput(jsonInput) {
           stakeToken: poolData["stakeToken"],
           startTime: poolData["startTime"],
           endTime: poolData["endTime"],
-          totalRewards: poolData["totalRewards"] 
+          totalRewards: poolData["totalRewards"] ,
+          vestingDuration: poolData["vestingDuration"],
+          name: poolData["tokenName"],
+          symbol: poolData["tokenSymbol"]
         });
       }
     }
