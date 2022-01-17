@@ -351,11 +351,11 @@ module.exports.txAtBlock = async function (block, txFunc) {
 };
 
 module.exports.increaseNextBlockTimestamp = async function (duration) {
-  await time.increase(duration)
+  await time.increase(duration);
 };
 
 module.exports.setNextBlockTimestamp = async function (timestamp) {
-  await time.increaseTo(timestamp)
+  await time.increaseTo(timestamp);
 };
 
 module.exports.txAtTime = async function (timestamp, txFunc) {

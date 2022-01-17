@@ -1,0 +1,20 @@
+{
+  "RewardLocker": "",
+  "FairLaunches": [
+    {
+      "rewardTokens": ["0x8b4ddf9f13f382aff76d262f6c8c50e6d7961b94"],
+      "poolInfo": [
+        {
+          "stakeToken": "0x8b4ddf9f13f382aff76d262f6c8c50e6d7961b94",
+          "startTime": 1642257050,
+          "endTime": 1643466650,
+          "totalRewards": [150000],
+          "vestingDuration": 1209600,
+          "tokenName": "KyberSwap Stake LP SIPHER-ETH",
+          "tokenSymbol": "KS SLP SIPHER-ETH"
+        }
+      ]
+    }
+  ],
+  "outputFilename": "v2_ropsten_output.json"
+}
