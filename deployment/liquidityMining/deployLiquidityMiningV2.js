@@ -124,14 +124,25 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining V2 contracts')
       }
     }
 
-    console.log(`Verify reward locker at: ${rewardLocker.address}`);
-    await verifyContract(hre, rewardLocker.address, [deployerAddress]);
-    for (let i = 0; i < fairLaunchConfigs.length; i++) {
-      console.log(`Verify fairlaunch at: ${fairLaunchConfigs[i].address}`);
-      await verifyContract(
-        hre, fairLaunchConfigs[i].address,
-        [deployerAddress, fairLaunchConfigs[i].rewardTokens, rewardLocker.address]
-      );
+    try{
+        console.log(`Verify reward locker at: ${rewardLocker.address}`);
+        await verifyContract(hre, rewardLocker.address, [deployerAddress]);
+    }
+    catch(e){
+        console.log(`Error in verify reward locker, continue...`);
+    }
+
+    try{
+        for (let i = 0; i < fairLaunchConfigs.length; i++) {
+          console.log(`Verify fairlaunch at: ${fairLaunchConfigs[i].address}`);
+          await verifyContract(
+            hre, fairLaunchConfigs[i].address,
+            [deployerAddress, fairLaunchConfigs[i].rewardTokens, rewardLocker.address]
+          );
+        }
+    }
+    catch(e){
+        console.log(`Error in verify fair launch, continue...`);
     }
 
     exportAddresses(outputData);

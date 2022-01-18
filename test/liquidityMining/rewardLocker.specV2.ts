@@ -252,7 +252,6 @@ describe('KyberRewardLocker', () => {
       const end1 = start1.add(vestingDuration);
       await rewardLocker.setBlockTime(start1);
 
-      //   await rewardLocker.setBlockNumber(7200);
       await rewardLocker
         .connect(rewardContract)
         .lock(NATIVE_TOKEN_ADDRESS, user1.address, vestingQuantity, vestingDuration, {value: vestingQuantity});
@@ -263,7 +262,6 @@ describe('KyberRewardLocker', () => {
       expect(vestingSchedules[0].endTime).to.equal(end1);
       expect(vestingSchedules[0].quantity).to.equal(vestingQuantity);
 
-      //   await rewardLocker.setBlockNumber(10800);
       await rewardLocker.setBlockTime(end1);
 
       let balanceBefore = (await user1.getBalance()) as BN;
@@ -281,12 +279,10 @@ describe('KyberRewardLocker', () => {
       const start1 = currentBlockTime.add(getSecondInMinute(2));
       const end1 = start1.add(vestingDuration);
       await rewardLocker.setBlockTime(start1);
-      //   await rewardLocker.setBlockNumber(7200);
       await rewardLocker
         .connect(rewardContract)
         .lock(NATIVE_TOKEN_ADDRESS, user1.address, vestingQuantity, vestingDuration, {value: vestingQuantity});
 
-      //   await rewardLocker.setBlockNumber(7200);
       await rewardLocker.setBlockTime(start1);
 
       await rewardLocker

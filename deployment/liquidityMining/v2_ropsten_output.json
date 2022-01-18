@@ -1,20 +1,35 @@
 {
-  "RewardLockerV2": "0x2081fAE57051b3c3900E4146467a2c095fA82a7e",
-  "FairLaunches": [
-    {
-      "address": "0x4829F2130c00c34d50C13dE9a0B0194C8c6c42f5",
-      "rewardTokens": ["0x8b4ddf9f13f382aff76d262f6c8c50e6d7961b94"],
-      "poolInfos": [
-        {
-          "stakeToken": "0x8b4ddf9f13f382aff76d262f6c8c50e6d7961b94",
-          "startTime": 1642257050,
-          "endTime": 1643466650,
-          "totalRewards": [150000],
-          "vestingDuration": 1209600,
-          "name": "KyberSwap Stake LP SIPHER-ETH",
-          "symbol": "KS SLP SIPHER-ETH"
-        }
-      ]
-    }
-  ]
-}
+    "RewardLockerV2": "0xAF1FAb26F02f3cdFAA8c34402f3E8393F02afA4e",
+    "FairLaunches": [
+      {
+        "address": "0x92FC4b3E576d849BA9639E6B24A45cF2C8F78685",
+        "rewardTokens": [
+          "0x32fe6D2a56eE4C2e5614b0cF9Abd4424B798A8f5"
+        ],
+        "poolInfos": [
+          {
+            "stakeToken": "0xa996f6c28AeB2E0b4395D3227e2E0b5C07650c55",
+            "startTime": 1642525200,
+            "endTime": 1642784400,
+            "totalRewards": [
+              300000
+            ],
+            "vestingDuration": 259200,
+            "name": "KyberSwap Stake LP KNC-WETH",
+            "symbol": "LP KNC-WETH"
+          },
+          {
+            "stakeToken": "0x26b8d1680b8450dda51FA7d4753cDcA9766717bD",
+            "startTime": 1642525200,
+            "endTime": 1642784400,
+            "totalRewards": [
+              400000
+            ],
+            "vestingDuration": 259200,
+            "name": "KyberSwap Stake LP DAI-WETH",
+            "symbol": "LP DAI-WETH"
+          }
+        ]
+      }
+    ]
+  }
