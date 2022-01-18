@@ -75,18 +75,32 @@ module.exports.setupLpTokens = async function (user: Wallet) {
   let ethAmount = BN.from(5).mul(BN.from(10).pow(18));
   let bigAmount = BN.from(2).pow(255);
   await router.swapExactETHForTokens(
-    0, [ethKncPoolAddress], [wethAddress, kncAddress], user.address, bigAmount,
+    0,
+    [ethKncPoolAddress],
+    [wethAddress, kncAddress],
+    user.address,
+    bigAmount,
     {from: user.address, value: ethAmount.mul(BN.from(2))} // swap more eth to knc to pay for liquidation
   );
   await router.swapExactETHForTokens(0, [ethUsdtPoolAddress], [wethAddress, usdtAddress], user.address, bigAmount, {
-    from: user.address, value: ethAmount,
+    from: user.address,
+    value: ethAmount,
   });
   await router.swapExactETHForTokens(0, [ethWbtcPoolAddress], [wethAddress, wbtcAddress], user.address, bigAmount, {
-    from: user.address, value: ethAmount,
+    from: user.address,
+    value: ethAmount,
   });
-  await router.swapExactETHForTokens(0, [ethUsdtPoolAddress, usdcUsdtPoolAddress], [wethAddress, usdtAddress, usdcAddress], user.address, bigAmount, {
-    from: user.address, value: ethAmount,
-  });
+  await router.swapExactETHForTokens(
+    0,
+    [ethUsdtPoolAddress, usdcUsdtPoolAddress],
+    [wethAddress, usdtAddress, usdcAddress],
+    user.address,
+    bigAmount,
+    {
+      from: user.address,
+      value: ethAmount,
+    }
+  );
 
   ethAmount = BN.from(2).mul(BN.from(10).pow(18));
 
@@ -96,9 +110,14 @@ module.exports.setupLpTokens = async function (user: Wallet) {
     await kncToken.approve(dmmRouterAddress, bigAmount, {from: user.address});
   }
   await router.addLiquidityETH(
-    kncAddress, ethKncPoolAddress,
+    kncAddress,
+    ethKncPoolAddress,
     await kncToken.balanceOf(user.address),
-    0, 0, [BN.from(0), bigAmount], user.address, bigAmount,
+    0,
+    0,
+    [BN.from(0), bigAmount],
+    user.address,
+    bigAmount,
     {from: user.address, value: ethAmount}
   );
   // Add USDT-ETH
@@ -107,9 +126,14 @@ module.exports.setupLpTokens = async function (user: Wallet) {
     await usdtToken.approve(dmmRouterAddress, bigAmount, {from: user.address});
   }
   await router.addLiquidityETH(
-    usdtAddress, ethUsdtPoolAddress,
+    usdtAddress,
+    ethUsdtPoolAddress,
     await usdtToken.balanceOf(user.address),
-    0, 0, [BN.from(0), bigAmount], user.address, bigAmount,
+    0,
+    0,
+    [BN.from(0), bigAmount],
+    user.address,
+    bigAmount,
     {from: user.address, value: ethAmount}
   );
   // Add WBTC-ETH
@@ -118,16 +142,28 @@ module.exports.setupLpTokens = async function (user: Wallet) {
     await wbtcToken.approve(dmmRouterAddress, bigAmount, {from: user.address});
   }
   await router.addLiquidityETH(
-    wbtcAddress, ethWbtcPoolAddress,
+    wbtcAddress,
+    ethWbtcPoolAddress,
     await wbtcToken.balanceOf(user.address),
-    0, 0, [BN.from(0), bigAmount], user.address, bigAmount,
+    0,
+    0,
+    [BN.from(0), bigAmount],
+    user.address,
+    bigAmount,
     {from: user.address, value: ethAmount}
   );
   // Add WBTC-USDT
   await router.addLiquidity(
-    wbtcAddress, usdtAddress, wbtcUsdtPoolAddress,
-    3000000, 1000000000, 0, 0, // just hardcoded: 0.03 wbtc, 1000 usdt
-    [BN.from(0), bigAmount], user.address, bigAmount,
+    wbtcAddress,
+    usdtAddress,
+    wbtcUsdtPoolAddress,
+    3000000,
+    1000000000,
+    0,
+    0, // just hardcoded: 0.03 wbtc, 1000 usdt
+    [BN.from(0), bigAmount],
+    user.address,
+    bigAmount,
     {from: user.address}
   );
   let usdcToken = await Token.at(usdcAddress);
@@ -136,9 +172,16 @@ module.exports.setupLpTokens = async function (user: Wallet) {
   }
   // Add USDC-USDT
   await router.addLiquidity(
-    usdcAddress, usdtAddress, usdcUsdtPoolAddress,
-    1000000000, 1000000000, 0, 0, // just hardcoded: 1000 usdc, 1000 usdt
-    [BN.from(0), bigAmount], user.address, bigAmount,
+    usdcAddress,
+    usdtAddress,
+    usdcUsdtPoolAddress,
+    1000000000,
+    1000000000,
+    0,
+    0, // just hardcoded: 1000 usdc, 1000 usdt
+    [BN.from(0), bigAmount],
+    user.address,
+    bigAmount,
     {from: user.address}
   );
 };

@@ -315,7 +315,7 @@ contract KyberRewardLockerV2 is IKyberRewardLockerV2, PermissionAdmin {
   /**
    * @dev wrap block.timestamp so we can easily mock it
    */
-  function _getBlockTime() internal view virtual returns (uint32) {
+  function _getBlockTime() internal virtual view returns (uint32) {
     return uint32(block.timestamp);
   }
 }

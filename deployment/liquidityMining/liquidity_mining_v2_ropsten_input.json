@@ -1,30 +1,29 @@
 {
-    "RewardLocker": "",
-    "FairLaunches": [
-      {
-        "rewardTokens": ["0x32fe6D2a56eE4C2e5614b0cF9Abd4424B798A8f5"],
-        "poolInfo": [
-          {
-            "stakeToken": "0xa996f6c28AeB2E0b4395D3227e2E0b5C07650c55",
-            "startTime": 1642525200,
-            "endTime": 1642784400,
-            "totalRewards": [300000],
-            "vestingDuration": 259200,
-            "tokenName": "KyberSwap Stake LP KNC-WETH",
-            "tokenSymbol": "LP KNC-WETH"
-          },
-          {
-            "stakeToken": "0x26b8d1680b8450dda51FA7d4753cDcA9766717bD",
-            "startTime": 1642525200,
-            "endTime": 1642784400,
-            "totalRewards": [400000],
-            "vestingDuration": 259200,
-            "tokenName": "KyberSwap Stake LP DAI-WETH",
-            "tokenSymbol": "LP DAI-WETH"
-          }
-        ]
-      }
-    ],
-    "outputFilename": "v2_ropsten_output.json"
-  }
-  
+  "RewardLocker": "",
+  "FairLaunches": [
+    {
+      "rewardTokens": ["0x32fe6D2a56eE4C2e5614b0cF9Abd4424B798A8f5"],
+      "poolInfo": [
+        {
+          "stakeToken": "0xa996f6c28AeB2E0b4395D3227e2E0b5C07650c55",
+          "startTime": 1642525200,
+          "endTime": 1642784400,
+          "totalRewards": [300000],
+          "vestingDuration": 259200,
+          "tokenName": "KyberSwap Stake LP KNC-WETH",
+          "tokenSymbol": "LP KNC-WETH"
+        },
+        {
+          "stakeToken": "0x26b8d1680b8450dda51FA7d4753cDcA9766717bD",
+          "startTime": 1642525200,
+          "endTime": 1642784400,
+          "totalRewards": [400000],
+          "vestingDuration": 259200,
+          "tokenName": "KyberSwap Stake LP DAI-WETH",
+          "tokenSymbol": "LP DAI-WETH"
+        }
+      ]
+    }
+  ],
+  "outputFilename": "v2_ropsten_output.json"
+}

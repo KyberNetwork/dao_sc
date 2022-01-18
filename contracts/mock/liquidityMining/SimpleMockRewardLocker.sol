@@ -5,13 +5,16 @@ pragma abicoder v2;
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 
-
 contract SimpleMockRewardLocker {
   using SafeERC20 for IERC20Ext;
 
-  mapping (address => mapping (IERC20Ext => uint256)) public lockedAmounts;
+  mapping(address => mapping(IERC20Ext => uint256)) public lockedAmounts;
 
-  function lock(IERC20Ext token, address account, uint256 amount) external payable {
+  function lock(
+    IERC20Ext token,
+    address account,
+    uint256 amount
+  ) external payable {
     if (token == IERC20Ext(0)) {
       require(amount == msg.value);
     } else {

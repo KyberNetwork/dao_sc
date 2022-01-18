@@ -5,11 +5,11 @@ import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 
 interface IDmmRouter {
   function swapExactETHForTokens(
-      uint256 amountOutMin,
-      address[] calldata poolsPath,
-      IERC20Ext[] calldata path,
-      address to,
-      uint256 deadline
+    uint256 amountOutMin,
+    address[] calldata poolsPath,
+    IERC20Ext[] calldata path,
+    address to,
+    uint256 deadline
   ) external payable returns (uint256[] memory amounts);
 
   function addLiquidityETH(
@@ -22,7 +22,8 @@ interface IDmmRouter {
     address to,
     uint256 deadline
   )
-    external payable
+    external
+    payable
     returns (
       uint256 amountToken,
       uint256 amountETH,
@@ -50,20 +51,22 @@ interface IDmmRouter {
 }
 
 contract MockDmmPool {
-
   IERC20Ext public token0;
   IERC20Ext public token1;
   uint112 internal _reserve0;
   uint112 internal _reserve1;
   uint256 public totalSupply;
 
-  mapping (address => uint256) public balanceOf;
+  mapping(address => uint256) public balanceOf;
 
   constructor() {}
 
   function setData(
-    IERC20Ext _t0, IERC20Ext _t1,
-    uint112 _r0, uint112 _r1, uint256 _totalSupply
+    IERC20Ext _t0,
+    IERC20Ext _t1,
+    uint112 _r0,
+    uint112 _r1,
+    uint256 _totalSupply
   ) external {
     token0 = _t0;
     token1 = _t1;
@@ -72,20 +75,21 @@ contract MockDmmPool {
     totalSupply = _totalSupply;
   }
 
-  function getReserves() external view returns (uint112 reserve0, uint112 reserve1)
-  {
+  function getReserves() external view returns (uint112 reserve0, uint112 reserve1) {
     (reserve0, reserve1) = (_reserve0, _reserve1);
   }
 
   function getTradeInfo()
-    external view
+    external
+    view
     returns (
       uint112 reserve0,
       uint112 reserve1,
       uint112 _vReserve0,
       uint112 _vReserve1,
       uint256 feeInPrecision
-  ) {
+    )
+  {
     (reserve0, reserve1) = (_reserve0, _reserve1);
     (_vReserve0, _vReserve1) = (0, 0);
     feeInPrecision = 0;

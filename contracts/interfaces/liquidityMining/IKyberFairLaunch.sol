@@ -102,39 +102,42 @@ interface IKyberFairLaunch {
    * @dev return full details of a pool
    */
   function getPoolInfo(uint256 _pid)
-    external view
-    returns(
+    external
+    view
+    returns (
       uint256 totalStake,
       address stakeToken,
       uint32 startBlock,
       uint32 endBlock,
       uint32 lastRewardBlock,
       uint256[] memory rewardPerBlocks,
-      uint256[] memory accRewardPerShares);
+      uint256[] memory accRewardPerShares
+    );
 
   /**
    * @dev get user's info
    */
   function getUserInfo(uint256 _pid, address _account)
-    external view
+    external
+    view
     returns (
       uint256 amount,
       uint256[] memory unclaimedRewards,
-      uint256[] memory lastRewardPerShares);
+      uint256[] memory lastRewardPerShares
+    );
 
   /**
-  * @dev return list reward tokens
-  */
+   * @dev return list reward tokens
+   */
   function getRewardTokens() external view returns (address[] memory);
+
   /**
    * @dev get pending reward of a user from a pool, mostly for front-end
    * @param _pid: id of the pool
    * @param _user: user to check for pending rewards
    */
-  function pendingRewards(
-    uint256 _pid,
-    address _user
-   )
-    external view
+  function pendingRewards(uint256 _pid, address _user)
+    external
+    view
     returns (uint256[] memory rewards);
 }

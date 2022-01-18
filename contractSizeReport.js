@@ -1,10 +1,10 @@
 'use strict';
 const fs = require('fs');
-const { resolve } = require('path');
-const { promisify } = require('util');
+const {resolve} = require('path');
+const {promisify} = require('util');
 const got = require('got');
 const yargs = require('yargs');
-const { contract } = require('hardhat');
+const {contract} = require('hardhat');
 
 let mainPath = 'artifacts/contracts';
 
@@ -23,7 +23,7 @@ async function generateCodeSizeReport() {
     if (contractData.deployedBytecode !== undefined) {
       let codeSize = contractData.deployedBytecode.length / 2 - 1;
       if (codeSize > 0) {
-        let concatFileName = fileName.substring(fileName.lastIndexOf("contracts/") + 10);
+        let concatFileName = fileName.substring(fileName.lastIndexOf('contracts/') + 10);
         result[concatFileName] = codeSize;
       }
     }
@@ -33,10 +33,12 @@ async function generateCodeSizeReport() {
 
 async function getFiles(dir) {
   const subdirs = await readdir(dir);
-  const files = await Promise.all(subdirs.map(async (subdir) => {
-    const res = resolve(dir, subdir);
-    return (await stat(res)).isDirectory() ? getFiles(res) : res;
-  }));
+  const files = await Promise.all(
+    subdirs.map(async (subdir) => {
+      const res = resolve(dir, subdir);
+      return (await stat(res)).isDirectory() ? getFiles(res) : res;
+    })
+  );
   return files.reduce((a, f) => a.concat(f), []);
 }
 
@@ -74,7 +76,7 @@ async function compareContractSize() {
   let remoteReport = await getRemoteReport();
   if (!remoteReport) {
     console.log(`Could not get report for ${argv.branch}`);
-    console.log("Current contract size report");
+    console.log('Current contract size report');
     console.table(contractSizeReport);
     return false;
   }

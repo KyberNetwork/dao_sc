@@ -48,7 +48,9 @@ describe('LiquidationStrategyBase-Forking - only check expected returns, transfe
   before('reset state', async () => {
     LiquidationBase = (await ethers.getContractFactory('LiquidationStrategyBase')) as LiquidationStrategyBase__factory;
     Token = (await ethers.getContractFactory('MockToken')) as MockToken__factory;
-    CallbackHandler = (await ethers.getContractFactory('MockSimpleLiquidatorCallbackHandler')) as MockSimpleLiquidatorCallbackHandler__factory;
+    CallbackHandler = (await ethers.getContractFactory(
+      'MockSimpleLiquidatorCallbackHandler'
+    )) as MockSimpleLiquidatorCallbackHandler__factory;
     Pool = (await ethers.getContractFactory('TreasuryPool')) as TreasuryPool__factory;
     await Helper.resetForking();
     await LiquidationHelper.setupLpTokens(user);
@@ -57,8 +59,14 @@ describe('LiquidationStrategyBase-Forking - only check expected returns, transfe
     treasuryPool = await Pool.deploy(admin.address, []);
     rewardPool = await Pool.deploy(admin.address, []);
     liquidationBase = await LiquidationBase.deploy(
-      admin.address, treasuryPool.address, rewardPool.address,
-      0, 1, 1, [user.address], [priceOracle.address]
+      admin.address,
+      treasuryPool.address,
+      rewardPool.address,
+      0,
+      1,
+      1,
+      [user.address],
+      [priceOracle.address]
     );
     await treasuryPool.connect(admin).authorizeStrategies([liquidationBase.address]);
   });
@@ -72,15 +80,17 @@ describe('LiquidationStrategyBase-Forking - only check expected returns, transfe
 
     // transfer knc to callback
     await kncToken.connect(user).transfer(callbackHandler.address, BN.from(10).pow(21));
-    tx = await liquidationBase.connect(user).liquidate(
-      priceOracle.address,
-      [ethAddress],
-      [ethAmount],
-      callbackHandler.address,
-      kncAddress,
-      await priceOracle.getEncodedData([LiquidationType.TOKEN]),
-      '0x'
-    );
+    tx = await liquidationBase
+      .connect(user)
+      .liquidate(
+        priceOracle.address,
+        [ethAddress],
+        [ethAmount],
+        callbackHandler.address,
+        kncAddress,
+        await priceOracle.getEncodedData([LiquidationType.TOKEN]),
+        '0x'
+      );
     console.log(`    Liquidate eth -> knc gas used: ${(await tx.wait()).gasUsed.toString()}`);
 
     let tokenAddresses = [kncAddress, usdtAddress, wbtcAddress];
@@ -99,16 +109,12 @@ describe('LiquidationStrategyBase-Forking - only check expected returns, transfe
     types.push(LiquidationType.TOKEN);
 
     let oracleHint = await priceOracle.getEncodedData(types);
-    tx = await liquidationBase.connect(user).liquidate(
-      priceOracle.address,
-      tokenAddresses,
-      amounts,
-      callbackHandler.address,
-      kncAddress,
-      oracleHint,
-      '0x'
+    tx = await liquidationBase
+      .connect(user)
+      .liquidate(priceOracle.address, tokenAddresses, amounts, callbackHandler.address, kncAddress, oracleHint, '0x');
+    console.log(
+      `    Liquidate ${tokenAddresses.length} tokens -> knc gas used: ${(await tx.wait()).gasUsed.toString()}`
     );
-    console.log(`    Liquidate ${tokenAddresses.length} tokens -> knc gas used: ${(await tx.wait()).gasUsed.toString()}`);
   });
 
   it('liquidate LP tokens', async () => {
@@ -126,15 +132,9 @@ describe('LiquidationStrategyBase-Forking - only check expected returns, transfe
     // transfer knc to callback
     let kncToken = await Token.attach(kncAddress);
     await kncToken.connect(user).transfer(callbackHandler.address, BN.from(10).pow(21));
-    let tx = await liquidationBase.connect(user).liquidate(
-      priceOracle.address,
-      poolAddresses,
-      amounts,
-      callbackHandler.address,
-      kncAddress,
-      oracleHint,
-      '0x'
-    );
+    let tx = await liquidationBase
+      .connect(user)
+      .liquidate(priceOracle.address, poolAddresses, amounts, callbackHandler.address, kncAddress, oracleHint, '0x');
     console.log(`    Liquidate ${poolAddresses.length} LP tokens gas used: ${(await tx.wait()).gasUsed.toString()}`);
   });
 
@@ -172,15 +172,11 @@ describe('LiquidationStrategyBase-Forking - only check expected returns, transfe
     let kncToken = await Token.attach(kncAddress);
     await kncToken.connect(user).transfer(callbackHandler.address, BN.from(10).pow(21));
 
-    let tx = await liquidationBase.connect(user).liquidate(
-      priceOracle.address,
-      addresses,
-      amounts,
-      callbackHandler.address,
-      kncAddress,
-      oracleHint,
-      '0x'
+    let tx = await liquidationBase
+      .connect(user)
+      .liquidate(priceOracle.address, addresses, amounts, callbackHandler.address, kncAddress, oracleHint, '0x');
+    console.log(
+      `    Liquidate combination ${addresses.length} tokens gas used: ${(await tx.wait()).gasUsed.toString()}`
     );
-    console.log(`    Liquidate combination ${addresses.length} tokens gas used: ${(await tx.wait()).gasUsed.toString()}`);
   });
 });

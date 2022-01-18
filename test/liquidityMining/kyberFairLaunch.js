@@ -1220,7 +1220,7 @@ contract('KyberFairLaunch', function (accounts) {
       user: user,
       pid: poolData.id,
       blockNumber: new BN(currentBlock),
-      amount: amount
+      amount: amount,
     });
     Helper.assertEqual(userBalBefore.add(amount), await poolData.stakeToken.balanceOf(user));
     Helper.assertEqual(poolBalBefore.sub(amount), await poolData.stakeToken.balanceOf(fairLaunch.address));
@@ -1454,7 +1454,7 @@ function updateInfoOnDeposit(userData, poolData, amount, currentBlock, isHarvest
     if (isHarvesting) userData.unclaimedRewards[i] = new BN(0);
     userData.lastRewardPerShares[i] = poolData.accRewardPerShares[i];
   }
- 
+
   return [userData, poolData, claimedAmounts];
 }
 

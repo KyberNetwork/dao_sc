@@ -2,13 +2,11 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-
 import {IProposalValidator} from '../interfaces/governance/IProposalValidator.sol';
 import {IKyberGovernance} from '../interfaces/governance/IKyberGovernance.sol';
 import {IVotingPowerStrategy} from '../interfaces/governance/IVotingPowerStrategy.sol';
 
 contract MockProposalValidator is IProposalValidator {
-
   bool public isCreationAllowed = true;
   bool public isCancellationAllowed = true;
   bool public isProposalPassed = true;
@@ -52,9 +50,7 @@ contract MockProposalValidator is IProposalValidator {
     uint256 startTime,
     uint256 endTime,
     address daoOperator
-  )
-    external view override returns (bool)
-  {
+  ) external override view returns (bool) {
     strategy;
     creator;
     startTime;
@@ -80,9 +76,7 @@ contract MockProposalValidator is IProposalValidator {
     uint256 endTime,
     string[] calldata options,
     address daoOperator
-  )
-    external view override returns (bool)
-  {
+  ) external override view returns (bool) {
     strategy;
     creator;
     startTime;
@@ -103,9 +97,7 @@ contract MockProposalValidator is IProposalValidator {
     IKyberGovernance governance,
     uint256 proposalId,
     address user
-  )
-    external view override returns (bool)
-  {
+  ) external override view returns (bool) {
     governance;
     proposalId;
     user;
@@ -118,11 +110,11 @@ contract MockProposalValidator is IProposalValidator {
    * @param proposalId Id of the proposal to set
    * @return true if proposal passed
    **/
-  function isBinaryProposalPassed(
-    IKyberGovernance governance,
-    uint256 proposalId
-  )
-    external view override returns (bool)
+  function isBinaryProposalPassed(IKyberGovernance governance, uint256 proposalId)
+    external
+    override
+    view
+    returns (bool)
   {
     governance;
     proposalId;
@@ -135,11 +127,11 @@ contract MockProposalValidator is IProposalValidator {
    * @param proposalId Id of the proposal to verify
    * @return voting power needed for a proposal to pass
    **/
-  function isQuorumValid(
-    IKyberGovernance governance,
-    uint256 proposalId
-  )
-    external view override returns (bool)
+  function isQuorumValid(IKyberGovernance governance, uint256 proposalId)
+    external
+    override
+    view
+    returns (bool)
   {
     governance;
     proposalId;
@@ -152,11 +144,11 @@ contract MockProposalValidator is IProposalValidator {
    * @param proposalId Id of the proposal to verify
    * @return true if enough For-Votes
    **/
-  function isVoteDifferentialValid(
-    IKyberGovernance governance,
-    uint256 proposalId
-  )
-    external view override returns (bool)
+  function isVoteDifferentialValid(IKyberGovernance governance, uint256 proposalId)
+    external
+    override
+    view
+    returns (bool)
   {
     governance;
     proposalId;

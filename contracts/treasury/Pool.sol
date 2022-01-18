@@ -9,10 +9,9 @@ import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 import {EnumerableSet} from '@openzeppelin/contracts/utils/EnumerableSet.sol';
 import {IPool} from '../interfaces/liquidation/IPool.sol';
 
-
 /**
-* Pool contract containing all tokens which whitelisted strategies can withdraw funds from
-*/
+ * Pool contract containing all tokens which whitelisted strategies can withdraw funds from
+ */
 contract Pool is IPool, PermissionAdmin, PermissionOperators, Utils {
   using SafeERC20 for IERC20Ext;
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -21,7 +20,7 @@ contract Pool is IPool, PermissionAdmin, PermissionOperators, Utils {
   bool private _isPaused;
 
   constructor(address admin, address[] memory strategies) PermissionAdmin(admin) {
-    for(uint256 i = 0; i < strategies.length; i++) {
+    for (uint256 i = 0; i < strategies.length; i++) {
       _authorizeStrategy(strategies[i]);
     }
     _isPaused = false;
@@ -29,18 +28,14 @@ contract Pool is IPool, PermissionAdmin, PermissionOperators, Utils {
 
   receive() external payable {}
 
-  function authorizeStrategies(address[] calldata strategies)
-    external override onlyAdmin
-  {
-    for(uint256 i = 0; i < strategies.length; i++) {
+  function authorizeStrategies(address[] calldata strategies) external override onlyAdmin {
+    for (uint256 i = 0; i < strategies.length; i++) {
       _authorizeStrategy(strategies[i]);
     }
   }
 
-  function unauthorizeStrategies(address[] calldata strategies)
-    external override onlyAdmin
-  {
-    for(uint256 i = 0; i < strategies.length; i++) {
+  function unauthorizeStrategies(address[] calldata strategies) external override onlyAdmin {
+    for (uint256 i = 0; i < strategies.length; i++) {
       _unauthorizeStrategy(strategies[i]);
     }
   }
@@ -63,40 +58,37 @@ contract Pool is IPool, PermissionAdmin, PermissionOperators, Utils {
     require(!_isPaused, 'only when not paused');
     require(isAuthorizedStrategy(msg.sender), 'not authorized');
     require(tokens.length == amounts.length, 'invalid lengths');
-    for(uint256 i = 0; i < tokens.length; i++) {
+    for (uint256 i = 0; i < tokens.length; i++) {
       _transferToken(tokens[i], amounts[i], recipient);
     }
   }
 
-  function isPaused() external view override returns (bool) {
+  function isPaused() external override view returns (bool) {
     return _isPaused;
   }
 
-  function getAuthorizedStrategiesLength()
-    external view override returns (uint256)
-  {
+  function getAuthorizedStrategiesLength() external override view returns (uint256) {
     return _authorizedStrategies.length();
   }
 
-  function getAuthorizedStrategyAt(uint256 index)
-    external view override returns (address)
-  {
+  function getAuthorizedStrategyAt(uint256 index) external override view returns (address) {
     return _authorizedStrategies.at(index);
   }
 
   function getAllAuthorizedStrategies()
-    external view override returns (address[] memory strategies)
+    external
+    override
+    view
+    returns (address[] memory strategies)
   {
     uint256 length = _authorizedStrategies.length();
     strategies = new address[](length);
-    for(uint256 i = 0; i < length; i++) {
+    for (uint256 i = 0; i < length; i++) {
       strategies[i] = _authorizedStrategies.at(i);
     }
   }
 
-  function isAuthorizedStrategy(address strategy)
-    public view override returns (bool)
-  {
+  function isAuthorizedStrategy(address strategy) public override view returns (bool) {
     return _authorizedStrategies.contains(strategy);
   }
 
@@ -120,8 +112,8 @@ contract Pool is IPool, PermissionAdmin, PermissionOperators, Utils {
     address payable _recipient
   ) internal {
     if (_token == ETH_TOKEN_ADDRESS) {
-      (bool success, ) = _recipient.call{ value: _amount }('');
-        require(success, 'transfer eth failed');
+      (bool success, ) = _recipient.call{value: _amount}('');
+      require(success, 'transfer eth failed');
     } else {
       _token.safeTransfer(_recipient, _amount);
     }

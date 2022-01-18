@@ -163,13 +163,8 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
     uint256 startTime,
     uint256 endTime,
     string memory link
-  )
-    external override returns (uint256 proposalId)
-  {
-    require(
-      isExecutorAuthorized(address(executor)),
-      'create generic executor not authorized'
-    );
+  ) external override returns (uint256 proposalId) {
+    require(isExecutorAuthorized(address(executor)), 'create generic executor not authorized');
     require(
       isVotingPowerStrategyAuthorized(address(strategy)),
       'create generic strategy not authorized'
@@ -270,10 +265,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    **/
   function queue(uint256 proposalId) external override {
     require(proposalId < _proposalsCount, 'invalid proposal id');
-    require(
-      getProposalState(proposalId) == ProposalState.Succeeded,
-      'invalid state to queue'
-    );
+    require(getProposalState(proposalId) == ProposalState.Succeeded, 'invalid state to queue');
     ProposalWithoutVote storage proposal = _proposals[proposalId].proposalData;
     // generic proposal does not have Succeeded state
     assert(proposal.proposalType == ProposalType.Binary);
@@ -402,9 +394,9 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
   }
 
   /**
-  * @dev Transfer dao operator
-  * @param newDaoOperator new dao operator
-  **/
+   * @dev Transfer dao operator
+   * @param newDaoOperator new dao operator
+   **/
   function transferDaoOperator(address newDaoOperator) external {
     require(msg.sender == _daoOperator, 'only dao operator');
     require(newDaoOperator != address(0), 'invalid dao operator');
@@ -416,9 +408,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    * @dev Add new addresses to the list of authorized executors
    * @param executors list of new addresses to be authorized executors
    **/
-  function authorizeExecutors(address[] memory executors)
-    public override onlyAdmin
-  {
+  function authorizeExecutors(address[] memory executors) public override onlyAdmin {
     _authorizeExecutors(executors);
   }
 
@@ -426,9 +416,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    * @dev Remove addresses to the list of authorized executors
    * @param executors list of addresses to be removed as authorized executors
    **/
-  function unauthorizeExecutors(address[] memory executors)
-    public override onlyAdmin
-  {
+  function unauthorizeExecutors(address[] memory executors) public override onlyAdmin {
     _unauthorizeExecutors(executors);
   }
 
@@ -436,9 +424,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    * @dev Add new addresses to the list of authorized strategies
    * @param strategies list of new addresses to be authorized strategies
    **/
-  function authorizeVotingPowerStrategies(address[] memory strategies)
-    public override onlyAdmin
-  {
+  function authorizeVotingPowerStrategies(address[] memory strategies) public override onlyAdmin {
     _authorizeVotingPowerStrategies(strategies);
   }
 
@@ -633,28 +619,28 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
   }
 
   function _authorizeExecutors(address[] memory executors) internal {
-    for(uint256 i = 0; i < executors.length; i++) {
+    for (uint256 i = 0; i < executors.length; i++) {
       _authorizedExecutors[executors[i]] = true;
       emit ExecutorAuthorized(executors[i]);
     }
   }
 
   function _unauthorizeExecutors(address[] memory executors) internal {
-    for(uint256 i = 0; i < executors.length; i++) {
+    for (uint256 i = 0; i < executors.length; i++) {
       _authorizedExecutors[executors[i]] = false;
       emit ExecutorUnauthorized(executors[i]);
     }
   }
 
   function _authorizeVotingPowerStrategies(address[] memory strategies) internal {
-    for(uint256 i = 0; i < strategies.length; i++) {
+    for (uint256 i = 0; i < strategies.length; i++) {
       _authorizedVotingPowerStrategies[strategies[i]] = true;
       emit VotingPowerStrategyAuthorized(strategies[i]);
     }
   }
 
   function _unauthorizedVotingPowerStrategies(address[] memory strategies) internal {
-    for(uint256 i = 0; i < strategies.length; i++) {
+    for (uint256 i = 0; i < strategies.length; i++) {
       _authorizedVotingPowerStrategies[strategies[i]] = false;
       emit VotingPowerStrategyUnauthorized(strategies[i]);
     }

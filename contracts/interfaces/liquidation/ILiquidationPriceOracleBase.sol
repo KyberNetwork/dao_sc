@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.7.6;
 
-
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 
 /**
-* Use different logics to compute price oracle
-* If token is not supported, it should return 0 as conversion rate
-*/
+ * Use different logics to compute price oracle
+ * If token is not supported, it should return 0 as conversion rate
+ */
 interface ILiquidationPriceOracleBase {
-
   /**
    * @dev Return list of min amounts that expected to get in return
    *  when liquidating corresponding list of src tokens

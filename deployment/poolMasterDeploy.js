@@ -26,23 +26,23 @@ task('deployPool', 'deploy pool master contract').setAction(async (taskArgs, hre
   // contract deployment
   gasPrice = new BN.from(32).mul(new BN.from(10).pow(new BN.from(9)));
   const PoolMaster = await ethers.getContractFactory('PoolMaster');
-  let contract = await ethers.getContractAt('PoolMaster', "0xED0804d4Cac089B28dC42b97D61b385E04011494");
-//   let contract = await PoolMaster.deploy(
-//     'KNC Pool Test',
-//     'KNCP',
-//     proxy,
-//     staking,
-//     gov,
-//     rewardsDist,
-//     mintFeeBps,
-//     claimFeeBps,
-//     burnFeeBps,
-//     {
-//       gasPrice: gasPrice,
-//     }
-//   );
-//   await contract.deployed();
-//   console.log(`Address: ${contract.address}`);
+  let contract = await ethers.getContractAt('PoolMaster', '0xED0804d4Cac089B28dC42b97D61b385E04011494');
+  //   let contract = await PoolMaster.deploy(
+  //     'KNC Pool Test',
+  //     'KNCP',
+  //     proxy,
+  //     staking,
+  //     gov,
+  //     rewardsDist,
+  //     mintFeeBps,
+  //     claimFeeBps,
+  //     burnFeeBps,
+  //     {
+  //       gasPrice: gasPrice,
+  //     }
+  //   );
+  //   await contract.deployed();
+  //   console.log(`Address: ${contract.address}`);
   await verifyContract(hre, contract.address, [
     'KNC Pool Test',
     'KNCP',

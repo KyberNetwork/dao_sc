@@ -3,7 +3,6 @@ pragma solidity 0.7.6;
 
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 
-
 interface IRewardsDistributor {
   event Claimed(
     uint256 indexed cycle,

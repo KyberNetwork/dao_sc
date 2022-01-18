@@ -9,8 +9,10 @@ import {MerkleProof} from '@openzeppelin/contracts/cryptography/MerkleProof.sol'
 import {Utils} from '@kyber.network/utils-sc/contracts/Utils.sol';
 import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
 import {IPool} from '../interfaces/liquidation/IPool.sol';
-import {IERC20Ext, IRewardsDistributor} from '../interfaces/rewardDistribution/IRewardsDistributor.sol';
-
+import {
+  IERC20Ext,
+  IRewardsDistributor
+} from '../interfaces/rewardDistribution/IRewardsDistributor.sol';
 
 /**
  * @title Rewards Distributor contract for Kyber 3.0
@@ -44,7 +46,7 @@ contract RewardsDistributor is IRewardsDistributor, PermissionAdmin, ReentrancyG
     return merkleData;
   }
 
-  /** 
+  /**
    * @dev Claim accumulated rewards for a set of tokens at a given cycle number
    * @param cycle cycle number
    * @param index user reward info index in the array of reward info
@@ -68,7 +70,6 @@ contract RewardsDistributor is IRewardsDistributor, PermissionAdmin, ReentrancyG
       isValidClaim(cycle, index, user, tokens, cumulativeAmounts, merkleProof),
       'invalid claim data'
     );
-
 
     claimAmounts = new uint256[](tokens.length);
 
@@ -111,14 +112,11 @@ contract RewardsDistributor is IRewardsDistributor, PermissionAdmin, ReentrancyG
     IPool treasuryPool,
     IERC20Ext[] calldata tokens,
     uint256[] calldata amounts
-  )
-    external
-    onlyAdmin
-  {
+  ) external onlyAdmin {
     treasuryPool.withdrawFunds(tokens, amounts, payable(address(this)));
   }
 
-   /**
+  /**
    * @dev Checks whether a claim is valid or not
    * @param cycle cycle number
    * @param index user reward info index in the array of reward info
@@ -136,14 +134,14 @@ contract RewardsDistributor is IRewardsDistributor, PermissionAdmin, ReentrancyG
     IERC20Ext[] calldata tokens,
     uint256[] calldata cumulativeAmounts,
     bytes32[] calldata merkleProof
-  ) public view override returns (bool) {
+  ) public override view returns (bool) {
     if (cycle != merkleData.cycle) return false;
     if (tokens.length != cumulativeAmounts.length) return false;
     bytes32 node = keccak256(abi.encode(cycle, index, user, tokens, cumulativeAmounts));
     return MerkleProof.verify(merkleProof, merkleData.root, node);
   }
 
-  /** 
+  /**
    * @dev Fetch accumulated claimed rewards for a set of tokens since the first cycle
    * @param user wallet address of reward beneficiary
    * @param tokens array of tokens claimed by reward beneficiary
@@ -151,8 +149,8 @@ contract RewardsDistributor is IRewardsDistributor, PermissionAdmin, ReentrancyG
    **/
   function getClaimedAmounts(address user, IERC20Ext[] calldata tokens)
     public
-    view
     override
+    view
     returns (uint256[] memory userClaimedAmounts)
   {
     userClaimedAmounts = new uint256[](tokens.length);

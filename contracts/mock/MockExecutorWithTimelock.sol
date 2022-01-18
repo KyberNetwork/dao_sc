@@ -2,13 +2,11 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-
 import {MockProposalValidator} from './MockProposalValidator.sol';
 import {IExecutorWithTimelock} from '../interfaces/governance/IExecutorWithTimelock.sol';
 import {IKyberGovernance} from '../interfaces/governance/IKyberGovernance.sol';
 
 contract MockExecutorWithTimelock is IExecutorWithTimelock, MockProposalValidator {
-
   uint256 public immutable override GRACE_PERIOD;
   uint256 public immutable override MINIMUM_DELAY;
   uint256 public immutable override MAXIMUM_DELAY;
@@ -60,9 +58,7 @@ contract MockExecutorWithTimelock is IExecutorWithTimelock, MockProposalValidato
     bytes memory data,
     uint256 executionTime,
     bool withDelegatecall
-  )
-    external override returns (bytes32)
-  {
+  ) external override returns (bytes32) {
     bytes32 actionHash = keccak256(
       abi.encode(target, value, signature, data, executionTime, withDelegatecall)
     );
@@ -87,9 +83,7 @@ contract MockExecutorWithTimelock is IExecutorWithTimelock, MockProposalValidato
     bytes memory data,
     uint256 executionTime,
     bool withDelegatecall
-  )
-    external payable override returns (bytes memory)
-  {
+  ) external override payable returns (bytes memory) {
     target;
     value;
     signature;
@@ -117,9 +111,7 @@ contract MockExecutorWithTimelock is IExecutorWithTimelock, MockProposalValidato
     bytes memory data,
     uint256 executionTime,
     bool withDelegatecall
-  )
-    external override returns (bytes32)
-  {
+  ) external override returns (bytes32) {
     bytes32 actionHash = keccak256(
       abi.encode(target, value, signature, data, executionTime, withDelegatecall)
     );
@@ -132,8 +124,7 @@ contract MockExecutorWithTimelock is IExecutorWithTimelock, MockProposalValidato
    * @dev Getter of the current admin address (should be governance)
    * @return The address of the current admin
    **/
-  function getAdmin() external view override returns (address)
-  {
+  function getAdmin() external override view returns (address) {
     return admin;
   }
 
@@ -141,8 +132,7 @@ contract MockExecutorWithTimelock is IExecutorWithTimelock, MockProposalValidato
    * @dev Getter of the current pending admin address
    * @return The address of the pending admin
    **/
-  function getPendingAdmin() external view override returns (address)
-  {
+  function getPendingAdmin() external override view returns (address) {
     return admin;
   }
 
@@ -150,8 +140,7 @@ contract MockExecutorWithTimelock is IExecutorWithTimelock, MockProposalValidato
    * @dev Getter of the delay between queuing and execution
    * @return The delay in seconds
    **/
-  function getDelay() external view override returns (uint256)
-  {
+  function getDelay() external override view returns (uint256) {
     return delay;
   }
 
@@ -161,9 +150,7 @@ contract MockExecutorWithTimelock is IExecutorWithTimelock, MockProposalValidato
    * keccak256(abi.encode(target, value, signature, data, executionTime, withDelegatecall))
    * @return true if underlying action of actionHash is queued
    **/
-  function isActionQueued(bytes32 actionHash)
-    external view override returns (bool)
-  {
+  function isActionQueued(bytes32 actionHash) external override view returns (bool) {
     actionHash;
     return isCheckActionHashedFailed;
   }
@@ -176,8 +163,8 @@ contract MockExecutorWithTimelock is IExecutorWithTimelock, MockProposalValidato
    **/
   function isProposalOverGracePeriod(IKyberGovernance governance, uint256 proposalId)
     external
-    view
     override
+    view
     returns (bool)
   {
     governance;

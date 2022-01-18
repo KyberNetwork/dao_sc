@@ -96,7 +96,6 @@ describe('KyberRewardLocker', () => {
 
       expect(await rewardLocker.getRewardContractsPerToken(rewardToken.address)).to.eql([rewardContract.address]);
     });
-
   });
 
   describe('lock and vest', async () => {
@@ -157,7 +156,7 @@ describe('KyberRewardLocker', () => {
         .lock(rewardToken.address, user1.address, BN.from(7).mul(PRECISION), vestingDuration);
 
       await rewardLocker.setBlockTime(halfTime);
-      
+
       await rewardLocker
         .connect(rewardContract)
         .lock(rewardToken.address, user1.address, BN.from(8).mul(PRECISION), vestingDuration);
@@ -181,7 +180,7 @@ describe('KyberRewardLocker', () => {
 
       // add halftime2 duration from the second time lock by 8
       await rewardLocker.setBlockTime(halfTime2);
-      
+
       await expect(rewardLocker.connect(user1).vestScheduleAtIndices(rewardToken.address, [0, 1]))
         .to.emit(rewardLocker, 'Vested')
         .withArgs(rewardToken.address, user1.address, BN.from(2).mul(PRECISION), 1)

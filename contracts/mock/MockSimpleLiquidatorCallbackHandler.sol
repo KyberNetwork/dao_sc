@@ -22,7 +22,7 @@ contract MockSimpleLiquidatorCallbackHandler is Utils {
     bytes calldata
   ) external {
     if (dest == ETH_TOKEN_ADDRESS) {
-      (bool success, ) = recipient.call { value: minReturn }('');
+      (bool success, ) = recipient.call{value: minReturn}('');
       require(success, 'transfer failed');
     } else {
       dest.safeTransfer(recipient, minReturn);

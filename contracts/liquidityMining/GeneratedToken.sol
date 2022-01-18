@@ -4,9 +4,7 @@ pragma abicoder v2;
 
 import {ERC20} from '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 
-
 contract GeneratedToken is ERC20 {
-
   address internal deployer;
 
   modifier onlyDeployer() {
@@ -14,7 +12,7 @@ contract GeneratedToken is ERC20 {
     _;
   }
 
-  constructor (string memory name_, string memory symbol_) ERC20(name_, symbol_) {
+  constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) {
     deployer = msg.sender;
   }
 

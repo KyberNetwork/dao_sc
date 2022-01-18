@@ -45,7 +45,7 @@ task(`migrate:dev`, `Deploy governance for tests and development purposes`)
     const gracePeriod = ONE_DAY.mul('14').toString();
     const minimumDelay = '0';
     const maximumDelay = ONE_DAY.mul('30').toString();
-    const propositionThreshold = '100'; //  1% proposition 
+    const propositionThreshold = '100'; //  1% proposition
     const voteDuration = '5'; // 5 blocks, to prevent to hang local EVM in testing
     const voteDifferential = '500'; // 5%
     const minimumQuorum = '2000'; // 20%

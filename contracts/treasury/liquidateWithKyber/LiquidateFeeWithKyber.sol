@@ -3,7 +3,10 @@ pragma solidity 0.7.6;
 
 import {ILiquidationCallback} from '../../interfaces/liquidation/ILiquidationCallback.sol';
 import {IDMMPool} from '../../interfaces/liquidation/thirdParty/IDMMPool.sol';
-import {ILiquidationStrategyBase, ILiquidationPriceOracleBase} from '../../interfaces/liquidation/ILiquidationStrategyBase.sol';
+import {
+  ILiquidationStrategyBase,
+  ILiquidationPriceOracleBase
+} from '../../interfaces/liquidation/ILiquidationStrategyBase.sol';
 import {PermissionOperators} from '@kyber.network/utils-sc/contracts/PermissionOperators.sol';
 import {Withdrawable} from '@kyber.network/utils-sc/contracts/Withdrawable.sol';
 import {Utils} from '@kyber.network/utils-sc/contracts/Utils.sol';
@@ -11,25 +14,24 @@ import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 
-
 interface IKyberNetworkProxy {
   function tradeWithHint(
-      IERC20Ext src,
-      uint256 srcAmount,
-      IERC20Ext dest,
-      address payable destAddress,
-      uint256 maxDestAmount,
-      uint256 minConversionRate,
-      address payable walletId,
-      bytes calldata hint
+    IERC20Ext src,
+    uint256 srcAmount,
+    IERC20Ext dest,
+    address payable destAddress,
+    uint256 maxDestAmount,
+    uint256 minConversionRate,
+    address payable walletId,
+    bytes calldata hint
   ) external payable returns (uint256);
 }
 
 interface IWeth is IERC20Ext {
   function deposit() external payable;
+
   function withdraw(uint256) external;
 }
-
 
 contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Withdrawable, Utils {
   using SafeMath for uint256;
@@ -37,7 +39,7 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Wit
 
   // LIQUIDATE_LP: liquidate list of LP tokens to a single token
   // LIQUIDATE_TOKENS: liquidate list of tokens to a single token
-  enum LiquidationType { LIQUIDATE_LP, LIQUIDATE_TOKENS }
+  enum LiquidationType {LIQUIDATE_LP, LIQUIDATE_TOKENS}
 
   address public immutable weth;
 
@@ -67,23 +69,20 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Wit
 
   receive() external payable {}
 
-  function updateContracts(
-    ILiquidationStrategyBase _strategy,
-    IKyberNetworkProxy _proxy
-  ) external onlyAdmin {
+  function updateContracts(ILiquidationStrategyBase _strategy, IKyberNetworkProxy _proxy)
+    external
+    onlyAdmin
+  {
     _setLiquidationStrategy(_strategy);
     _setKyberNetworkProxy(_proxy);
   }
 
   function manualApproveAllowancesToKyberProxy(IERC20Ext[] calldata tokens, bool isReset)
-    external onlyOperator
+    external
+    onlyOperator
   {
-    for(uint256 i = 0; i < tokens.length; i++) {
-      _safeApproveAllowance(
-        tokens[i],
-        address(kyberProxy),
-        isReset ? 0 : type(uint256).max
-      );
+    for (uint256 i = 0; i < tokens.length; i++) {
+      _safeApproveAllowance(tokens[i], address(kyberProxy), isReset ? 0 : type(uint256).max);
     }
   }
 
@@ -110,15 +109,12 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Wit
     IERC20Ext[] calldata tradeTokens,
     bool checkTreasuryBalance
   ) external {
-    require(
-      tokens.length == amounts.length && amounts.length == types.length,
-      'invalid lengths'
-    );
+    require(tokens.length == amounts.length && amounts.length == types.length, 'invalid lengths');
     // check if treasury pool has enough balance for this liquidation
     if (checkTreasuryBalance) _checkTreasuryBalances(tokens, amounts);
     // add one extra element for balance of dest token before liquidate call
     uint256[] memory balances = new uint256[](tradeTokens.length + 1);
-    for(uint256 i = 0; i < tradeTokens.length; i++) {
+    for (uint256 i = 0; i < tradeTokens.length; i++) {
       balances[i] = getBalance(tradeTokens[i], address(this));
     }
     balances[tradeTokens.length] = getBalance(dest, address(this));
@@ -161,30 +157,21 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Wit
 
     require(totalReturn >= minReturn, 'totalReturn < minReturn');
     if (dest == ETH_TOKEN_ADDRESS) {
-      (bool success, ) = recipient.call{ value: minReturn }('');
+      (bool success, ) = recipient.call{value: minReturn}('');
       require(success, 'transfer eth failed');
     } else {
       dest.safeTransfer(recipient, minReturn);
     }
 
-    emit LiquidatedWithKyber(
-      tx.origin,
-      sources,
-      amounts,
-      dest,
-      minReturn,
-      totalReturn
-    );
+    emit LiquidatedWithKyber(tx.origin, sources, amounts, dest, minReturn, totalReturn);
   }
 
   function _removeLiquidity(
     IERC20Ext[] memory sources,
     uint256[] memory amounts,
     LiquidationType[] memory types
-  )
-    internal
-  {
-    for(uint256 i = 0; i < sources.length; i++) {
+  ) internal {
+    for (uint256 i = 0; i < sources.length; i++) {
       if (types[i] == LiquidationType.LIQUIDATE_LP) {
         // burn LP token to get back 2 underlying tokens
         sources[i].safeTransfer(address(sources[i]), amounts[i]);
@@ -197,12 +184,10 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Wit
     IERC20Ext[] memory tradeTokens,
     uint256[] memory balancesBefore,
     IERC20Ext dest
-  )
-    internal returns (uint256 totalReturn)
-  {
+  ) internal returns (uint256 totalReturn) {
     // last element is the balance of dest token before calling liquidate function
     uint256 destTokenBefore = balancesBefore[balancesBefore.length - 1];
-    for(uint256 i = 0; i < tradeTokens.length; i++) {
+    for (uint256 i = 0; i < tradeTokens.length; i++) {
       if (tradeTokens[i] == dest) continue;
       uint256 amount = getBalance(tradeTokens[i], address(this)).sub(balancesBefore[i]);
       if (amount == 0) continue;
@@ -235,7 +220,11 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Wit
   }
 
   // call approve only if amount is 0 or the current allowance is 0, only for tokens
-  function _safeApproveAllowance(IERC20Ext token, address spender, uint256 amount) internal {
+  function _safeApproveAllowance(
+    IERC20Ext token,
+    address spender,
+    uint256 amount
+  ) internal {
     if (amount == 0 || token.allowance(address(this), spender) == 0) {
       token.safeApprove(spender, amount);
     }
@@ -253,13 +242,13 @@ contract LiquidateFeeWithKyber is ILiquidationCallback, PermissionOperators, Wit
     }
   }
 
-  function _checkTreasuryBalances(
-    IERC20Ext[] memory tokens,
-    uint256[] memory amounts
-  ) internal view {
+  function _checkTreasuryBalances(IERC20Ext[] memory tokens, uint256[] memory amounts)
+    internal
+    view
+  {
     // early revert in case multiple calls to this liquidate function
     address treasuryPool = liquidationStrategy.treasuryPool();
-    for(uint256 i = 0; i < tokens.length; i++) {
+    for (uint256 i = 0; i < tokens.length; i++) {
       require(
         getBalance(tokens[i], treasuryPool) >= amounts[i],
         'not enough balance in treasury pool'

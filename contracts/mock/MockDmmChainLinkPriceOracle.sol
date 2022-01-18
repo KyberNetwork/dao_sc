@@ -10,7 +10,15 @@ contract MockDmmChainLinkPriceOracle is KyberDmmChainLinkPriceOracle {
     address[] memory whitelistedTokens,
     uint64 chainklinkValidDuration,
     uint64 lpDiffThreshold
-  ) KyberDmmChainLinkPriceOracle(admin, _weth, whitelistedTokens, chainklinkValidDuration, lpDiffThreshold) {}
+  )
+    KyberDmmChainLinkPriceOracle(
+      admin,
+      _weth,
+      whitelistedTokens,
+      chainklinkValidDuration,
+      lpDiffThreshold
+    )
+  {}
 
   function getExpectedReturnFromToken(
     IERC20Ext tokenIn,
@@ -19,18 +27,16 @@ contract MockDmmChainLinkPriceOracle is KyberDmmChainLinkPriceOracle {
     uint256 destRateEth,
     uint256 destRateUsd,
     bool isFromLpToken
-  )
-    external view
-    returns (uint256 totalReturn)
-  {
-    return _getExpectedReturnFromToken(
-      tokenIn,
-      amountIn,
-      dest,
-      destRateEth,
-      destRateUsd,
-      isFromLpToken
-    );
+  ) external view returns (uint256 totalReturn) {
+    return
+      _getExpectedReturnFromToken(
+        tokenIn,
+        amountIn,
+        dest,
+        destRateEth,
+        destRateUsd,
+        isFromLpToken
+      );
   }
 
   function getRateWithDestTokenData(

@@ -68,9 +68,7 @@ interface IKyberRewardLocker {
   function vestScheduleForMultipleTokensAtIndices(
     IERC20Ext[] calldata tokens,
     uint256[][] calldata indices
-  )
-    external
-    returns (uint256[] memory vestedAmounts);
+  ) external returns (uint256[] memory vestedAmounts);
 
   /**
    * @dev for all completed schedule, claim token

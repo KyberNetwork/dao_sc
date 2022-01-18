@@ -5,7 +5,9 @@ import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 import {Utils} from '@kyber.network/utils-sc/contracts/Utils.sol';
 import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 import {MockLiquidationStrategy} from './MockLiquidationStrategy.sol';
-import {ILiquidationPriceOracleBase} from '../interfaces/liquidation/ILiquidationPriceOracleBase.sol';
+import {
+  ILiquidationPriceOracleBase
+} from '../interfaces/liquidation/ILiquidationPriceOracleBase.sol';
 
 contract MockLiquidatorWithCallback is Utils {
   using SafeERC20 for IERC20Ext;
@@ -13,7 +15,7 @@ contract MockLiquidatorWithCallback is Utils {
   uint256 public transferBackAmount;
   bool public shouldTestReentrancy = false;
 
-  constructor( ) {}
+  constructor() {}
 
   receive() external payable {}
 
@@ -36,12 +38,19 @@ contract MockLiquidatorWithCallback is Utils {
   ) external {
     if (shouldTestReentrancy) {
       MockLiquidationStrategy(msg.sender).liquidate(
-        ILiquidationPriceOracleBase(MockLiquidationStrategy(msg.sender).getWhitelistedPriceOracleAt(0)),
-        sources, amounts, recipient, dest, '', txData
+        ILiquidationPriceOracleBase(
+          MockLiquidationStrategy(msg.sender).getWhitelistedPriceOracleAt(0)
+        ),
+        sources,
+        amounts,
+        recipient,
+        dest,
+        '',
+        txData
       );
     }
     if (dest == ETH_TOKEN_ADDRESS) {
-      (bool success, ) = msg.sender.call { value: transferBackAmount }('');
+      (bool success, ) = msg.sender.call{value: transferBackAmount}('');
       require(success, 'transfer failed');
     } else {
       dest.safeTransfer(msg.sender, transferBackAmount);

@@ -170,11 +170,8 @@ contract DefaultProposalValidator is IProposalValidator, Utils {
   {
     IKyberGovernance.ProposalWithoutVote memory proposal = governance.getProposalById(proposalId);
     if (proposal.proposalType != IKyberGovernance.ProposalType.Binary) return false;
-    return (
-      proposal.voteCounts[YES_INDEX].mul(BPS).div(proposal.maxVotingPower) >
-      proposal.voteCounts[NO_INDEX].mul(BPS).div(proposal.maxVotingPower).add(
-      VOTE_DIFFERENTIAL
-    ));
+    return (proposal.voteCounts[YES_INDEX].mul(BPS).div(proposal.maxVotingPower) >
+      proposal.voteCounts[NO_INDEX].mul(BPS).div(proposal.maxVotingPower).add(VOTE_DIFFERENTIAL));
   }
 
   function isMinimumQuorumReached(uint256 votes, uint256 voteSupply) internal view returns (bool) {

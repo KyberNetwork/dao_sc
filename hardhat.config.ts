@@ -6,7 +6,7 @@ import 'hardhat-gas-reporter';
 import 'solidity-coverage';
 import '@openzeppelin/hardhat-upgrades';
 import 'hardhat-typechain';
-import { HardhatUserConfig } from 'hardhat/types';
+import {HardhatUserConfig} from 'hardhat/types';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
@@ -18,15 +18,15 @@ import './deployment/liquidityMining/deployLiquidityMiningV2.js';
 import './deployment/createBinaryProposal.js';
 import './deployment/simFullProposal.js';
 import './deployment/simProposalExecution.js';
-import { accounts } from './test-wallets';
+import {accounts} from './test-wallets';
 
 const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
 
-  gasReporter: {
-    currency: 'USD',
-    gasPrice: 100,
-  },
+    gasReporter: {
+      currency: 'USD',
+      gasPrice: 100,
+    },
 
   networks: {
     develop: {
@@ -63,8 +63,8 @@ const config: HardhatUserConfig = {
   },
 
   typechain: {
-    target: 'ethers-v5'
-  }
+    target: 'ethers-v5',
+  },
 };
 
 const INFURA_API_KEY: string = process.env.INFURA_API_KEY || '';
@@ -72,13 +72,13 @@ const PRIVATE_KEY: string = process.env.PRIVATE_KEY || '';
 const ETHERSCAN_KEY: string = process.env.ETHERSCAN_KEY || '';
 const POLYGONSCAN_KEY: string = process.env.POLYGONSCAN_KEY || '';
 const ETH_NODE_URL: string = process.env.ETH_NODE_URL || '';
-const FORK_BLOCK: string = process.env.FORK_BLOCK || ''
+const FORK_BLOCK: string = process.env.FORK_BLOCK || '';
 
 if (ETH_NODE_URL != '' && FORK_BLOCK != '') {
   config.networks!.hardhat!.forking = {
     url: ETH_NODE_URL,
-    blockNumber: parseInt(FORK_BLOCK)
-  }
+    blockNumber: parseInt(FORK_BLOCK),
+  };
 }
 
 if (INFURA_API_KEY != '' && PRIVATE_KEY != '') {

@@ -3,11 +3,11 @@ pragma solidity 0.7.6;
 
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 import {LiquidationStrategyBase} from '../treasury/LiquidationStrategyBase.sol';
-import {ILiquidationPriceOracleBase} from '../interfaces/liquidation/ILiquidationPriceOracleBase.sol';
-
+import {
+  ILiquidationPriceOracleBase
+} from '../interfaces/liquidation/ILiquidationPriceOracleBase.sol';
 
 contract MockLiquidationStrategy is LiquidationStrategyBase {
-
   constructor(
     address admin,
     address treasuryPoolAddress,
@@ -17,8 +17,16 @@ contract MockLiquidationStrategy is LiquidationStrategyBase {
     uint64 duration,
     address[] memory whitelistedLiquidators,
     address[] memory whitelistedOracles
-  ) LiquidationStrategyBase(
-    admin, treasuryPoolAddress, rewardPoolAddress, startTime,
-    repeatedPeriod, duration, whitelistedLiquidators, whitelistedOracles
-  ) {}
+  )
+    LiquidationStrategyBase(
+      admin,
+      treasuryPoolAddress,
+      rewardPoolAddress,
+      startTime,
+      repeatedPeriod,
+      duration,
+      whitelistedLiquidators,
+      whitelistedOracles
+    )
+  {}
 }

@@ -1,18 +1,21 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.7.6;
 
-
 import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
 import {PermissionOperators} from '@kyber.network/utils-sc/contracts/PermissionOperators.sol';
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 import {IPool} from '../../interfaces/liquidation/IPool.sol';
-import {INoSwappingLiquidationStrategy} from '../../interfaces/liquidation/INoSwappingLiquidationStrategy.sol';
+import {
+  INoSwappingLiquidationStrategy
+} from '../../interfaces/liquidation/INoSwappingLiquidationStrategy.sol';
 
 /// @dev The simplest liquidation strategy which requests funds from TreasuryPool and
 /// 	transfer directly to treasury pool, no actual liquidation happens
-contract NoSwappingLiquidationStrategy is PermissionAdmin, PermissionOperators,
-	INoSwappingLiquidationStrategy {
-
+contract NoSwappingLiquidationStrategy is
+  PermissionAdmin,
+  PermissionOperators,
+  INoSwappingLiquidationStrategy
+{
   IPool private _treasuryPool;
   address payable private _rewardPool;
 
@@ -34,16 +37,14 @@ contract NoSwappingLiquidationStrategy is PermissionAdmin, PermissionOperators,
   }
 
   /** @dev Fast forward tokens from fee pool to treasury pool
-  * @param sources list of source tokens to liquidate
-  * @param amounts list of amounts corresponding to each source token
-  */
-  function liquidate(IERC20Ext[] calldata sources, uint256[] calldata amounts)
-		external override
-	{
-		// check for sources and amounts length will be done in fee pool
-		_treasuryPool.withdrawFunds(sources, amounts, _rewardPool);
-		emit Liquidated(msg.sender, sources, amounts);
-	}
+   * @param sources list of source tokens to liquidate
+   * @param amounts list of amounts corresponding to each source token
+   */
+  function liquidate(IERC20Ext[] calldata sources, uint256[] calldata amounts) external override {
+    // check for sources and amounts length will be done in fee pool
+    _treasuryPool.withdrawFunds(sources, amounts, _rewardPool);
+    emit Liquidated(msg.sender, sources, amounts);
+  }
 
   function treasuryPool() external override view returns (address) {
     return address(_treasuryPool);

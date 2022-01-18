@@ -5,9 +5,7 @@ pragma abicoder v2;
 import {IVotingPowerStrategy} from '../interfaces/governance/IVotingPowerStrategy.sol';
 import {IKyberGovernance} from '../interfaces/governance/IKyberGovernance.sol';
 
-
 contract MockVotingPowerStrategy is IVotingPowerStrategy {
-
   mapping(address => uint256) public votingPowers;
   uint256 public maxVotingPower;
   bool public isProposalCreationRevert = false;
@@ -42,13 +40,17 @@ contract MockVotingPowerStrategy is IVotingPowerStrategy {
     proposalId;
     startTime;
     endTime;
-    if (isProposalCreationRevert) { revert(); }
+    if (isProposalCreationRevert) {
+      revert();
+    }
     isProposalCreationRevert = false; // silence the warning
   }
 
   function handleProposalCancellation(uint256 proposalId) external override {
     proposalId;
-    if (isProposalCancellationRevert) { revert(); }
+    if (isProposalCancellationRevert) {
+      revert();
+    }
     isProposalCancellationRevert = false; // silence the warning
   }
 
@@ -58,11 +60,13 @@ contract MockVotingPowerStrategy is IVotingPowerStrategy {
     address voter,
     uint256 proposalId,
     uint256 choice
-  ) external override returns(uint256 votingPower) {
+  ) external override returns (uint256 votingPower) {
     voter;
     proposalId;
     choice;
-    if (isHandleVoteRevert) { revert(); }
+    if (isHandleVoteRevert) {
+      revert();
+    }
     isHandleVoteRevert = false; // silence the warning
     votingPower = votingPowers[voter];
   }
@@ -84,26 +88,30 @@ contract MockVotingPowerStrategy is IVotingPowerStrategy {
 
   /// call to get voter's voting power given timestamp, should use for reading purpose
   /// when submitVote, should call handleVote instead
-  function getVotingPower(
-    address voter,
-    uint256 timestamp
-  ) external view override returns(uint256 votingPower) {
+  function getVotingPower(address voter, uint256 timestamp)
+    external
+    override
+    view
+    returns (uint256 votingPower)
+  {
     voter;
     timestamp;
     votingPower = votingPowers[voter];
   }
 
   /// pass creator in case we want to validate if creator has enough quorum to create proposal
-  function validateProposalCreation(
-    uint256 startTime,
-    uint256 endTime
-  ) external view override returns (bool) {
+  function validateProposalCreation(uint256 startTime, uint256 endTime)
+    external
+    override
+    view
+    returns (bool)
+  {
     startTime;
     endTime;
     return isProposalCreationRevert;
   }
 
-  function getMaxVotingPower() external view override returns (uint256) {
+  function getMaxVotingPower() external override view returns (uint256) {
     return maxVotingPower;
   }
 }
