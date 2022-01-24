@@ -57,6 +57,7 @@ contract('KyberFairLaunchV2', function (accounts) {
     rewardLocker = await SimpleMockRewardLocker.new();
     rewardTokens = rTokens;
     let addresses = [];
+    multipliers = [];
     for (let i = 0; i < rewardTokens.length; i++) {
       if (rewardTokens[i] == zeroAddress) {
         addresses.push(zeroAddress);
@@ -64,7 +65,7 @@ contract('KyberFairLaunchV2', function (accounts) {
       } else {
         addresses.push(rewardTokens[i].address);
         let dRewardToken = await rewardTokens[i].decimals();
-        let d = dRewardToken >= 18 ? 1 : new BN(10).pow(new BN(18).sub(new BN(dRewardToken)));
+        let d = dRewardToken >= 18 ? new BN(1) : new BN(10).pow(new BN(18).sub(new BN(dRewardToken)));
         multipliers.push(d);
       }
     }
@@ -114,7 +115,7 @@ contract('KyberFairLaunchV2', function (accounts) {
     };
     for (let i = 0; i < rewardTokens.length; i++) {
       let rps = new BN(totalRewards[i])
-        .mul(new BN(multipliers[multipliers.length - 2 - i]))
+        .mul(new BN(multipliers[i]))
         .div(endTime.sub(startTime));
       poolInfo[pid].rewardPerSeconds.push(rps);
       poolInfo[pid].accRewardPerShares.push(new BN(0));
@@ -208,7 +209,7 @@ contract('KyberFairLaunchV2', function (accounts) {
       let tokenSymbol = 'KNCG';
       let totalRewards = [precisionUnits, precisionUnits];
 
-      await fairLaunch.setBlockTime(currentBlockTime);
+      await fairLaunch.setBlockTime(startTime);
 
       // start in the past
       await expectRevert(
@@ -316,7 +317,7 @@ contract('KyberFairLaunchV2', function (accounts) {
           totalStake: new BN(0),
         };
         for (let j = 0; j < rewardTokens.length; j++) {
-          let rps = new BN(totalRewards[j]).mul(new BN(multipliers[multipliers.length - 2 - j])).div(duration);
+          let rps = new BN(totalRewards[j]).mul(new BN(multipliers[j])).div(duration);
           poolInfo[i].rewardPerSeconds.push(rps);
           poolInfo[i].accRewardPerShares.push(new BN(0));
         }
@@ -493,7 +494,7 @@ contract('KyberFairLaunchV2', function (accounts) {
       poolInfo[pid].rewardPerSeconds = [];
       for (let i = 0; i < rewardTokens.length; i++) {
         let rps = new BN(totalRewards[i])
-          .mul(new BN(multipliers[multipliers.length - 2 - i]))
+          .mul(new BN(multipliers[i]))
           .div(endTime.sub(poolInfo[pid].startTime));
         poolInfo[pid].rewardPerSeconds.push(rps);
       }
@@ -518,7 +519,7 @@ contract('KyberFairLaunchV2', function (accounts) {
       poolInfo[pid].rewardPerSeconds = [];
       for (let i = 0; i < rewardTokens.length; i++) {
         let rps = new BN(totalRewards[i])
-          .mul(new BN(multipliers[multipliers.length - 2 - i]))
+          .mul(new BN(multipliers[i]))
           .div(endTime.sub(poolInfo[pid].startTime));
         poolInfo[pid].rewardPerSeconds.push(rps);
       }
@@ -535,7 +536,7 @@ contract('KyberFairLaunchV2', function (accounts) {
       poolInfo[pid].rewardPerSeconds = [];
       for (let i = 0; i < rewardTokens.length; i++) {
         let rps = new BN(totalRewards[i])
-          .mul(new BN(multipliers[multipliers.length - 2 - i]))
+          .mul(new BN(multipliers[i]))
           .div(endTime.sub(startTime));
         poolInfo[pid].rewardPerSeconds.push(rps);
       }
@@ -1371,9 +1372,12 @@ contract('KyberFairLaunchV2', function (accounts) {
       let user1Rewards = [];
       let user2Rewards = [];
       for (let i = 0; i < rewardTokens.length; i++) {
-        let rewardPerShare = totalRewards[i]
+        let rewardPerSecond = totalRewards[i]
+          .mul(new BN(multipliers[i]))
+          .div(new BN(duration));
+        let rewardPerShare = rewardPerSecond
+          .mul(new BN(duration))
           .mul(REWARD_PER_SHARE_PRECISION)
-          .mul(new BN(multipliers[multipliers.length - 2 - i]))
           .div(totalAmount);
         user1Rewards.push(rewardPerShare.mul(amount1).div(REWARD_PER_SHARE_PRECISION));
         user2Rewards.push(rewardPerShare.mul(amount2).div(REWARD_PER_SHARE_PRECISION));
@@ -1388,7 +1392,9 @@ contract('KyberFairLaunchV2', function (accounts) {
           rewardTokens[i],
           accounts[0],
           fairLaunch.address,
-          user1Rewards[i].add(user2Rewards[i]).div(new BN(multipliers[multipliers.length - 2 - i]))
+          user1Rewards[i].div(new BN(multipliers[i])).add(
+            user2Rewards[i].div(new BN(multipliers[i]))
+          )
         );
       }
 
@@ -1641,7 +1647,7 @@ contract('KyberFairLaunchV2', function (accounts) {
                 for (let r = 0; r < rewardTokens.length; r++) {
                   await transferToken(rewardTokens[r], accounts[0], fairLaunch.address, totalRewards[r]);
                   let rps = new BN(totalRewards[r])
-                    .mul(new BN(multipliers[multipliers.length - 2 - r]))
+                    .mul(new BN(multipliers[r]))
                     .div(poolInfo[pid].endTime.sub(poolInfo[pid].startTime));
 
                   poolInfo[pid].rewardPerSeconds.push(rps);
@@ -1787,7 +1793,6 @@ const harvestMultiplePoolsAndVerifyData = async (user, pids, diffVest, timestamp
       new BN(timestampNow)
     );
     for (let j = 0; j < rewardTokens.length; j++) {
-      userClaimData[user][j].iadd(claimedAmounts[j]);
       totalClaimedAmounts[j].iadd(claimedAmounts[j]);
     }
 
@@ -1800,17 +1805,21 @@ const harvestMultiplePoolsAndVerifyData = async (user, pids, diffVest, timestamp
           user: user,
           pid: pid,
           timestamp: new BN(timestampNow),
-          lockedAmount: claimedAmounts[j],
+          lockedAmount: claimedAmounts[j].div(multipliers[j]),
         });
         if (diffVest) {
           await expectEvent.inTransaction(tx.tx, rewardTokens[j], 'Transfer', {
             from: fairLaunch.address,
             to: rewardLocker.address,
-            value: claimedAmounts[j],
+            value: claimedAmounts[j].div(multipliers[j]),
           });
         }
       }
     }
+  }
+  for (let i = 0; i < rewardTokens.length; i++) {
+    totalClaimedAmounts[i] = totalClaimedAmounts[i].div(multipliers[i])
+    userClaimData[user][i].iadd(totalClaimedAmounts[i]);
   }
   for (let i = 0; i < rewardTokens.length; i++) {
     if (totalClaimedAmounts[i].gt(new BN(0)) && rewardTokens[i] != zeroAddress) {
@@ -1819,7 +1828,7 @@ const harvestMultiplePoolsAndVerifyData = async (user, pids, diffVest, timestamp
         await expectEvent.inTransaction(tx.tx, rewardTokens[i], 'Transfer', {
           from: fairLaunch.address,
           to: rewardLocker.address,
-          value: totalClaimedAmounts[i],
+          value: totalClaimedAmounts[i]
         });
       }
     }
@@ -1847,6 +1856,7 @@ const harvestAndVerifyData = async (user, pid, timestampNow) => {
     new BN(timestampNow)
   );
   for (let i = 0; i < rewardTokens.length; i++) {
+    claimedAmounts[i] = claimedAmounts[i].div(multipliers[i]);
     userClaimData[user][i].iadd(claimedAmounts[i]);
   }
 
@@ -1961,7 +1971,7 @@ function generateTotalRewards() {
   let totalRewards = [];
   for (let i = 0; i < rewardTokens.length; i++) {
     let randomNum = rewardTokens[i] == zeroAddress ? Helper.getRandomInt(32, 100) : Helper.getRandomInt(1, 10);
-    totalRewards.push(precisionUnits.mul(new BN(randomNum)));
+    totalRewards.push(precisionUnits.div(multipliers[i]).mul(new BN(randomNum)));
   }
   return totalRewards;
 }
@@ -1996,7 +2006,7 @@ function updateInfoOnDeposit(userData, poolData, amount, currentBlockTime, isHar
   let claimedAmounts = [];
   for (let i = 0; i < rewardTokens.length; i++) {
     claimedAmounts.push(
-      isHarvesting ? userData.unclaimedRewards[i].div(new BN(multipliers[multipliers.length - 2 - i])) : new BN(0)
+      isHarvesting ? userData.unclaimedRewards[i].div(new BN(multipliers[i])) : new BN(0)
     );
     if (isHarvesting) userData.unclaimedRewards[i] = new BN(0);
     userData.lastRewardPerShares[i] = poolData.accRewardPerShares[i];
@@ -2016,7 +2026,7 @@ function updateInfoOnWithdraw(userData, poolData, amount, currentBlockTime) {
   }
   let claimedAmounts = [];
   for (let i = 0; i < rewardTokens.length; i++) {
-    claimedAmounts.push(userData.unclaimedRewards[i].div(new BN(multipliers[multipliers.length - 2 - i])));
+    claimedAmounts.push(userData.unclaimedRewards[i].div(new BN(multipliers[i])));
     userData.unclaimedRewards[i] = new BN(0);
     userData.lastRewardPerShares[i] = poolData.accRewardPerShares[i];
   }
@@ -2036,7 +2046,7 @@ function updateInfoOnHarvest(userData, poolData, currentBlockTime) {
   }
   let claimedAmounts = [];
   for (let i = 0; i < rewardTokens.length; i++) {
-    claimedAmounts.push(userData.unclaimedRewards[i].div(new BN(multipliers[multipliers.length - 2 - i])));
+    claimedAmounts.push(userData.unclaimedRewards[i]);
     userData.unclaimedRewards[i] = new BN(0);
     userData.lastRewardPerShares[i] = poolData.accRewardPerShares[i];
   }
@@ -2050,7 +2060,7 @@ function updatePoolInfoOnRenew(poolData, startTime, endTime, totalRewards, curre
   poolData.endTime = endTime;
   poolData.rewardPerSeconds = [];
   for (let i = 0; i < rewardTokens.length; i++) {
-    let rps = new BN(totalRewards[i]).mul(new BN(multipliers[multipliers.length - 2 - i])).div(endTime.sub(startTime));
+    let rps = new BN(totalRewards[i]).mul(new BN(multipliers[i])).div(endTime.sub(startTime));
     poolData.rewardPerSeconds.push(rps);
   }
   poolData.totalRewards = totalRewards;

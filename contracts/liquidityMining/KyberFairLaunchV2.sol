@@ -410,12 +410,13 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
     }
 
     for (uint256 i = 0; i < totalRewards.length; i++) {
+      uint32 duration = poolInfo[_pids[0]].vestingDuration; // use same duration
       if (totalRewards[i] > 0) {
         _lockReward(
           IERC20Ext(rTokens[i]),
           account,
           totalRewards[i].div(multipliers[i]),
-          poolInfo[_pids[0]].vestingDuration // use same duration
+          duration
         );
       }
     }

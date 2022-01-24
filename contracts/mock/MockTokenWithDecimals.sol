@@ -14,11 +14,10 @@ interface IERC20Burnable {
 contract MockTokenWithDecimals is ERC20Burnable, Ownable {
   using SafeERC20 for IERC20;
 
-  uint256 public constant INITIAL_SUPPLY = 10**(18 + 6);
   uint8 private tokenDecimals;
 
   constructor(uint8 _decimals) ERC20('Kyber Network Crystal V2', 'KNCv2') {
-    _mint(msg.sender, INITIAL_SUPPLY);
+    _mint(msg.sender, 10**(18 + _decimals));
     tokenDecimals = _decimals;
   }
 
