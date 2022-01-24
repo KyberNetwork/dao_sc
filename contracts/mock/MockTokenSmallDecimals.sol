@@ -11,10 +11,10 @@ interface IERC20Burnable {
 }
 
 /// @dev copy from kyber network repo
-contract KyberNetworkTokenV3 is ERC20Burnable, Ownable {
+contract MockTokenSmallDecimals is ERC20Burnable, Ownable {
   using SafeERC20 for IERC20;
 
-  uint256 public constant INITIAL_SUPPLY = 10**(9 + 18);
+  uint256 public constant INITIAL_SUPPLY = 10**(18 + 6);
 
   constructor() ERC20('Kyber Network Crystal V2', 'KNCv2') {
     _mint(msg.sender, INITIAL_SUPPLY);

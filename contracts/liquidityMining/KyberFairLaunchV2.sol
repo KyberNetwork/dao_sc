@@ -602,7 +602,6 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
       uint256 _pending = userAmount.mul(lastAccRewardPerShare.sub(rewardData.lastRewardPerShare)) /
         PRECISION;
       _pending = _pending.add(rewardData.unclaimedReward);
-
       rewardData.unclaimedReward = shouldHarvest ? 0 : _pending;
       // update user last reward per share to the latest pool reward per share
       rewardData.lastRewardPerShare = lastAccRewardPerShare;

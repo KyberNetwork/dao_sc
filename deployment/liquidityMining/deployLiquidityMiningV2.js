@@ -41,15 +41,15 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining V2 contracts')
     gasPrice = new BN.from(10 ** 9 * taskArgs.gasprice);
     console.log(`Deploy gas price: ${gasPrice.toString()} (${taskArgs.gasprice} gweis)`);
 
-    let precision = new BN.from(10).pow(new BN.from(18));
-
     const KyberRewardLockerV2 = await ethers.getContractFactory('KyberRewardLockerV2');
     let rewardLocker;
-    if (lockerAddress == undefined) {
+    if (lockerAddress.length == 0) {
+      console.log("deploy new ");
       rewardLocker = await KyberRewardLockerV2.deploy(deployerAddress, {gasPrice: gasPrice});
       await rewardLocker.deployed();
       lockerAddress = rewardLocker.address;
     } else {
+      console.log("use old ");
       rewardLocker = await KyberRewardLockerV2.attach(lockerAddress);
     }
     console.log(`RewardLockerV2 address: ${rewardLocker.address}`);
@@ -64,7 +64,7 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining V2 contracts')
       // FOR TESTING LOCALLY
       // fairLaunchConfigs[i].rewardTokens = [rewardToken.address];
       // END
-      if (fairLaunchConfigs[i].address != undefined) {
+      if (fairLaunchConfigs[i].address.length != 0) {
         console.log(`FairLaunch ${i}: ${fairLaunchConfigs[i].address}`);
         continue;
       }
@@ -101,6 +101,7 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining V2 contracts')
         let duration = new BN.from(poolData.endTime - poolData.startTime);
         let rewardPerSeconds = [];
         for (let k = 0; k < poolData.totalRewards.length; k++) {
+          let precision = new BN.from(10).pow(new BN.from(poolData.decimal[k]));
           let rewardPerSecond = new BN.from(poolData.totalRewards[k]).mul(precision).div(duration);
           rewardPerSeconds.push(rewardPerSecond);
           console.log(`${contractData.rewardTokens[k]} reward per second: ${rewardPerSecond}`);
@@ -168,6 +169,7 @@ function parseInput(jsonInput) {
           stakeToken: poolData['stakeToken'],
           startTime: poolData['startTime'],
           endTime: poolData['endTime'],
+          decimal: poolData['decimal'],
           totalRewards: poolData['totalRewards'],
           vestingDuration: poolData['vestingDuration'],
           name: poolData['tokenName'],

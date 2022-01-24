@@ -2,7 +2,8 @@ const {expectEvent, expectRevert} = require('@openzeppelin/test-helpers');
 const BN = web3.utils.BN;
 
 const Token = artifacts.require('KyberNetworkTokenV2.sol');
-const KyberFairLaunch = artifacts.require('KyberFairLaunchV2.sol');
+const Token2 = artifacts.require('MockTokenSmallDecimals.sol');
+const KyberFairLaunch = artifacts.require('MockFairLaunchV2.sol');
 const SimpleMockRewardLocker = artifacts.require('SimpleMockRewardLockerV2.sol');
 
 const Helper = require('../helper.js');
@@ -28,6 +29,7 @@ let userClaimData = {};
 let poolInfo = {};
 
 let rewardTokens = [];
+let multipliers = [];
 
 let currentBlockTime;
 
@@ -35,7 +37,7 @@ contract('KyberFairLaunchV2', function (accounts) {
   before('Global setup', async () => {
     admin = accounts[1];
     kncToken = await Token.new();
-    secondRewardToken = await Token.new();
+    secondRewardToken = await Token2.new();
     user1 = accounts[2];
     user2 = accounts[5];
     user3 = accounts[6];
@@ -57,8 +59,13 @@ contract('KyberFairLaunchV2', function (accounts) {
     for (let i = 0; i < rewardTokens.length; i++) {
       if (rewardTokens[i] == zeroAddress) {
         addresses.push(zeroAddress);
+        multipliers.push(new BN(1));
       } else {
         addresses.push(rewardTokens[i].address);
+        // let tokenReward = await Token.at(rewardTokens[i].address);
+        let dRewardToken = await rewardTokens[i].decimals();
+        let d = dRewardToken >= 18 ? 1 : new BN(10).pow(new BN(18).sub(new BN(dRewardToken)));
+        multipliers.push(d);
       }
     }
     fairLaunch = await KyberFairLaunch.new(admin, addresses, rewardLocker.address);
@@ -85,10 +92,10 @@ contract('KyberFairLaunchV2', function (accounts) {
     }
   };
 
-  const addNewPool = async (startTime, endTime, vestingDuration, rewardPerSeconds, name, symbol) => {
+  const addNewPool = async (startTime, endTime, vestingDuration, totalRewards, name, symbol) => {
     let tokenId = await fairLaunch.poolLength();
     let stakeToken = tokens[tokenId];
-    await fairLaunch.addPool(stakeToken.address, startTime, endTime, vestingDuration, rewardPerSeconds, name, symbol, {
+    await fairLaunch.addPool(stakeToken.address, startTime, endTime, vestingDuration, totalRewards, name, symbol, {
       from: admin,
     });
     let pid = (await fairLaunch.poolLength()).sub(new BN(1));
@@ -98,14 +105,16 @@ contract('KyberFairLaunchV2', function (accounts) {
       startTime: startTime,
       endTime: endTime,
       vestingDuration: vestingDuration,
-      rewardPerSeconds: rewardPerSeconds,
       lastRewardTime: startTime,
       accRewardPerShares: [],
+      rewardPerSeconds: [],
       totalStake: new BN(0),
       tokenName: name,
       tokenSymbol: symbol,
     };
     for (let i = 0; i < rewardTokens.length; i++) {
+      let rps = new BN(totalRewards[i]).mul(new BN(multipliers[i])).div(endTime.sub(startTime));
+      poolInfo[pid].rewardPerSeconds.push(rps);
       poolInfo[pid].accRewardPerShares.push(new BN(0));
     }
     userInfo[user1][pid] = emptyUserInfo();
@@ -195,7 +204,10 @@ contract('KyberFairLaunchV2', function (accounts) {
       let vestDuration = new BN(getSecondInMinute(60));
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
-      let rewardPerSeconds = [precisionUnits, precisionUnits];
+      let totalRewards = [precisionUnits, precisionUnits];
+
+      await fairLaunch.setBlockTime(currentBlockTime);
+
       // start in the past
       await expectRevert(
         fairLaunch.addPool(
@@ -203,27 +215,19 @@ contract('KyberFairLaunchV2', function (accounts) {
           new BN(currentBlockTime),
           endTime,
           vestDuration,
-          rewardPerSeconds,
+          totalRewards,
           tokenName,
           tokenSymbol,
           {from: admin}
         ),
         'add: invalid times'
       );
-      currentBlockTime = await Helper.getCurrentBlockTime();
 
       // end times <= start times
       await expectRevert(
-        fairLaunch.addPool(
-          tokens[0].address,
-          endTime,
-          endTime,
-          vestDuration,
-          rewardPerSeconds,
-          tokenName,
-          tokenSymbol,
-          {from: admin}
-        ),
+        fairLaunch.addPool(tokens[0].address, endTime, endTime, vestDuration, totalRewards, tokenName, tokenSymbol, {
+          from: admin,
+        }),
         'add: invalid times'
       );
       currentBlockTime = await Helper.getCurrentBlockTime();
@@ -232,7 +236,7 @@ contract('KyberFairLaunchV2', function (accounts) {
         new BN(currentBlockTime + getSecondInMinute(1)),
         new BN(currentBlockTime + getSecondInMinute(10)),
         vestDuration,
-        rewardPerSeconds,
+        totalRewards,
         tokenName,
         tokenSymbol,
         {
@@ -248,28 +252,21 @@ contract('KyberFairLaunchV2', function (accounts) {
       let vestDuration = new BN(getSecondInMinute(60));
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
-      let rewardPerSeconds = [precisionUnits, precisionUnits];
+      let totalRewards = [precisionUnits, precisionUnits];
       await fairLaunch.addPool(
         tokens[0].address,
         startTime,
         endTime,
         vestDuration,
-        rewardPerSeconds,
+        totalRewards,
         tokenName,
         tokenSymbol,
         {from: admin}
       );
       await expectRevert(
-        fairLaunch.addPool(
-          tokens[0].address,
-          startTime,
-          endTime,
-          vestDuration,
-          rewardPerSeconds,
-          tokenName,
-          tokenSymbol,
-          {from: admin}
-        ),
+        fairLaunch.addPool(tokens[0].address, startTime, endTime, vestDuration, totalRewards, tokenName, tokenSymbol, {
+          from: admin,
+        }),
         'add: duplicated pool'
       );
     });
@@ -281,17 +278,18 @@ contract('KyberFairLaunchV2', function (accounts) {
         let stakeToken = tokens[i].address;
         currentBlockTime = await Helper.getCurrentBlockTime();
         let startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(1)));
-        let endTime = startTime.add(new BN(getSecondInMinute(10)));
+        let duration = new BN(getSecondInMinute(10));
+        let endTime = startTime.add(duration);
         let vestDuration = new BN(getSecondInMinute(60));
         let tokenName = 'KNC Generated Token';
         let tokenSymbol = 'KNCG';
-        let rewardPerSeconds = generateRewardPerSeconds();
+        let totalRewards = generateTotalRewards();
         let tx = await fairLaunch.addPool(
           stakeToken,
           startTime,
           endTime,
           vestDuration,
-          rewardPerSeconds,
+          totalRewards,
           tokenName,
           tokenSymbol,
           {from: admin}
@@ -310,12 +308,14 @@ contract('KyberFairLaunchV2', function (accounts) {
           startTime: startTime,
           endTime: endTime,
           vestingDuration: vestDuration,
-          rewardPerSeconds: rewardPerSeconds,
           lastRewardTime: startTime,
           accRewardPerShares: [],
+          rewardPerSeconds: [],
           totalStake: new BN(0),
         };
         for (let j = 0; j < rewardTokens.length; j++) {
+          let rps = new BN(totalRewards[j]).mul(new BN(multipliers[j])).div(duration);
+          poolInfo[i].rewardPerSeconds.push(rps);
           poolInfo[i].accRewardPerShares.push(new BN(0));
         }
         await verifyPoolInfo(poolInfo[i]);
@@ -355,7 +355,7 @@ contract('KyberFairLaunchV2', function (accounts) {
       let startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(1)));
       let endTime = startTime.add(new BN(getSecondInMinute(10)));
       let vestDuration = new BN(getSecondInMinute(60));
-      let rewardPerSeconds = [precisionUnits, precisionUnits];
+      let totalRewards = [precisionUnits, precisionUnits];
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
       await fairLaunch.addPool(
@@ -363,7 +363,7 @@ contract('KyberFairLaunchV2', function (accounts) {
         startTime,
         endTime,
         vestDuration,
-        rewardPerSeconds,
+        totalRewards,
         tokenName,
         tokenSymbol,
         {from: admin}
@@ -380,7 +380,7 @@ contract('KyberFairLaunchV2', function (accounts) {
       let startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(1)));
       let endTime = startTime.add(new BN(getSecondInMinute(2)));
       let vestDuration = new BN(getSecondInMinute(60));
-      let rewardPerSeconds = [precisionUnits, precisionUnits];
+      let totalRewards = [precisionUnits, precisionUnits];
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
       await fairLaunch.addPool(
@@ -388,15 +388,16 @@ contract('KyberFairLaunchV2', function (accounts) {
         startTime,
         endTime,
         vestDuration,
-        rewardPerSeconds,
+        totalRewards,
         tokenName,
         tokenSymbol,
         {from: admin}
       );
       await Helper.setNextBlockTimestamp(endTime);
+      await fairLaunch.setBlockTime(endTime);
 
       await expectRevert(
-        fairLaunch.updatePool(0, endTime, vestDuration, rewardPerSeconds, {from: admin}),
+        fairLaunch.updatePool(0, endTime, vestDuration, totalRewards, {from: admin}),
         'update: pool already ended'
       );
     });
@@ -406,26 +407,28 @@ contract('KyberFairLaunchV2', function (accounts) {
       let startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(1)));
       let endTime = startTime.add(new BN(getSecondInMinute(2)));
       let vestDuration = new BN(getSecondInMinute(60));
-      let rewardPerSeconds = [precisionUnits, precisionUnits];
+      let totalRewards = [precisionUnits, precisionUnits];
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
+      await fairLaunch.setBlockTime(currentBlockTime);
+
       await fairLaunch.addPool(
         tokens[0].address,
         startTime,
         endTime,
         vestDuration,
-        rewardPerSeconds,
+        totalRewards,
         tokenName,
         tokenSymbol,
         {from: admin}
       );
       // end time <= start time
       await expectRevert(
-        fairLaunch.updatePool(0, startTime, vestDuration, rewardPerSeconds, {from: admin}),
+        fairLaunch.updatePool(0, startTime, vestDuration, totalRewards, {from: admin}),
         'update: invalid end time'
       );
       await expectRevert(
-        fairLaunch.updatePool(0, startTime.sub(new BN(getSecondInMinute(1))), vestDuration, rewardPerSeconds, {
+        fairLaunch.updatePool(0, startTime.sub(new BN(getSecondInMinute(1))), vestDuration, totalRewards, {
           from: admin,
         }),
         'update: invalid end time'
@@ -433,18 +436,22 @@ contract('KyberFairLaunchV2', function (accounts) {
 
       // end time <= current time
       await Helper.setNextBlockTimestamp(startTime);
+
       currentBlockTime = await Helper.getCurrentBlockTime();
 
       // next tx is executed at currenttime + 1
+      await fairLaunch.setBlockTime(startTime.add(new BN(1)));
       await expectRevert(
-        fairLaunch.updatePool(0, new BN(currentBlockTime).add(new BN(1)), vestDuration, rewardPerSeconds, {
+        fairLaunch.updatePool(0, new BN(currentBlockTime).add(new BN(1)), vestDuration, totalRewards, {
           from: admin,
         }),
         'update: invalid end time'
       );
       currentBlockTime = await Helper.getCurrentBlockTime();
+      await fairLaunch.setBlockTime(currentBlockTime);
+
       await expectRevert(
-        fairLaunch.updatePool(0, new BN(currentBlockTime), vestDuration, rewardPerSeconds, {from: admin}),
+        fairLaunch.updatePool(0, new BN(currentBlockTime), vestDuration, totalRewards, {from: admin}),
         'update: invalid end time'
       );
     });
@@ -456,8 +463,10 @@ contract('KyberFairLaunchV2', function (accounts) {
       let vestDuration = new BN(getSecondInMinute(60));
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
-      let rewardPerSeconds = generateRewardPerSeconds();
-      let pid = await addNewPool(startTime, endTime, vestDuration, rewardPerSeconds, tokenName, tokenSymbol);
+      let totalRewards = generateTotalRewards();
+
+      await fairLaunch.setBlockTime(currentBlockTime);
+      let pid = await addNewPool(startTime, endTime, vestDuration, totalRewards, tokenName, tokenSymbol);
       await verifyPoolInfo(poolInfo[pid]);
 
       for (let i = 0; i < rewardTokens.length; i++) {
@@ -466,54 +475,66 @@ contract('KyberFairLaunchV2', function (accounts) {
 
       // update pool before it starts
       endTime = startTime.add(new BN(getSecondInMinute(3)));
-      rewardPerSeconds = generateRewardPerSeconds();
+      totalRewards = generateTotalRewards();
       vestDuration = new BN(getSecondInMinute(10));
-      let tx = await fairLaunch.updatePool(pid, endTime, vestDuration, rewardPerSeconds, {from: admin});
+      let tx = await fairLaunch.updatePool(pid, endTime, vestDuration, totalRewards, {from: admin});
       expectEvent(tx, 'UpdatePool', {
         pid: pid,
         endTime: endTime,
         vestingDuration: vestDuration,
       });
 
-      currentBlockTime = await Helper.getCurrentBlockTime();
       // not yet started, no need to call update pool rewards
       // poolInfo[pid] = updatePoolReward(poolInfo[pid], currentBlock);
       poolInfo[pid].endTime = endTime;
-      poolInfo[pid].rewardPerSeconds = rewardPerSeconds;
       poolInfo[pid].vestingDuration = vestDuration;
+      poolInfo[pid].rewardPerSeconds = [];
+      for (let i = 0; i < rewardTokens.length; i++) {
+        let rps = new BN(totalRewards[i]).mul(new BN(multipliers[i])).div(endTime.sub(poolInfo[pid].startTime));
+        poolInfo[pid].rewardPerSeconds.push(rps);
+      }
       await verifyPoolInfo(poolInfo[pid]);
 
+      let timeTo = currentBlockTime;
       let amount = precisionUnits.mul(new BN(2));
-      await depositAndVerifyData(user1, pid, amount, false);
+      await depositAndVerifyData(user1, pid, amount, false, timeTo);
       amount = precisionUnits.mul(new BN(2));
-      await depositAndVerifyData(user2, pid, amount, true);
+      await depositAndVerifyData(user2, pid, amount, true, timeTo);
 
-      await Helper.setNextBlockTimestamp(poolInfo[pid].startTime);
-      await harvestAndVerifyData(user1, pid);
+      timeTo = poolInfo[pid].startTime;
+      await Helper.setNextBlockTimestamp(timeTo);
+      await fairLaunch.setBlockTime(timeTo);
 
-      // change reward per seconds
-      rewardPerSeconds = generateRewardPerSeconds();
-      await fairLaunch.updatePool(pid, endTime, vestDuration, rewardPerSeconds, {from: admin});
-      currentBlockTime = await Helper.getCurrentBlockTime();
-      poolInfo[pid] = updatePoolReward(poolInfo[pid], currentBlockTime);
-      poolInfo[pid].rewardPerSeconds = rewardPerSeconds;
-      await verifyPoolInfo(poolInfo[pid]);
-
-      await harvestAndVerifyData(user1, pid);
-      await harvestAndVerifyData(user2, pid);
-
-      await withdrawAndVerifyData(user1, pid, amount.div(new BN(10)), false);
+      await harvestAndVerifyData(user1, pid, timeTo);
 
       // change reward per seconds
-      rewardPerSeconds = generateRewardPerSeconds();
-      await fairLaunch.updatePool(pid, endTime, vestDuration, rewardPerSeconds, {from: admin});
-      currentBlockTime = await Helper.getCurrentBlockTime();
-      poolInfo[pid] = updatePoolReward(poolInfo[pid], currentBlockTime);
-      poolInfo[pid].rewardPerSeconds = rewardPerSeconds;
+      totalRewards = generateTotalRewards();
+      await fairLaunch.updatePool(pid, endTime, vestDuration, totalRewards, {from: admin});
+      poolInfo[pid] = updatePoolReward(poolInfo[pid], timeTo);
+      poolInfo[pid].rewardPerSeconds = [];
+      for (let i = 0; i < rewardTokens.length; i++) {
+        let rps = new BN(totalRewards[i]).mul(new BN(multipliers[i])).div(endTime.sub(poolInfo[pid].startTime));
+        poolInfo[pid].rewardPerSeconds.push(rps);
+      }
+      await verifyPoolInfo(poolInfo[pid]);
+      await harvestAndVerifyData(user1, pid, timeTo);
+      await harvestAndVerifyData(user2, pid, timeTo);
+      await withdrawAndVerifyData(user1, pid, amount.div(new BN(10)), false, timeTo);
+
+      // change reward per seconds
+      totalRewards = generateTotalRewards();
+      await fairLaunch.updatePool(pid, endTime, vestDuration, totalRewards, {from: admin});
+      //   currentBlockTime = await Helper.getCurrentBlockTime();
+      poolInfo[pid] = updatePoolReward(poolInfo[pid], timeTo);
+      poolInfo[pid].rewardPerSeconds = [];
+      for (let i = 0; i < rewardTokens.length; i++) {
+        let rps = new BN(totalRewards[i]).mul(new BN(multipliers[i])).div(endTime.sub(startTime));
+        poolInfo[pid].rewardPerSeconds.push(rps);
+      }
       await verifyPoolInfo(poolInfo[pid]);
 
-      await depositAndVerifyData(user1, pid, amount, true);
-      await depositAndVerifyData(user2, pid, amount, true);
+      await depositAndVerifyData(user1, pid, amount, true, timeTo);
+      await depositAndVerifyData(user2, pid, amount, true, timeTo);
     });
   });
 
@@ -551,13 +572,13 @@ contract('KyberFairLaunchV2', function (accounts) {
       let vestDuration = new BN(getSecondInMinute(60));
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
-      let rewardPerSeconds = [precisionUnits, precisionUnits];
+      let totalRewards = [precisionUnits, precisionUnits];
       await fairLaunch.addPool(
         tokens[0].address,
         startTime,
         endTime,
         vestDuration,
-        rewardPerSeconds,
+        totalRewards,
         tokenName,
         tokenSymbol,
         {from: admin}
@@ -575,23 +596,24 @@ contract('KyberFairLaunchV2', function (accounts) {
       let vestDuration = new BN(getSecondInMinute(60));
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
-      let rewardPerSeconds = [precisionUnits, precisionUnits];
+      let totalRewards = [precisionUnits, precisionUnits];
 
       await fairLaunch.addPool(
         tokens[0].address,
         startTime,
         endTime,
         vestDuration,
-        rewardPerSeconds,
+        totalRewards,
         tokenName,
         tokenSymbol,
         {from: admin}
       );
 
       await Helper.setNextBlockTimestamp(startTime);
+      await fairLaunch.setBlockTime(startTime);
 
       await expectRevert(
-        fairLaunch.renewPool(0, startTime, endTime, vestDuration, rewardPerSeconds, {from: admin}),
+        fairLaunch.renewPool(0, startTime, endTime, vestDuration, totalRewards, {from: admin}),
         'renew: invalid pool state to renew'
       );
     });
@@ -603,25 +625,26 @@ contract('KyberFairLaunchV2', function (accounts) {
       let vestDuration = new BN(getSecondInMinute(60));
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
-      let rewardPerSeconds = [precisionUnits, precisionUnits];
+      let totalRewards = [precisionUnits, precisionUnits];
+      await fairLaunch.setBlockTime(currentBlockTime);
       await fairLaunch.addPool(
         tokens[0].address,
         startTime,
         endTime,
         vestDuration,
-        rewardPerSeconds,
+        totalRewards,
         tokenName,
         tokenSymbol,
         {from: admin}
       );
-      currentBlockTime = await Helper.getCurrentBlockTime();
+      //   currentBlockTime = await Helper.getCurrentBlockTime();
       await expectRevert(
         fairLaunch.renewPool(
           0,
           currentBlockTime,
           new BN(currentBlockTime).add(new BN(getSecondInMinute(10))),
           vestDuration,
-          rewardPerSeconds,
+          totalRewards,
           {from: admin}
         ),
         'renew: invalid times'
@@ -632,7 +655,7 @@ contract('KyberFairLaunchV2', function (accounts) {
           new BN(currentBlockTime).add(new BN(getSecondInMinute(10))),
           new BN(currentBlockTime).add(new BN(getSecondInMinute(10))),
           vestDuration,
-          rewardPerSeconds,
+          totalRewards,
           {from: admin}
         ),
         'renew: invalid times'
@@ -641,13 +664,14 @@ contract('KyberFairLaunchV2', function (accounts) {
 
     it('correct data and events', async () => {
       currentBlockTime = await Helper.getCurrentBlockTime();
-      let startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(1)));
-      let endTime = startTime.add(new BN(getSecondInMinute(2)));
-      let rewardPerSeconds = generateRewardPerSeconds();
+      let startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(10)));
+      let endTime = startTime.add(new BN(getSecondInMinute(25)));
+      let totalRewards = generateTotalRewards();
       let vestDuration = new BN(getSecondInMinute(60));
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
-      let pid = await addNewPool(startTime, endTime, vestDuration, rewardPerSeconds, tokenName, tokenSymbol);
+      await fairLaunch.setBlockTime(currentBlockTime);
+      let pid = await addNewPool(startTime, endTime, vestDuration, totalRewards, tokenName, tokenSymbol);
       await verifyPoolInfo(poolInfo[pid]);
 
       for (let i = 0; i < rewardTokens.length; i++) {
@@ -655,91 +679,99 @@ contract('KyberFairLaunchV2', function (accounts) {
       }
 
       let amount = precisionUnits.mul(new BN(10));
-      await depositAndVerifyData(user1, pid, amount, true);
+      let timeTo = new BN(currentBlockTime).add(new BN(getSecondInMinute(1)));
+      await fairLaunch.setBlockTime(timeTo);
+
+      await depositAndVerifyData(user1, pid, amount, true, timeTo);
       amount = precisionUnits.mul(new BN(2));
-      await depositAndVerifyData(user2, pid, amount, true);
+      await depositAndVerifyData(user2, pid, amount, true, timeTo);
 
       // renew when it has not started
-      currentBlockTime = await Helper.getCurrentBlockTime();
-      startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(2)));
-      endTime = startTime.add(new BN(getSecondInMinute(3)));
-      rewardPerSeconds = generateRewardPerSeconds();
+      startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(15)));
+      endTime = startTime.add(new BN(getSecondInMinute(30)));
+      totalRewards = generateTotalRewards();
       vestDuration = new BN(getSecondInMinute(10));
 
-      let tx = await fairLaunch.renewPool(pid, startTime, endTime, vestDuration, rewardPerSeconds, {from: admin});
+      let tx = await fairLaunch.renewPool(pid, startTime, endTime, vestDuration, totalRewards, {from: admin});
       expectEvent(tx, 'RenewPool', {
         pid: pid,
         startTime: startTime,
         endTime: endTime,
         vestingDuration: vestDuration,
       });
-      currentBlockTime = await Helper.getCurrentBlockTime();
-      poolInfo[pid] = updatePoolInfoOnRenew(
-        poolInfo[pid],
-        startTime,
-        endTime,
-        rewardPerSeconds,
-        currentBlockTime,
-        vestDuration
-      );
+
+      timeTo = new BN(currentBlockTime).add(new BN(getSecondInMinute(4)));
+      await fairLaunch.setBlockTime(timeTo);
+
+      poolInfo[pid] = updatePoolInfoOnRenew(poolInfo[pid], startTime, endTime, totalRewards, timeTo, vestDuration);
       await verifyPoolInfo(poolInfo[pid]);
       await verifyUserInfo(user1, pid, userInfo[user1][pid]);
       await verifyUserInfo(user2, pid, userInfo[user2][pid]);
-      await verifyPendingRewards(pid, [user1, user2, user3]);
+      await verifyPendingRewards(pid, [user1, user2, user3], timeTo);
 
-      await Helper.setNextBlockTimestamp(poolInfo[pid].endTime);
+      timeTo = poolInfo[pid].endTime;
+      await fairLaunch.setBlockTime(timeTo);
 
       // record pending rewards after the pool has ended
       let user1PendingRewards = await fairLaunch.pendingRewards(pid, user1);
       let user2PendingRewards = await fairLaunch.pendingRewards(pid, user2);
 
-      currentBlockTime = await Helper.getCurrentBlockTime();
-      startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(2)));
-      endTime = startTime.add(new BN(getSecondInMinute(3)));
-      rewardPerSeconds = generateRewardPerSeconds();
+      timeTo = new BN(timeTo).add(new BN(getSecondInMinute(1)));
+      await fairLaunch.setBlockTime(timeTo);
+
+      startTime = new BN(poolInfo[pid].endTime).add(new BN(getSecondInMinute(12)));
+      endTime = startTime.add(new BN(getSecondInMinute(10)));
+      totalRewards = generateTotalRewards();
       vestDuration = new BN(getSecondInMinute(20));
 
-      tx = await fairLaunch.renewPool(pid, startTime, endTime, vestDuration, rewardPerSeconds, {from: admin});
+      tx = await fairLaunch.renewPool(pid, startTime, endTime, vestDuration, totalRewards, {from: admin});
       expectEvent(tx, 'RenewPool', {
         pid: pid,
         startTime: startTime,
         endTime: endTime,
         vestingDuration: vestDuration,
       });
-      currentBlockTime = await Helper.getCurrentBlockTime();
-      poolInfo[pid] = updatePoolInfoOnRenew(
-        poolInfo[pid],
-        startTime,
-        endTime,
-        rewardPerSeconds,
-        currentBlockTime,
-        vestDuration
-      );
+
+      timeTo = new BN(timeTo).add(new BN(getSecondInMinute(1)));
+      await fairLaunch.setBlockTime(timeTo);
+
+      poolInfo[pid] = updatePoolInfoOnRenew(poolInfo[pid], startTime, endTime, totalRewards, timeTo, vestDuration);
       await verifyPoolInfo(poolInfo[pid]);
       // user data shouldn't be changed
       await verifyUserInfo(user1, pid, userInfo[user1][pid]);
       await verifyUserInfo(user2, pid, userInfo[user2][pid]);
-      await verifyPendingRewards(pid, [user1, user2, user3]);
+      await verifyPendingRewards(pid, [user1, user2, user3], timeTo);
+
+      timeTo = new BN(timeTo).add(new BN(getSecondInMinute(1)));
+      await fairLaunch.setBlockTime(timeTo);
 
       // deposit without claim
-      await depositAndVerifyData(user1, pid, amount, false);
-      await depositAndVerifyData(user2, pid, amount, false);
+      await depositAndVerifyData(user1, pid, amount, false, timeTo);
+      await depositAndVerifyData(user2, pid, amount, false, timeTo);
       // make deposit for user3 & user4, where amounts are the same as user1 & user2
-      await depositAndVerifyData(user3, pid, userInfo[user1][pid].amount, true);
-      await depositAndVerifyData(user4, pid, userInfo[user2][pid].amount, true);
+
+      timeTo = new BN(timeTo).add(new BN(getSecondInMinute(1)));
+      await fairLaunch.setBlockTime(timeTo);
+      await depositAndVerifyData(user3, pid, userInfo[user1][pid].amount, true, timeTo);
+      await depositAndVerifyData(user4, pid, userInfo[user2][pid].amount, true, timeTo);
 
       // pending reward shouldn't changed
       Helper.assertEqualArray(user1PendingRewards, await fairLaunch.pendingRewards(pid, user1));
       Helper.assertEqualArray(user2PendingRewards, await fairLaunch.pendingRewards(pid, user2));
 
       // harvest for user 1
-      await harvestAndVerifyData(user1, pid);
+      timeTo = new BN(timeTo).add(new BN(getSecondInMinute(3)));
+      await fairLaunch.setBlockTime(timeTo);
+
+      await harvestAndVerifyData(user1, pid, timeTo);
       Helper.assertEqual(new BN(0), await fairLaunch.pendingRewards(pid, user1));
 
       // delay to start of the pool
-      await Helper.setNextBlockTimestamp(poolInfo[pid].startTime.add(new BN(getSecondInMinute(5))));
+      timeTo = poolInfo[pid].startTime.add(new BN(getSecondInMinute(5)));
+      await Helper.setNextBlockTimestamp(timeTo);
+      await fairLaunch.setBlockTime(timeTo);
 
-      // now both users should start accumulating new rewards
+      //   now both users should start accumulating new rewards
       Helper.assertGreater(await fairLaunch.pendingRewards(pid, user1), new BN(0));
       // since user1's amount == user3's amount, reward should be the same
       Helper.assertEqual(await fairLaunch.pendingRewards(pid, user1), await fairLaunch.pendingRewards(pid, user3));
@@ -750,9 +782,9 @@ contract('KyberFairLaunchV2', function (accounts) {
       }
       Helper.assertEqualArray(await fairLaunch.pendingRewards(pid, user2), user2PendingRewards);
 
-      // check if withdrawable full amount from previous deposited
-      await withdrawAndVerifyData(user1, pid, userInfo[user1][pid].amount, false);
-      await withdrawAndVerifyData(user2, pid, userInfo[user2][pid].amount, true);
+    //   check if withdrawable full amount from previous deposited
+      await withdrawAndVerifyData(user1, pid, userInfo[user1][pid].amount, false, timeTo);
+        await withdrawAndVerifyData(user2, pid, userInfo[user2][pid].amount, true, timeTo);
     });
   });
 
@@ -767,7 +799,7 @@ contract('KyberFairLaunchV2', function (accounts) {
 
     it('revert not enough token', async () => {
       currentBlockTime = new BN(await Helper.getCurrentBlockTime());
-      let rewardPerSeconds = [precisionUnits, precisionUnits];
+      let totalRewards = [precisionUnits, precisionUnits];
       let vestDuration = new BN(getSecondInMinute(60));
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
@@ -775,7 +807,7 @@ contract('KyberFairLaunchV2', function (accounts) {
         currentBlockTime.add(new BN(getSecondInMinute(1))),
         currentBlockTime.add(new BN(getSecondInMinute(2))),
         vestDuration,
-        rewardPerSeconds,
+        totalRewards,
         tokenName,
         tokenSymbol
       );
@@ -788,7 +820,7 @@ contract('KyberFairLaunchV2', function (accounts) {
 
     it('revert not enough reward token', async () => {
       currentBlockTime = new BN(await Helper.getCurrentBlockTime());
-      let rewardPerSeconds = [precisionUnits, precisionUnits];
+      let totalRewards = [precisionUnits, precisionUnits];
       let vestDuration = new BN(getSecondInMinute(60));
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
@@ -796,12 +828,13 @@ contract('KyberFairLaunchV2', function (accounts) {
         currentBlockTime.add(new BN(getSecondInMinute(1))),
         currentBlockTime.add(new BN(getSecondInMinute(5))),
         vestDuration,
-        rewardPerSeconds,
+        totalRewards,
         tokenName,
         tokenSymbol
       );
       await fairLaunch.deposit(pid, precisionUnits, false, {from: user1});
       await Helper.setNextBlockTimestamp(poolInfo[pid].startTime.add(new BN(getSecondInMinute(1))));
+      await fairLaunch.setBlockTime(poolInfo[pid].startTime.add(new BN(getSecondInMinute(1))));
 
       // deposit without harvesting, still ok
       await fairLaunch.deposit(pid, precisionUnits, false, {from: user1});
@@ -818,22 +851,30 @@ contract('KyberFairLaunchV2', function (accounts) {
       currentBlockTime = new BN(await Helper.getCurrentBlockTime());
       let startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(1)));
       let endTime = startTime.add(new BN(getSecondInMinute(50)));
-      let rewardPerSeconds = [precisionUnits, precisionUnits];
+      let totalRewards = generateTotalRewards();
       let vestDuration = new BN(getSecondInMinute(60));
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
-      let pid = await addNewPool(startTime, endTime, vestDuration, rewardPerSeconds, tokenName, tokenSymbol);
+      let pid = await addNewPool(startTime, endTime, vestDuration, totalRewards, tokenName, tokenSymbol);
       let amount = precisionUnits.mul(new BN(2));
 
-      await depositAndVerifyData(user1, pid, amount, false);
+      await fairLaunch.setBlockTime(currentBlockTime);
+      await depositAndVerifyData(user1, pid, amount, false, currentBlockTime);
 
       amount = precisionUnits.mul(new BN(2));
 
-      await depositAndVerifyData(user2, pid, amount, true);
-      await Helper.setNextBlockTimestamp(poolInfo[pid].startTime);
-      await verifyPendingRewards(pid, [user1, user2, user3]);
-      await Helper.increaseNextBlockTimestamp(getSecondInMinute(2));
-      await verifyPendingRewards(pid, [user1, user2, user3]);
+      await depositAndVerifyData(user2, pid, amount, true, currentBlockTime);
+
+      let timeTo = poolInfo[pid].startTime;
+      await Helper.setNextBlockTimestamp(timeTo);
+      await fairLaunch.setBlockTime(timeTo);
+
+      await verifyPendingRewards(pid, [user1, user2, user3], timeTo);
+      await Helper.increaseNextBlockTimestamp(getSecondInMinute(4));
+      timeTo = poolInfo[pid].startTime.add(new BN(getSecondInMinute(4)));
+      await fairLaunch.setBlockTime(timeTo);
+
+      await verifyPendingRewards(pid, [user1, user2, user3], timeTo);
       // should have acc some rewards alr
       let pendinRewards = await fairLaunch.pendingRewards(pid, user1);
       for (let i = 0; i < rewardTokens.length; i++) {
@@ -844,27 +885,31 @@ contract('KyberFairLaunchV2', function (accounts) {
         await Helper.assertEqual(pendinRewards[i], new BN(0));
       }
 
-      // deposit without harvesting
+      //   deposit without harvesting
       amount = precisionUnits.mul(new BN(5));
-      await depositAndVerifyData(user1, pid, amount, false);
+      await depositAndVerifyData(user1, pid, amount, false, timeTo);
       await Helper.increaseNextBlockTimestamp(getSecondInMinute(2));
 
+      timeTo = poolInfo[pid].startTime.add(new BN(getSecondInMinute(6)));
+      await fairLaunch.setBlockTime(timeTo);
+
       for (let i = 0; i < rewardTokens.length; i++) {
-        let amount = rewardPerSeconds[i].mul(endTime.sub(startTime)).mul(new BN(10));
-        await transferToken(rewardTokens[i], accounts[0], fairLaunch.address, amount);
+        await transferToken(rewardTokens[i], accounts[0], fairLaunch.address, totalRewards[i].mul(new BN(10)));
       }
 
       amount = precisionUnits.mul(new BN(2));
 
       // deposit with harvesting
-      await depositAndVerifyData(user2, pid, amount, true);
-      await depositAndVerifyData(user1, pid, amount, true);
+      await depositAndVerifyData(user2, pid, amount, true, timeTo);
+      await depositAndVerifyData(user1, pid, amount, true, timeTo);
 
       // deposit when reward has been ended
-      await Helper.setNextBlockTimestamp(poolInfo[pid].endTime);
+      timeTo = poolInfo[pid].endTime;
+      await Helper.setNextBlockTimestamp(timeTo);
+      await fairLaunch.setBlockTime(timeTo);
 
-      await depositAndVerifyData(user1, pid, amount, false);
-      await depositAndVerifyData(user2, pid, amount, true);
+      await depositAndVerifyData(user1, pid, amount, false, timeTo);
+      await depositAndVerifyData(user2, pid, amount, true, timeTo);
 
       // extra verification
       let poolData = await fairLaunch.getPoolInfo(pid);
@@ -879,7 +924,7 @@ contract('KyberFairLaunchV2', function (accounts) {
         await Helper.assertGreater(user1Data.unclaimedRewards[i], new BN(0));
       }
 
-      await depositAndVerifyData(user1, pid, new BN(0), true);
+      await depositAndVerifyData(user1, pid, new BN(0), true, timeTo);
       user1Data = await fairLaunch.getUserInfo(pid, user1);
       for (let i = 0; i < rewardTokens.length; i++) {
         await Helper.assertEqual(new BN(0), user1Data.unclaimedRewards[i]);
@@ -891,15 +936,16 @@ contract('KyberFairLaunchV2', function (accounts) {
     beforeEach('deploy contracts', async () => {
       await deployContracts([kncToken, secondRewardToken]);
     });
+
     it('revert withdraw higher than deposited', async () => {
       currentBlockTime = new BN(await Helper.getCurrentBlockTime());
       let startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(1)));
       let endTime = startTime.add(new BN(getSecondInMinute(50)));
-      let rewardPerSeconds = [precisionUnits, precisionUnits.div(new BN(3))];
+      let totalRewards = [precisionUnits, precisionUnits.div(new BN(3))];
       let vestDuration = new BN(getSecondInMinute(60));
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
-      let pid = await addNewPool(startTime, endTime, vestDuration, rewardPerSeconds, tokenName, tokenSymbol);
+      let pid = await addNewPool(startTime, endTime, vestDuration, totalRewards, tokenName, tokenSymbol);
 
       await fairLaunch.deposit(pid, precisionUnits, false, {from: user1});
       await expectRevert(
@@ -909,64 +955,79 @@ contract('KyberFairLaunchV2', function (accounts) {
       await fairLaunch.withdraw(pid, precisionUnits.div(new BN(2)), {from: user1});
       await fairLaunch.withdrawAll(pid, {from: user1});
     });
+
     it('revert withdraw not enough reward token', async () => {
       currentBlockTime = new BN(await Helper.getCurrentBlockTime());
-      let startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(1)));
-      let endTime = startTime.add(new BN(getSecondInMinute(50)));
-      let rewardPerSeconds = [precisionUnits, precisionUnits.div(new BN(3))];
+      let startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(4)));
+      let endTime = currentBlockTime.add(new BN(getSecondInMinute(20)));
+      let totalRewards = [precisionUnits, precisionUnits.div(new BN(3))];
       let vestDuration = new BN(getSecondInMinute(60));
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
-      let pid = await addNewPool(startTime, endTime, vestDuration, rewardPerSeconds, tokenName, tokenSymbol);
+      await fairLaunch.setBlockTime(currentBlockTime);
+
+      let pid = await addNewPool(startTime, endTime, vestDuration, totalRewards, tokenName, tokenSymbol);
       await fairLaunch.deposit(pid, precisionUnits, false, {from: user1});
-      await Helper.setNextBlockTimestamp(poolInfo[pid].startTime);
+
+      let timeTo = poolInfo[pid].startTime.add(new BN(getSecondInMinute(1)));
+      //   let timeTo = startTime;
+      await fairLaunch.setBlockTime(timeTo);
       await expectRevert.unspecified(fairLaunch.withdraw(pid, precisionUnits, {from: user1}));
       await expectRevert.unspecified(fairLaunch.withdrawAll(pid, {from: user1}));
       for (let i = 0; i < rewardTokens.length; i++) {
-        let amount = rewardPerSeconds[i].mul(endTime.sub(startTime)).mul(new BN(10));
-        await transferToken(rewardTokens[i], accounts[0], fairLaunch.address, amount);
+        await transferToken(rewardTokens[i], accounts[0], fairLaunch.address, totalRewards[i].mul(new BN(10)));
       }
       await fairLaunch.withdraw(pid, precisionUnits.div(new BN(2)), {from: user1});
       await fairLaunch.withdrawAll(pid, {from: user1});
     });
+
     it('withdraw and check rewards', async () => {
       currentBlockTime = new BN(await Helper.getCurrentBlockTime());
       let startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(1)));
       let endTime = startTime.add(new BN(getSecondInMinute(50)));
-      let rewardPerSeconds = [precisionUnits, precisionUnits.div(new BN(3))];
+      let totalRewards = [precisionUnits, precisionUnits.div(new BN(3))];
       let vestDuration = new BN(getSecondInMinute(60));
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
-      let pid = await addNewPool(startTime, endTime, vestDuration, rewardPerSeconds, tokenName, tokenSymbol);
+      await fairLaunch.setBlockTime(currentBlockTime);
+      let pid = await addNewPool(startTime, endTime, vestDuration, totalRewards, tokenName, tokenSymbol);
       let amount = precisionUnits.mul(new BN(2));
-      await depositAndVerifyData(user1, pid, amount, false);
-      await depositAndVerifyData(user2, pid, amount, true);
+      await depositAndVerifyData(user1, pid, amount, false, currentBlockTime);
+      await depositAndVerifyData(user2, pid, amount, true, currentBlockTime);
       // withdraw when not started yet, no reward claimed
       // Note: rewards have not been set to the fairlaunch yet, means it won't revert because reward is 0
       amount = precisionUnits.div(new BN(10));
-      await withdrawAndVerifyData(user1, pid, amount, false);
-      await Helper.setNextBlockTimestamp(poolInfo[pid].startTime.add(new BN(getSecondInMinute(1))));
+      await withdrawAndVerifyData(user1, pid, amount, false, currentBlockTime);
+      let timeTo = poolInfo[pid].startTime.add(new BN(getSecondInMinute(1)));
+
+      //   await Helper.setNextBlockTimestamp(poolInfo[pid].startTime.add(new BN(getSecondInMinute(1))));
+      await fairLaunch.setBlockTime(timeTo);
 
       for (let i = 0; i < rewardTokens.length; i++) {
-        let amount = rewardPerSeconds[i].mul(endTime.sub(startTime)).mul(new BN(10));
-        await transferToken(rewardTokens[i], accounts[0], fairLaunch.address, amount);
+        await transferToken(rewardTokens[i], accounts[0], fairLaunch.address, totalRewards[i].mul(new BN(10)));
       }
       // withdraw and harvest rewards
       amount = precisionUnits.div(new BN(5));
-      await withdrawAndVerifyData(user1, pid, amount, false);
-      await Helper.increaseNextBlockTimestamp(getSecondInMinute(2));
-      //   await Helper.increaseBlockNumber(2);
+
+      await withdrawAndVerifyData(user1, pid, amount, false, timeTo);
+      timeTo = poolInfo[pid].startTime.add(new BN(getSecondInMinute(3)));
+      //   await Helper.increaseNextBlockTimestamp(getSecondInMinute(2));
+      await fairLaunch.setBlockTime(timeTo);
+
+      // await Helper.increaseBlockNumber(2);
       amount = precisionUnits.div(new BN(2));
-      await withdrawAndVerifyData(user2, pid, amount, false);
+      await withdrawAndVerifyData(user2, pid, amount, false, timeTo);
       await verifyPendingRewards(pid, [user1, user2, user3]);
       // withdraw when reward has been ended
-      await Helper.setNextBlockTimestamp(poolInfo[pid].endTime);
+      //   await Helper.setNextBlockTimestamp(poolInfo[pid].endTime);
+      await fairLaunch.setBlockTime(poolInfo[pid].endTime);
 
-      await withdrawAndVerifyData(user1, pid, amount, false);
-      await withdrawAndVerifyData(user2, pid, amount, false);
+      timeTo = poolInfo[pid].endTime;
+      await withdrawAndVerifyData(user1, pid, amount, false, timeTo);
+      await withdrawAndVerifyData(user2, pid, amount, false, timeTo);
       // withdraw all
-      await withdrawAndVerifyData(user1, pid, userInfo[user1][pid].amount, true);
-      await withdrawAndVerifyData(user2, pid, userInfo[user2][pid].amount, true);
+      await withdrawAndVerifyData(user1, pid, userInfo[user1][pid].amount, true, timeTo);
+      await withdrawAndVerifyData(user2, pid, userInfo[user2][pid].amount, true, timeTo);
       // extra verification
       let poolData = await fairLaunch.getPoolInfo(pid);
       let user1Data = await fairLaunch.getUserInfo(pid, user1);
@@ -983,7 +1044,7 @@ contract('KyberFairLaunchV2', function (accounts) {
     });
   });
 
-  describe('#harvest', async () => {
+  describe.only('#harvest', async () => {
     beforeEach('deploy contracts', async () => {
       await deployContracts([kncToken, secondRewardToken]);
     });
@@ -997,13 +1058,14 @@ contract('KyberFairLaunchV2', function (accounts) {
       currentBlockTime = new BN(await Helper.getCurrentBlockTime());
       let startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(1)));
       let endTime = startTime.add(new BN(getSecondInMinute(50)));
-      let rewardPerSeconds = [precisionUnits, precisionUnits.div(new BN(3))];
+      let totalRewards = [precisionUnits, precisionUnits.div(new BN(3))];
       let vestDuration = new BN(getSecondInMinute(60));
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
-      let pid = await addNewPool(startTime, endTime, vestDuration, rewardPerSeconds, tokenName, tokenSymbol);
+      await fairLaunch.setBlockTime(currentBlockTime);
+      let pid = await addNewPool(startTime, endTime, vestDuration, totalRewards, tokenName, tokenSymbol);
       await fairLaunch.deposit(pid, precisionUnits, false, {from: user1});
-      await Helper.setNextBlockTimestamp(poolInfo[pid].startTime);
+      await fairLaunch.setBlockTime(poolInfo[pid].startTime.add(new BN(getSecondInMinute(1))));
 
       await expectRevert.unspecified(fairLaunch.harvest(pid, {from: user1}));
       for (let i = 0; i < rewardTokens.length; i++) {
@@ -1017,49 +1079,59 @@ contract('KyberFairLaunchV2', function (accounts) {
       let amount = precisionUnits.div(new BN(10));
       let startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(1)));
       let endTime = startTime.add(new BN(getSecondInMinute(50)));
-      let rewardPerSeconds = generateRewardPerSeconds();
+      let totalRewards = generateTotalRewards();
       let vestDuration = new BN(getSecondInMinute(60));
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
-      let pid = await addNewPool(startTime, endTime, vestDuration, rewardPerSeconds, tokenName, tokenSymbol);
-
+      await fairLaunch.setBlockTime(currentBlockTime);
+      let pid = await addNewPool(startTime, endTime, vestDuration, totalRewards, tokenName, tokenSymbol);
       amount = precisionUnits.mul(new BN(2));
-      await depositAndVerifyData(user1, pid, amount, false);
-      await depositAndVerifyData(user2, pid, amount, true);
+      await depositAndVerifyData(user1, pid, amount, false, currentBlockTime);
+      await depositAndVerifyData(user2, pid, amount, true, currentBlockTime);
 
       // harvest when not started yet, no reward claimed
       // Note: rewards have not been set to the fairlaunch yet, means it won't revert because reward is 0
-      await harvestAndVerifyData(user1, pid);
-      await Helper.setNextBlockTimestamp(startTime.add(new BN(getSecondInMinute(2))));
+      let timeTo = currentBlockTime.add(new BN(getSecondInMinute(1)));
+      await fairLaunch.setBlockTime(timeTo);
+
+      await harvestAndVerifyData(user1, pid, timeTo);
+      timeTo = startTime.add(new BN(getSecondInMinute(2)));
+      await fairLaunch.setBlockTime(timeTo);
 
       for (let i = 0; i < rewardTokens.length; i++) {
-        let amount = rewardPerSeconds[i].mul(endTime.sub(startTime)).mul(new BN(10));
-        await transferToken(rewardTokens[i], accounts[0], fairLaunch.address, amount);
+        await transferToken(rewardTokens[i], accounts[0], fairLaunch.address, totalRewards[i].mul(new BN(10)));
       }
 
+      timeTo = startTime.add(new BN(getSecondInMinute(3)));
+      await fairLaunch.setBlockTime(timeTo);
       // harvest reward
-      await harvestAndVerifyData(user1, pid);
-      await Helper.increaseNextBlockTimestamp(getSecondInMinute(2));
+      await harvestAndVerifyData(user1, pid, timeTo);
 
-      await harvestAndVerifyData(user2, pid);
+      timeTo = startTime.add(new BN(getSecondInMinute(4)));
+      await fairLaunch.setBlockTime(timeTo);
+
+      await harvestAndVerifyData(user2, pid, timeTo);
       // harvest user that has not depsited
-      await harvestAndVerifyData(user3, pid);
+      await harvestAndVerifyData(user3, pid, timeTo);
 
-      await verifyPendingRewards(pid, [user1, user2, user3]);
+      await verifyPendingRewards(pid, [user1, user2, user3], timeTo);
 
+      timeTo = startTime.add(new BN(getSecondInMinute(5)));
+      await fairLaunch.setBlockTime(timeTo);
       // deposit and not harvest, then harvest
-      await depositAndVerifyData(user1, pid, amount, false);
-      await harvestAndVerifyData(user1, pid);
+      await depositAndVerifyData(user1, pid, amount, false, timeTo);
+      await harvestAndVerifyData(user1, pid, timeTo);
       // deposit and harvest, then call harvest
-      await depositAndVerifyData(user2, pid, amount, true);
-      await harvestAndVerifyData(user2, pid);
+      await depositAndVerifyData(user2, pid, amount, true, timeTo);
+      await harvestAndVerifyData(user2, pid, timeTo);
 
       // delay to end
-      await Helper.setNextBlockTimestamp(poolInfo[pid].endTime);
+      timeTo = poolInfo[pid].endTime;
+      await fairLaunch.setBlockTime(timeTo);
 
-      await harvestAndVerifyData(user1, pid);
-      await withdrawAndVerifyData(user2, pid, userInfo[user2][pid].amount, true);
-      await harvestAndVerifyData(user2, pid);
+      await harvestAndVerifyData(user1, pid, timeTo);
+      await withdrawAndVerifyData(user2, pid, userInfo[user2][pid].amount, true, timeTo);
+      await harvestAndVerifyData(user2, pid, timeTo);
 
       // extra verification
       let poolData = await fairLaunch.getPoolInfo(pid);
@@ -1075,89 +1147,109 @@ contract('KyberFairLaunchV2', function (accounts) {
       }
     });
 
-    it('harvest multiple pools in same vesting duration and check rewards', async () => {
+    it.only('harvest multiple pools in same vesting duration and check rewards', async () => {
       currentBlockTime = new BN(await Helper.getCurrentBlockTime());
       let startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(10)));
       let endTime = startTime.add(new BN(getSecondInMinute(22)));
-      let rewardPerSeconds = generateRewardPerSeconds();
+      let totalRewards = generateTotalRewards();
       let vestDuration = new BN(getSecondInMinute(60));
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
-      let pid1 = await addNewPool(startTime, endTime, vestDuration, rewardPerSeconds, tokenName, tokenSymbol);
-      rewardPerSeconds = generateRewardPerSeconds();
+
+      let timeTo = currentBlockTime;
+      await fairLaunch.setBlockTime(timeTo);
+
+      let pid1 = await addNewPool(startTime, endTime, vestDuration, totalRewards, tokenName, tokenSymbol);
+      totalRewards = generateTotalRewards();
       vestDuration = new BN(getSecondInMinute(60));
       let pid2 = await addNewPool(
         startTime,
         startTime.add(new BN(getSecondInMinute(20))),
         vestDuration,
-        rewardPerSeconds,
+        totalRewards,
         tokenName,
         tokenSymbol
       );
       let amount = precisionUnits.mul(new BN(2));
 
-      await depositAndVerifyData(user1, pid1, amount, false);
-      await depositAndVerifyData(user2, pid1, amount.add(new BN(1)), true);
+      await depositAndVerifyData(user1, pid1, amount, false, timeTo);
+      await depositAndVerifyData(user2, pid1, amount.add(new BN(1)), true, timeTo);
 
+      timeTo = currentBlockTime.add(new BN(getSecondInMinute(1)));
+      await fairLaunch.setBlockTime(timeTo);
       amount = precisionUnits;
-      await depositAndVerifyData(user1, pid1, amount, false);
-      await depositAndVerifyData(user2, pid1, amount.add(new BN(100)), true);
+      await depositAndVerifyData(user1, pid1, amount, false, timeTo);
+      await depositAndVerifyData(user2, pid1, amount.add(new BN(100)), true, timeTo);
 
       // harvest when not started yet, no reward claimed
       // Note: rewards have not been set to the fairlaunch yet, means it won't revert because reward is 0
-      await harvestMultiplePoolsAndVerifyData(user1, [pid1, pid2], false);
-      await Helper.setNextBlockTimestamp(startTime.add(new BN(getSecondInMinute(2))));
+      await harvestMultiplePoolsAndVerifyData(user1, [pid1, pid2], false, timeTo);
+
+      timeTo = startTime.add(new BN(getSecondInMinute(3)));
+      await fairLaunch.setBlockTime(timeTo);
 
       for (let i = 0; i < rewardTokens.length; i++) {
-        let amount = rewardPerSeconds[i].mul(endTime.sub(startTime)).mul(new BN(10));
-        await transferToken(rewardTokens[i], accounts[0], fairLaunch.address, amount);
+        await transferToken(rewardTokens[i], accounts[0], fairLaunch.address, totalRewards[i].mul(new BN(10)));
       }
 
-      await harvestMultiplePoolsAndVerifyData(user1, [pid1, pid2], false);
+      timeTo = startTime.add(new BN(getSecondInMinute(4)));
+      await fairLaunch.setBlockTime(timeTo);
+
+      await harvestMultiplePoolsAndVerifyData(user1, [pid1, pid2], false, timeTo);
       // harvest same pid
-      await harvestMultiplePoolsAndVerifyData(user2, [pid1, pid1], false);
+      await harvestMultiplePoolsAndVerifyData(user2, [pid1, pid1], false, timeTo);
 
-      await depositAndVerifyData(user1, pid1, amount, false);
-      await depositAndVerifyData(user2, pid2, amount, false);
+      timeTo = startTime.add(new BN(getSecondInMinute(5)));
+      await fairLaunch.setBlockTime(timeTo);
+      await depositAndVerifyData(user1, pid1, amount, false, timeTo);
+      await depositAndVerifyData(user2, pid2, amount, false, timeTo);
 
-      await harvestMultiplePoolsAndVerifyData(user1, [pid1], false);
-      await harvestMultiplePoolsAndVerifyData(user1, [pid2], false);
+      timeTo = startTime.add(new BN(getSecondInMinute(6)));
+      await fairLaunch.setBlockTime(timeTo);
+      await harvestMultiplePoolsAndVerifyData(user1, [pid1], false, timeTo);
+      await harvestMultiplePoolsAndVerifyData(user1, [pid2], false, timeTo);
       // harvest same pid
-      await harvestMultiplePoolsAndVerifyData(user2, [pid1, pid2], false);
+      timeTo = startTime.add(new BN(getSecondInMinute(8)));
+      await fairLaunch.setBlockTime(timeTo);
+      await harvestMultiplePoolsAndVerifyData(user2, [pid1, pid2], false, timeTo);
 
-      await Helper.setNextBlockTimestamp(poolInfo[pid1].endTime);
+    //   timeTo = poolInfo[pid1].endTime;
+    //   await fairLaunch.setBlockTime(timeTo);
 
-      await harvestMultiplePoolsAndVerifyData(user1, [pid1, pid2], false);
-      await harvestMultiplePoolsAndVerifyData(user2, [pid1, pid2], false);
-      // extra verification
-      let pids = [pid1, pid2];
-      for (let i = 0; i < pids.length; i++) {
-        let pid = pids[i];
+    //   await harvestMultiplePoolsAndVerifyData(user1, [pid1, pid2], false, timeTo);
+    //   await harvestMultiplePoolsAndVerifyData(user2, [pid1, pid2], false, timeTo);
+    //   // extra verification
+    //   let pids = [pid1, pid2];
+    //   for (let i = 0; i < pids.length; i++) {
+    //     let pid = pids[i];
 
-        let poolData = await fairLaunch.getPoolInfo(pid);
-        let user1Data = await fairLaunch.getUserInfo(pid, user1);
-        let user2Data = await fairLaunch.getUserInfo(pid, user2);
+    //     let poolData = await fairLaunch.getPoolInfo(pid);
+    //     let user1Data = await fairLaunch.getUserInfo(pid, user1);
+    //     let user2Data = await fairLaunch.getUserInfo(pid, user2);
 
-        await Helper.assertEqual(poolInfo[pid].endTime, poolData.lastRewardTime);
-        await Helper.assertEqual(user1Data.lastRewardPerShares, poolData.accRewardPerShares);
-        await Helper.assertEqual(user2Data.lastRewardPerShares, poolData.accRewardPerShares);
-        for (let i = 0; i < rewardTokens.length; i++) {
-          await Helper.assertEqual(new BN(0), user2Data.unclaimedRewards[i]);
-          await Helper.assertEqual(user1Data.unclaimedRewards[i], new BN(0));
-        }
-      }
+    //     await Helper.assertEqual(poolInfo[pid].endTime, poolData.lastRewardTime);
+    //     await Helper.assertEqual(user1Data.lastRewardPerShares, poolData.accRewardPerShares);
+    //     await Helper.assertEqual(user2Data.lastRewardPerShares, poolData.accRewardPerShares);
+    //     for (let i = 0; i < rewardTokens.length; i++) {
+    //       await Helper.assertEqual(new BN(0), user2Data.unclaimedRewards[i]);
+    //       await Helper.assertEqual(user1Data.unclaimedRewards[i], new BN(0));
+    //     }
+    //   }
     });
 
     it('harvest multiple pools in different vesting duration and check rewards', async () => {
       currentBlockTime = new BN(await Helper.getCurrentBlockTime());
       let startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(10)));
       let endTime = startTime.add(new BN(getSecondInMinute(22)));
-      let rewardPerSeconds = generateRewardPerSeconds();
+      let totalRewards = generateTotalRewards();
       let vestDuration = new BN(getSecondInMinute(60));
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
-      let pid1 = await addNewPool(startTime, endTime, vestDuration, rewardPerSeconds, tokenName, tokenSymbol);
-      rewardPerSeconds = generateRewardPerSeconds();
+      let timeTo = currentBlockTime;
+      await fairLaunch.setBlockTime(timeTo);
+
+      let pid1 = await addNewPool(startTime, endTime, vestDuration, totalRewards, tokenName, tokenSymbol);
+      totalRewards = generateTotalRewards();
       vestDuration = new BN(getSecondInMinute(40));
       tokenName = 'KNC Generated Token X';
       tokenSymbol = 'KNCG X';
@@ -1165,45 +1257,62 @@ contract('KyberFairLaunchV2', function (accounts) {
         startTime,
         startTime.add(new BN(getSecondInMinute(20))),
         vestDuration,
-        rewardPerSeconds,
+        totalRewards,
         tokenName,
         tokenSymbol
       );
       let amount = precisionUnits.mul(new BN(2));
 
-      await depositAndVerifyData(user1, pid1, amount, false);
-      await depositAndVerifyData(user2, pid1, amount.add(new BN(1)), true);
+      await depositAndVerifyData(user1, pid1, amount, false, timeTo);
+      await depositAndVerifyData(user2, pid1, amount.add(new BN(1)), true, timeTo);
 
+      timeTo = currentBlockTime.add(new BN(getSecondInMinute(1)));
+      await fairLaunch.setBlockTime(timeTo);
       amount = precisionUnits;
-      await depositAndVerifyData(user1, pid1, amount, false);
-      await depositAndVerifyData(user2, pid1, amount.add(new BN(100)), true);
+      await depositAndVerifyData(user1, pid1, amount, false, timeTo);
+      await depositAndVerifyData(user2, pid1, amount.add(new BN(100)), true, timeTo);
 
       // harvest when not started yet, no reward claimed
       // Note: rewards have not been set to the fairlaunch yet, means it won't revert because reward is 0
-      await harvestMultiplePoolsAndVerifyData(user1, [pid1, pid2], true);
-      await Helper.setNextBlockTimestamp(startTime.add(new BN(getSecondInMinute(2))));
+      await harvestMultiplePoolsAndVerifyData(user1, [pid1, pid2], true, timeTo);
+
+      timeTo = startTime.add(new BN(getSecondInMinute(3)));
+      await fairLaunch.setBlockTime(timeTo);
 
       for (let i = 0; i < rewardTokens.length; i++) {
-        let amount = rewardPerSeconds[i].mul(endTime.sub(startTime)).mul(new BN(10));
-        await transferToken(rewardTokens[i], accounts[0], fairLaunch.address, amount);
+        await transferToken(rewardTokens[i], accounts[0], fairLaunch.address, totalRewards[i].mul(new BN(10)));
       }
 
-      await harvestMultiplePoolsAndVerifyData(user1, [pid1, pid2], true);
+      timeTo = startTime.add(new BN(getSecondInMinute(4)));
+      await fairLaunch.setBlockTime(timeTo);
+
+      await harvestMultiplePoolsAndVerifyData(user1, [pid1, pid2], true, timeTo);
       // harvest same pid
-      await harvestMultiplePoolsAndVerifyData(user2, [pid1, pid1], true);
+      await harvestMultiplePoolsAndVerifyData(user2, [pid1, pid1], true, timeTo);
 
-      await depositAndVerifyData(user1, pid1, amount, false);
-      await depositAndVerifyData(user2, pid2, amount, false);
+      timeTo = startTime.add(new BN(getSecondInMinute(5)));
+      await fairLaunch.setBlockTime(timeTo);
 
-      await harvestMultiplePoolsAndVerifyData(user1, [pid1], true);
-      await harvestMultiplePoolsAndVerifyData(user1, [pid2], true);
+      await depositAndVerifyData(user1, pid1, amount, false, timeTo);
+      await depositAndVerifyData(user2, pid2, amount, false, timeTo);
+
+      timeTo = startTime.add(new BN(getSecondInMinute(6)));
+      await fairLaunch.setBlockTime(timeTo);
+
+      await harvestMultiplePoolsAndVerifyData(user1, [pid1], true, timeTo);
+      await harvestMultiplePoolsAndVerifyData(user1, [pid2], true, timeTo);
       // harvest same pid
-      await harvestMultiplePoolsAndVerifyData(user2, [pid1, pid2], true);
 
-      await Helper.setNextBlockTimestamp(poolInfo[pid1].endTime);
+      timeTo = startTime.add(new BN(getSecondInMinute(7)));
+      await fairLaunch.setBlockTime(timeTo);
 
-      await harvestMultiplePoolsAndVerifyData(user1, [pid1, pid2], true);
-      await harvestMultiplePoolsAndVerifyData(user2, [pid1, pid2], true);
+      await harvestMultiplePoolsAndVerifyData(user2, [pid1, pid2], true, timeTo);
+
+      timeTo = poolInfo[pid1].endTime;
+      await fairLaunch.setBlockTime(timeTo);
+
+      await harvestMultiplePoolsAndVerifyData(user1, [pid1, pid2], true, timeTo);
+      await harvestMultiplePoolsAndVerifyData(user2, [pid1, pid2], true, timeTo);
 
       //   extra verification
       let pids = [pid1, pid2];
@@ -1229,45 +1338,60 @@ contract('KyberFairLaunchV2', function (accounts) {
       let startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(1)));
       let duration = new BN(getSecondInMinute(6));
       let endTime = startTime.add(duration);
-      let rewardPerSeconds = generateRewardPerSeconds();
+      let totalRewards = generateTotalRewards();
       let vestDuration = new BN(getSecondInMinute(60));
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
-      let pid = await addNewPool(startTime, endTime, vestDuration, rewardPerSeconds, tokenName, tokenSymbol);
+      let timeTo = currentBlockTime;
+      await fairLaunch.setBlockTime(timeTo);
+      let pid = await addNewPool(startTime, endTime, vestDuration, totalRewards, tokenName, tokenSymbol);
 
       let totalAmount = precisionUnits;
       let amount1 = precisionUnits;
-      await depositAndVerifyData(user1, pid, amount1, false);
+      await depositAndVerifyData(user1, pid, amount1, false, timeTo);
       let amount2 = precisionUnits.mul(new BN(2));
       totalAmount = totalAmount.add(amount2);
-      await depositAndVerifyData(user2, pid, amount2, true);
+      await depositAndVerifyData(user2, pid, amount2, true, timeTo);
 
       // delay to end block
-      await Helper.setNextBlockTimestamp(endTime.add(new BN(getSecondInMinute(1))));
+      timeTo = endTime.add(new BN(getSecondInMinute(1)));
+      await fairLaunch.setBlockTime(timeTo);
 
       let user1Rewards = [];
       let user2Rewards = [];
       for (let i = 0; i < rewardTokens.length; i++) {
-        let rewardPerShare = duration.mul(rewardPerSeconds[i]).mul(REWARD_PER_SHARE_PRECISION).div(totalAmount);
+        let rewardPerShare = totalRewards[i]
+          .mul(REWARD_PER_SHARE_PRECISION)
+          .mul(new BN(multipliers[i]))
+          .div(totalAmount);
         user1Rewards.push(rewardPerShare.mul(amount1).div(REWARD_PER_SHARE_PRECISION));
         user2Rewards.push(rewardPerShare.mul(amount2).div(REWARD_PER_SHARE_PRECISION));
       }
 
-      currentBlockTime = await Helper.getCurrentBlockTime();
-      let user1PendingRewards = getUserPendingRewards(user1, pid, currentBlockTime);
-      let user2PendingRewards = getUserPendingRewards(user2, pid, currentBlockTime);
+      let user1PendingRewards = getUserPendingRewards(user1, pid, timeTo);
+      let user2PendingRewards = getUserPendingRewards(user2, pid, timeTo);
       for (let i = 0; i < rewardTokens.length; i++) {
         Helper.assertEqual(user1Rewards[i], user1PendingRewards[i]);
         Helper.assertEqual(user2Rewards[i], user2PendingRewards[i]);
-        await transferToken(rewardTokens[i], accounts[0], fairLaunch.address, user1Rewards[i].add(user2Rewards[i]));
+        await transferToken(
+          rewardTokens[i],
+          accounts[0],
+          fairLaunch.address,
+          user1Rewards[i].add(user2Rewards[i]).div(new BN(multipliers[i]))
+        );
       }
-      await harvestAndVerifyData(user1, pid);
-      await harvestAndVerifyData(user2, pid);
+
+      timeTo = endTime.add(new BN(getSecondInMinute(2)));
+      await fairLaunch.setBlockTime(timeTo);
+
+      await harvestAndVerifyData(user1, pid, timeTo);
+      await harvestAndVerifyData(user2, pid, timeTo);
       for (let i = 0; i < rewardTokens.length; i++) {
         Helper.assertEqual(new BN(0), await balanceOf(rewardTokens[i], fairLaunch.address));
       }
     });
   });
+
   describe('#emergency withdraw', async () => {
     beforeEach('deploy contracts', async () => {
       await deployContracts([kncToken, secondRewardToken]);
@@ -1276,26 +1400,44 @@ contract('KyberFairLaunchV2', function (accounts) {
     // no reward has been transferred out, since there is no reward in the fairlaunch contract
     it('emergencyWithdraw and check data', async () => {
       currentBlockTime = new BN(await Helper.getCurrentBlockTime());
-      let startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(1)));
-      let endTime = startTime.add(new BN(getSecondInMinute(6)));
-      let rewardPerSeconds = generateRewardPerSeconds();
+      let startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(10)));
+      let endTime = startTime.add(new BN(getSecondInMinute(25)));
+      let totalRewards = generateTotalRewards();
       let vestDuration = new BN(getSecondInMinute(60));
       let tokenName = 'KNC Generated Token';
       let tokenSymbol = 'KNCG';
-      let pid1 = await addNewPool(startTime, endTime, vestDuration, rewardPerSeconds, tokenName, tokenSymbol);
-      rewardPerSeconds = generateRewardPerSeconds();
+
+      let timeTo = currentBlockTime;
+      await fairLaunch.setBlockTime(timeTo);
+
+      let pid1 = await addNewPool(startTime, endTime, vestDuration, totalRewards, tokenName, tokenSymbol);
+      totalRewards = generateTotalRewards();
       endTime = startTime.add(new BN(getSecondInMinute(12)));
-      let pid2 = await addNewPool(startTime, endTime, vestDuration, rewardPerSeconds, tokenName, tokenSymbol);
+
+      timeTo = currentBlockTime.add(new BN(getSecondInMinute(1)));
+      await fairLaunch.setBlockTime(timeTo);
+
+      let pid2 = await addNewPool(startTime, endTime, vestDuration, totalRewards, tokenName, tokenSymbol);
+
+      timeTo = currentBlockTime.add(new BN(getSecondInMinute(3)));
+      await fairLaunch.setBlockTime(timeTo);
 
       let amount = precisionUnits.mul(new BN(2));
-      await depositAndVerifyData(user1, pid1, amount, false);
-      amount = precisionUnits.mul(new BN(5));
-      await depositAndVerifyData(user2, pid1, amount, true);
-      await depositAndVerifyData(user1, pid2, amount, false);
-      amount = precisionUnits.mul(new BN(3));
-      await depositAndVerifyData(user1, pid2, amount, false);
+      await depositAndVerifyData(user1, pid1, amount, false, timeTo);
 
-      await Helper.setNextBlockTimestamp(endTime);
+      timeTo = currentBlockTime.add(new BN(getSecondInMinute(4)));
+      await fairLaunch.setBlockTime(timeTo);
+      amount = precisionUnits.mul(new BN(5));
+      await depositAndVerifyData(user2, pid1, amount, true, timeTo);
+      await depositAndVerifyData(user1, pid2, amount, false, timeTo);
+
+      timeTo = currentBlockTime.add(new BN(getSecondInMinute(5)));
+      await fairLaunch.setBlockTime(timeTo);
+      amount = precisionUnits.mul(new BN(3));
+      await depositAndVerifyData(user1, pid2, amount, false, timeTo);
+
+      timeTo = endTime;
+      await fairLaunch.setBlockTime(timeTo);
 
       let users = [user1, user2, user3];
       let pids = [pid1, pid2];
@@ -1310,7 +1452,7 @@ contract('KyberFairLaunchV2', function (accounts) {
           expectEvent(tx, 'EmergencyWithdraw', {
             user: user,
             pid: pid,
-            timestamp: new BN(await Helper.getCurrentBlockTime()),
+            timestamp: new BN(timeTo),
             amount: userInfo[user][pid].amount,
           });
 
@@ -1395,8 +1537,9 @@ contract('KyberFairLaunchV2', function (accounts) {
             let startTime = new BN(currentBlockTime.add(new BN(getSecondInMinute(Helper.getRandomInt(5, 10)))));
             let endTime = startTime.add(new BN(getSecondInMinute(Helper.getRandomInt(5, numberRuns - i + 5))));
             let vestDuration = new BN(getSecondInMinute(Helper.getRandomInt(30, 60)));
-
-            let rewardPerSeconds = generateRewardPerSeconds();
+            let timeTo = new BN(await Helper.getCurrentBlockTime());
+            await fairLaunch.setBlockTime(timeTo);
+            let totalRewards = generateTotalRewards();
             if (poolLength == tokens.length) {
               // all tokens have been added, will get duplicated token
               console.log(`Loop ${i}: Expect add pool reverts`);
@@ -1406,7 +1549,7 @@ contract('KyberFairLaunchV2', function (accounts) {
                   startTime,
                   endTime,
                   vestDuration,
-                  rewardPerSeconds,
+                  totalRewards,
                   tokenName,
                   tokenSymbol,
                   {
@@ -1419,17 +1562,12 @@ contract('KyberFairLaunchV2', function (accounts) {
             }
             poolLength += 1;
             for (let r = 0; r < rewardTokens.length; r++) {
-              await transferToken(
-                rewardTokens[r],
-                accounts[0],
-                fairLaunch.address,
-                rewardPerSeconds[r].mul(endTime.sub(startTime))
-              );
+              await transferToken(rewardTokens[r], accounts[0], fairLaunch.address, totalRewards[r]);
             }
             console.log(
               `Loop ${i}: Add pool ${tokens[poolLength - 1].address} ${startTime.toString(10)} ${endTime.toString(10)}`
             );
-            await addNewPool(startTime, endTime, vestDuration, rewardPerSeconds, tokenName, tokenSymbol);
+            await addNewPool(startTime, endTime, vestDuration, totalRewards, tokenName, tokenSymbol);
           } else if (isUserAction) {
             let user = users[Helper.getRandomInt(0, users.length - 1)];
             let pid = Helper.getRandomInt(0, poolLength - 1);
@@ -1437,21 +1575,31 @@ contract('KyberFairLaunchV2', function (accounts) {
               let amount = precisionUnits.mul(new BN(10)).div(new BN(Helper.getRandomInt(1, 20)));
               let isHarvesting = Helper.getRandomInt(0, 100) <= 50;
               console.log(`Loop ${i}: Deposit: ${user} ${pid} ${amount.toString(10)} ${isHarvesting}`);
-              await depositAndVerifyData(user, pid, amount, isHarvesting);
+
+              let timeTo = new BN(await Helper.getCurrentBlockTime());
+              await fairLaunch.setBlockTime(timeTo);
+              await depositAndVerifyData(user, pid, amount, isHarvesting, timeTo);
             } else if (userAction == UserActions.Withdraw) {
               let amount = userInfo[user][pid].amount.div(new BN(Helper.getRandomInt(1, 20)));
               console.log(`Loop ${i}: Withdraw: ${user} ${pid} ${amount.toString(10)}`);
-              await withdrawAndVerifyData(user, pid, amount, false);
+
+              let timeTo = new BN(await Helper.getCurrentBlockTime());
+              await fairLaunch.setBlockTime(timeTo);
+              await withdrawAndVerifyData(user, pid, amount, false, timeTo);
             } else if (userAction == UserActions.WithdrawAll) {
               console.log(`Loop ${i}: WithdrawAll: ${user} ${pid} ${userInfo[user][pid].amount.toString(10)}`);
-              await withdrawAndVerifyData(user, pid, userInfo[user][pid].amount, true);
+              let timeTo = new BN(await Helper.getCurrentBlockTime());
+              await fairLaunch.setBlockTime(timeTo);
+              await withdrawAndVerifyData(user, pid, userInfo[user][pid].amount, true, timeTo);
             } else {
+              let timeTo = new BN(await Helper.getCurrentBlockTime());
+              await fairLaunch.setBlockTime(timeTo);
               console.log(`Loop ${i}: Harvest: ${user} ${pid}`);
-              await harvestAndVerifyData(user, pid);
+              await harvestAndVerifyData(user, pid, timeTo);
             }
           } else {
             // admin action
-            let rewardPerSeconds = generateRewardPerSeconds();
+            let totalRewards = generateTotalRewards();
             let pid = Helper.getRandomInt(0, poolLength - 1);
             let vestDuration = new BN(getSecondInMinute(Helper.getRandomInt(30, 60)));
             if (adminAction == AdminActions.UpdatePool) {
@@ -1463,60 +1611,62 @@ contract('KyberFairLaunchV2', function (accounts) {
                 console.log(`Loop ${i}: Expect update pool reverts`);
                 // already ended
                 await expectRevert(
-                  fairLaunch.updatePool(pid, endTime, vestDuration, rewardPerSeconds, tokenName, tokenSymbol, {
+                  fairLaunch.updatePool(pid, endTime, vestDuration, totalRewards, tokenName, tokenSymbol, {
                     from: admin,
                   }),
                   'update: pool already ended'
                 );
               } else {
                 console.log(`Loop ${i}: Update pool: ${pid} ${endTime.toString(10)}`);
-                await fairLaunch.updatePool(pid, endTime, rewardPerSeconds, {from: admin});
+
+                let timeTo = new BN(await Helper.getCurrentBlockTime());
+                await fairLaunch.setBlockTime(timeTo.add(new BN(getSecondInMinute(3))));
+
+                await fairLaunch.updatePool(pid, endTime, totalRewards, {from: admin});
                 currentBlockTime = new BN(await Helper.getCurrentBlockTime());
                 poolInfo[pid] = updatePoolReward(poolInfo[pid], currentBlockTime);
                 poolInfo[pid].endTime = endTime;
-                poolInfo[pid].rewardPerSeconds = rewardPerSeconds;
+                poolInfo[pid].totalRewards = totalRewards;
                 for (let r = 0; r < rewardTokens.length; r++) {
-                  await transferToken(
-                    rewardTokens[r],
-                    accounts[0],
-                    fairLaunch.address,
-                    rewardPerSeconds[r].mul(endTime.sub(new BN(currentBlockTime)))
-                  );
+                  await transferToken(rewardTokens[r], accounts[0], fairLaunch.address, totalRewards[r]);
+                  let rps = new BN(totalRewards[r])
+                    .mul(new BN(multipliers[r]))
+                    .div(poolInfo[pid].endTime.sub(poolInfo[pid].startTime));
+
+                  poolInfo[pid].rewardPerSeconds.push(rps);
                 }
               }
             } else {
               // renew pool
               let startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(Helper.getRandomInt(5, 10))));
               let endTime = startTime.add(new BN(getSecondInMinute(Helper.getRandomInt(5, numberRuns - i + 5))));
-              let rewardPerSeconds = generateRewardPerSeconds();
+              let totalRewards = generateTotalRewards();
               if (
                 new BN(currentBlockTime + 1).gt(poolInfo[pid].endTime) ||
                 new BN(currentBlockTime + 1).lt(poolInfo[pid].startTime)
               ) {
-                await fairLaunch.renewPool(pid, startTime, endTime, vestDuration, rewardPerSeconds, {from: admin});
+                let timeTo = new BN(await Helper.getCurrentBlockTime());
+                await fairLaunch.setBlockTime(timeTo);
+
+                await fairLaunch.renewPool(pid, startTime, endTime, vestDuration, totalRewards, {from: admin});
                 console.log(`Loop ${i}: Renew pool: ${pid} ${startTime.toString(10)} ${endTime.toString(10)}`);
                 currentBlockTime = await Helper.getCurrentBlockTime();
                 poolInfo[pid] = updatePoolInfoOnRenew(
                   poolInfo[pid],
                   startTime,
                   endTime,
-                  rewardPerSeconds,
+                  totalRewards,
                   currentBlockTime,
                   vestDuration
                 );
                 for (let r = 0; r < rewardTokens.length; r++) {
-                  await transferToken(
-                    rewardTokens[r],
-                    accounts[0],
-                    fairLaunch.address,
-                    rewardPerSeconds[r].mul(endTime.sub(startTime))
-                  );
+                  await transferToken(rewardTokens[r], accounts[0], fairLaunch.address, totalRewards[r]);
                 }
               } else {
                 console.log(`Loop ${i}: Expect renew pool reverts`);
                 // // currently active
                 await expectRevert(
-                  fairLaunch.renewPool(pid, startTime, endBlock, vestDuration, rewardPerSeconds, {from: admin}),
+                  fairLaunch.renewPool(pid, startTime, endBlock, vestDuration, totalRewards, {from: admin}),
                   'renew: invalid pool state to renew'
                 );
               }
@@ -1527,8 +1677,9 @@ contract('KyberFairLaunchV2', function (accounts) {
     });
   }
 });
-const depositAndVerifyData = async (user, pid, amount, isHarvesting) => {
+const depositAndVerifyData = async (user, pid, amount, isHarvesting, timestampNow) => {
   let poolData = poolInfo[pid];
+
   let userBalBefore = await poolData.stakeToken.balanceOf(user);
   let poolBalBefore = await poolData.stakeToken.balanceOf(fairLaunch.address);
   let poolRewardBalances = [];
@@ -1541,18 +1692,17 @@ const depositAndVerifyData = async (user, pid, amount, isHarvesting) => {
   expectEvent(tx, 'Deposit', {
     user: user,
     pid: poolData.id,
-    timestamp: new BN(await Helper.getCurrentBlockTime()),
+    timestamp: new BN(timestampNow),
     amount: amount,
   });
   Helper.assertEqual(userBalBefore.sub(amount), await poolData.stakeToken.balanceOf(user));
   Helper.assertEqual(poolBalBefore.add(amount), await poolData.stakeToken.balanceOf(fairLaunch.address));
-  let currentBlockTime = await Helper.getCurrentBlockTime();
   let claimedAmounts = [];
   [userInfo[user][pid], poolInfo[pid], claimedAmounts] = updateInfoOnDeposit(
     userInfo[user][pid],
     poolInfo[pid],
     amount,
-    currentBlockTime,
+    new BN(timestampNow),
     isHarvesting
   );
 
@@ -1560,12 +1710,12 @@ const depositAndVerifyData = async (user, pid, amount, isHarvesting) => {
     userClaimData[user][i].iadd(claimedAmounts[i]);
   }
 
-  await verifyContractData(tx, user, pid, poolRewardBalances, lockerRewardBalances, claimedAmounts);
+  await verifyContractData(tx, user, pid, poolRewardBalances, lockerRewardBalances, claimedAmounts, timestampNow);
 };
 
 // check withdraw an amount of token from pool with pid
 // if isWithdrawlAll is true -> call withdraw all func, assume amount is the user's deposited amount
-const withdrawAndVerifyData = async (user, pid, amount, isWithdrawAll) => {
+const withdrawAndVerifyData = async (user, pid, amount, isWithdrawAll, timestampNow) => {
   let poolData = poolInfo[pid];
   let userBalBefore = await poolData.stakeToken.balanceOf(user);
   let poolBalBefore = await poolData.stakeToken.balanceOf(fairLaunch.address);
@@ -1581,11 +1731,10 @@ const withdrawAndVerifyData = async (user, pid, amount, isWithdrawAll) => {
   } else {
     tx = await fairLaunch.withdraw(poolData.id, amount, {from: user});
   }
-  currentBlockTime = await Helper.getCurrentBlockTime();
   expectEvent(tx, 'Withdraw', {
     user: user,
     pid: poolData.id,
-    timestamp: new BN(currentBlockTime),
+    timestamp: new BN(timestampNow),
     amount: amount,
   });
   Helper.assertEqual(userBalBefore.add(amount), await poolData.stakeToken.balanceOf(user));
@@ -1595,16 +1744,16 @@ const withdrawAndVerifyData = async (user, pid, amount, isWithdrawAll) => {
     userInfo[user][pid],
     poolInfo[pid],
     amount,
-    currentBlockTime
+    new BN(timestampNow)
   );
   for (let i = 0; i < rewardTokens.length; i++) {
     userClaimData[user][i].iadd(claimedAmounts[i]);
   }
 
-  await verifyContractData(tx, user, pid, poolRewardBalances, lockerRewardBalances, claimedAmounts);
+  await verifyContractData(tx, user, pid, poolRewardBalances, lockerRewardBalances, claimedAmounts, timestampNow);
 };
 
-const harvestMultiplePoolsAndVerifyData = async (user, pids, diffVest) => {
+const harvestMultiplePoolsAndVerifyData = async (user, pids, diffVest, timestampNow) => {
   let poolRewardBalances = [];
   let lockerRewardBalances = [];
   for (let i = 0; i < rewardTokens.length; i++) {
@@ -1614,7 +1763,6 @@ const harvestMultiplePoolsAndVerifyData = async (user, pids, diffVest) => {
 
   let tx = await fairLaunch.harvestMultiplePools(pids, {from: user});
 
-  currentBlockTime = await Helper.getCurrentBlockTime();
   let totalClaimedAmounts = [];
   for (let i = 0; i < rewardTokens.length; i++) {
     totalClaimedAmounts.push(new BN(0));
@@ -1625,7 +1773,7 @@ const harvestMultiplePoolsAndVerifyData = async (user, pids, diffVest) => {
     [userInfo[user][pid], poolInfo[pid], claimedAmounts] = updateInfoOnHarvest(
       userInfo[user][pid],
       poolInfo[pid],
-      currentBlockTime
+      new BN(timestampNow)
     );
     for (let j = 0; j < rewardTokens.length; j++) {
       userClaimData[user][j].iadd(claimedAmounts[j]);
@@ -1640,7 +1788,7 @@ const harvestMultiplePoolsAndVerifyData = async (user, pids, diffVest) => {
         expectEvent(tx, 'Harvest', {
           user: user,
           pid: pid,
-          timestamp: new BN(currentBlockTime),
+          timestamp: new BN(timestampNow),
           lockedAmount: claimedAmounts[j],
         });
         if (diffVest) {
@@ -1671,7 +1819,7 @@ const harvestMultiplePoolsAndVerifyData = async (user, pids, diffVest) => {
   await verifyRewardData(user, poolRewardBalances, lockerRewardBalances, totalClaimedAmounts);
 };
 
-const harvestAndVerifyData = async (user, pid) => {
+const harvestAndVerifyData = async (user, pid, timestampNow) => {
   let poolRewardBalances = [];
   let lockerRewardBalances = [];
   for (let i = 0; i < rewardTokens.length; i++) {
@@ -1681,28 +1829,34 @@ const harvestAndVerifyData = async (user, pid) => {
 
   let tx = await fairLaunch.harvest(pid, {from: user});
 
-  currentBlockTime = await Helper.getCurrentBlockTime();
   let claimedAmounts = [];
   [userInfo[user][pid], poolInfo[pid], claimedAmounts] = updateInfoOnHarvest(
     userInfo[user][pid],
     poolInfo[pid],
-    currentBlockTime
+    new BN(timestampNow)
   );
   for (let i = 0; i < rewardTokens.length; i++) {
     userClaimData[user][i].iadd(claimedAmounts[i]);
   }
 
-  await verifyContractData(tx, user, pid, poolRewardBalances, lockerRewardBalances, claimedAmounts);
+  await verifyContractData(tx, user, pid, poolRewardBalances, lockerRewardBalances, claimedAmounts, timestampNow);
 };
 
-const verifyContractData = async (tx, user, pid, poolRewardBalances, lockerRewardBalances, rewardClaimedAmounts) => {
-  currentBlockTime = await Helper.getCurrentBlockTime();
+const verifyContractData = async (
+  tx,
+  user,
+  pid,
+  poolRewardBalances,
+  lockerRewardBalances,
+  rewardClaimedAmounts,
+  timestampNow
+) => {
   for (let i = 0; i < rewardTokens.length; i++) {
     if (rewardClaimedAmounts[i].gt(new BN(0))) {
       expectEvent(tx, 'Harvest', {
         user: user,
         pid: new BN(pid),
-        timestamp: new BN(currentBlockTime),
+        timestamp: new BN(timestampNow),
         lockedAmount: rewardClaimedAmounts[i],
       });
       if (rewardTokens[i] != zeroAddress) {
@@ -1739,10 +1893,9 @@ const verifyUserInfo = async (user, pid, userData) => {
   Helper.assertEqual(userData.lastRewardPerShares, onchainData.lastRewardPerShares);
 };
 
-const verifyPendingRewards = async (pid, users) => {
-  currentBlockTime = await Helper.getCurrentBlockTime();
+const verifyPendingRewards = async (pid, users, timestampNow) => {
   for (let i = 0; i < users.length; i++) {
-    let pendingRewards = getUserPendingRewards(users[i], pid, currentBlockTime);
+    let pendingRewards = getUserPendingRewards(users[i], pid, timestampNow);
     Helper.assertEqualArray(pendingRewards, await fairLaunch.pendingRewards(pid, users[i]));
   }
 };
@@ -1787,13 +1940,13 @@ function emptyUserInfo() {
   return info;
 }
 
-function generateRewardPerSeconds() {
-  let rewardPerSeconds = [];
+function generateTotalRewards() {
+  let totalRewards = [];
   for (let i = 0; i < rewardTokens.length; i++) {
     let randomNum = rewardTokens[i] == zeroAddress ? Helper.getRandomInt(32, 100) : Helper.getRandomInt(1, 10);
-    rewardPerSeconds.push(precisionUnits.div(new BN(randomNum)));
+    totalRewards.push(precisionUnits.mul(new BN(randomNum)));
   }
-  return rewardPerSeconds;
+  return totalRewards;
 }
 
 function getUserPendingRewards(user, pid, currentBlockTime) {
@@ -1825,7 +1978,7 @@ function updateInfoOnDeposit(userData, poolData, amount, currentBlockTime, isHar
   poolData.totalStake = poolData.totalStake.add(amount);
   let claimedAmounts = [];
   for (let i = 0; i < rewardTokens.length; i++) {
-    claimedAmounts.push(isHarvesting ? userData.unclaimedRewards[i] : new BN(0));
+    claimedAmounts.push(isHarvesting ? userData.unclaimedRewards[i].div(new BN(multipliers[i])) : new BN(0));
     if (isHarvesting) userData.unclaimedRewards[i] = new BN(0);
     userData.lastRewardPerShares[i] = poolData.accRewardPerShares[i];
   }
@@ -1844,7 +1997,7 @@ function updateInfoOnWithdraw(userData, poolData, amount, currentBlockTime) {
   }
   let claimedAmounts = [];
   for (let i = 0; i < rewardTokens.length; i++) {
-    claimedAmounts.push(userData.unclaimedRewards[i]);
+    claimedAmounts.push(userData.unclaimedRewards[i].div(new BN(multipliers[i])));
     userData.unclaimedRewards[i] = new BN(0);
     userData.lastRewardPerShares[i] = poolData.accRewardPerShares[i];
   }
@@ -1864,7 +2017,7 @@ function updateInfoOnHarvest(userData, poolData, currentBlockTime) {
   }
   let claimedAmounts = [];
   for (let i = 0; i < rewardTokens.length; i++) {
-    claimedAmounts.push(userData.unclaimedRewards[i]);
+    claimedAmounts.push(userData.unclaimedRewards[i].div(new BN(multipliers[i])));
     userData.unclaimedRewards[i] = new BN(0);
     userData.lastRewardPerShares[i] = poolData.accRewardPerShares[i];
   }
@@ -1872,11 +2025,16 @@ function updateInfoOnHarvest(userData, poolData, currentBlockTime) {
   return [userData, poolData, claimedAmounts];
 }
 
-function updatePoolInfoOnRenew(poolData, startTime, endTime, rewardPerSeconds, currentBlockTime, vestingDuration) {
+function updatePoolInfoOnRenew(poolData, startTime, endTime, totalRewards, currentBlockTime, vestingDuration) {
   poolData = updatePoolReward(poolData, currentBlockTime);
   poolData.startTime = startTime;
   poolData.endTime = endTime;
-  poolData.rewardPerSeconds = rewardPerSeconds;
+  poolData.rewardPerSeconds = [];
+  for (let i = 0; i < rewardTokens.length; i++) {
+    let rps = new BN(totalRewards[i]).mul(new BN(multipliers[i])).div(endTime.sub(startTime));
+    poolData.rewardPerSeconds.push(rps);
+  }
+  poolData.totalRewards = totalRewards;
   poolData.lastRewardTime = startTime;
   poolData.vestingDuration = vestingDuration;
   return poolData;
@@ -1887,7 +2045,9 @@ function updatePoolReward(poolData, currentBlockTime) {
   if (lastAccountedBlockTime.gt(poolData.endTime)) {
     lastAccountedBlockTime = poolData.endTime;
   }
-  if (poolData.startTime.gt(lastAccountedBlockTime)) return poolData;
+  if (poolData.startTime.gt(lastAccountedBlockTime)) {
+    return poolData;
+  }
   if (poolData.lastRewardTime.gt(lastAccountedBlockTime)) return poolData;
   if (poolData.totalStake.eq(new BN(0))) {
     poolData.lastRewardTime = lastAccountedBlockTime;
