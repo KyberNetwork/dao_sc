@@ -123,6 +123,7 @@ interface IKyberFairLaunchV2 {
       uint32 lastRewardSecond,
       uint32 vestingDuration,
       uint256[] memory rewardPerSeconds,
+      uint256[] memory rewardMultipliers,
       uint256[] memory accRewardPerShares
     );
 
