@@ -8,8 +8,11 @@ import {IKyberRewardLockerV2} from '../../interfaces/liquidityMining/IKyberRewar
 contract MockFairLaunchV2 is KyberFairLaunchV2 {
   uint32 internal blockTime;
 
-  constructor(address _admin, address[] memory _rewardTokens,
-    IKyberRewardLockerV2 _rewardLocker) KyberFairLaunchV2(_admin, _rewardTokens, _rewardLocker) {}
+  constructor(
+    address _admin,
+    address[] memory _rewardTokens,
+    IKyberRewardLockerV2 _rewardLocker
+  ) KyberFairLaunchV2(_admin, _rewardTokens, _rewardLocker) {}
 
   function setBlockTime(uint32 blockTime_) external {
     blockTime = blockTime_;
@@ -18,5 +21,4 @@ contract MockFairLaunchV2 is KyberFairLaunchV2 {
   function _getBlockTime() internal override view returns (uint32) {
     return blockTime;
   }
-
 }

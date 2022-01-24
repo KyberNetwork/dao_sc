@@ -8,35 +8,40 @@ const {solidity, createFixtureLoader} = waffle;
 chai.use(solidity);
 const {constants} = require('@openzeppelin/test-helpers');
 const {getCurrentBlockTime} = require('../helper.js');
-
 import {
   MockRewardLockerV2,
   KyberNetworkTokenV2,
+  MockTokenWithDecimals,
   MockRewardLockerV2__factory,
   KyberNetworkTokenV2__factory,
+  MockTokenWithDecimals__factory,
 } from '../../typechain';
 
 const MAX_ALLOWANCE = BN.from(2).pow(256).sub(1);
 let PRECISION = BN.from(10).pow(18);
 const NATIVE_TOKEN_ADDRESS = constants.ZERO_ADDRESS;
+const TOKEN_DECIMALS = 6;
 
 let RewardLocker: MockRewardLockerV2__factory;
 let KNC: KyberNetworkTokenV2__factory;
 let rewardLocker: MockRewardLockerV2;
 let rewardToken: KyberNetworkTokenV2;
-let rewardToken2: KyberNetworkTokenV2;
+let rewardToken2: MockTokenWithDecimals;
 interface RewardLockerFixture {
   rewardLocker: MockRewardLockerV2;
   rewardToken: KyberNetworkTokenV2;
-  rewardToken2: KyberNetworkTokenV2;
+  rewardToken2: MockTokenWithDecimals;
 }
 
 async function setupFixture([admin, rewardContract]: Wallet[]): Promise<RewardLockerFixture> {
   const rewardLockerFactory = (await ethers.getContractFactory('MockRewardLockerV2')) as MockRewardLockerV2__factory;
   const rewardTokenFactory = (await ethers.getContractFactory('KyberNetworkTokenV2')) as KyberNetworkTokenV2__factory;
+  const rewardTokenFactory2 = (await ethers.getContractFactory(
+    'MockTokenWithDecimals'
+  )) as MockTokenWithDecimals__factory;
 
   let rewardToken = await rewardTokenFactory.connect(rewardContract).deploy();
-  let rewardToken2 = await rewardTokenFactory.connect(rewardContract).deploy();
+  let rewardToken2 = await rewardTokenFactory2.connect(rewardContract).deploy(TOKEN_DECIMALS);
   let rewardLocker = await rewardLockerFactory.deploy(admin.address);
 
   for (const tk of [rewardToken, rewardToken2]) {

@@ -44,12 +44,12 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining V2 contracts')
     const KyberRewardLockerV2 = await ethers.getContractFactory('KyberRewardLockerV2');
     let rewardLocker;
     if (lockerAddress.length == 0) {
-      console.log("deploy new ");
+      console.log('deploy new ');
       rewardLocker = await KyberRewardLockerV2.deploy(deployerAddress, {gasPrice: gasPrice});
       await rewardLocker.deployed();
       lockerAddress = rewardLocker.address;
     } else {
-      console.log("use old ");
+      console.log('use old ');
       rewardLocker = await KyberRewardLockerV2.attach(lockerAddress);
     }
     console.log(`RewardLockerV2 address: ${rewardLocker.address}`);
@@ -106,14 +106,13 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining V2 contracts')
           rewardPerSeconds.push(rewardPerSecond);
           console.log(`${contractData.rewardTokens[k]} reward per second: ${rewardPerSecond}`);
         }
-        console.log(`length: ${rewardPerSeconds.length}`);
         if (poolExist == false) {
           await fairLaunch.addPool(
             poolData.stakeToken,
             poolData.startTime,
             poolData.endTime,
             poolData.vestingDuration,
-            rewardPerSeconds,
+            poolData.totalRewards,
             poolData.name,
             poolData.symbol,
             {gasPrice: gasPrice}

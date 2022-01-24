@@ -11,8 +11,6 @@ import {IKyberFairLaunchV2} from '../interfaces/liquidityMining/IKyberFairLaunch
 import {IKyberRewardLockerV2} from '../interfaces/liquidityMining/IKyberRewardLockerV2.sol';
 import {GeneratedToken} from './GeneratedToken.sol';
 
-import 'hardhat/console.sol';
-
 /// FairLaunch contract for Kyber DMM Liquidity Mining program
 /// Create a new token for each pool
 /// Allow stakers to stake LP tokens and receive reward tokens
@@ -141,10 +139,9 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
     for (uint256 i = 0; i < _rewardTokens.length; i++) {
       if (_rewardTokens[i] != address(0)) {
         uint8 dToken = IERC20Ext(_rewardTokens[i]).decimals();
-        multipliers[i] = dToken >= 18 ? 1 : 10 ** (18 - dToken);
+        multipliers[i] = dToken >= 18 ? 1 : 10**(18 - dToken);
         IERC20Ext(_rewardTokens[i]).safeApprove(address(_rewardLocker), type(uint256).max);
-      }
-      else{
+      } else {
         multipliers[i] = 1;
       }
     }
@@ -203,8 +200,11 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
     poolInfo[poolLength].vestingDuration = _vestingDuration;
 
     for (uint256 i = 0; i < _totalRewards.length; i++) {
+      uint256 _rewardPerSecond = _totalRewards[i].mul(multipliers[i]).div(_endTime - _startTime);
+      require(_rewardPerSecond != 0, 'reward too small');
+
       poolInfo[poolLength].poolRewardData[i] = PoolRewardData({
-        rewardPerSecond: _totalRewards[i].mul(multipliers[i]).div(_endTime - _startTime),
+        rewardPerSecond: _rewardPerSecond,
         accRewardPerShare: 0
       });
     }
@@ -249,7 +249,9 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
     pool.vestingDuration = _vestingDuration;
 
     for (uint256 i = 0; i < _totalRewards.length; i++) {
-      pool.poolRewardData[i].rewardPerSecond = _totalRewards[i].mul(multipliers[i]).div(_endTime - _startTime);
+      uint256 _rewardPerSecond = _totalRewards[i].mul(multipliers[i]).div(_endTime - _startTime);
+      require(_rewardPerSecond != 0, 'reward too small');
+      pool.poolRewardData[i].rewardPerSecond = _rewardPerSecond;
     }
 
     emit RenewPool(_pid, _startTime, _endTime, _vestingDuration);
@@ -281,7 +283,11 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
     pool.endTime = _endTime;
     pool.vestingDuration = _vestingDuration;
     for (uint256 i = 0; i < _totalRewards.length; i++) {
-      pool.poolRewardData[i].rewardPerSecond = _totalRewards[i].mul(multipliers[i]).div(_endTime - pool.startTime);
+      uint256 _rewardPerSecond = _totalRewards[i].mul(multipliers[i]).div(
+        _endTime - pool.startTime
+      );
+      require(_rewardPerSecond != 0, 'reward too small');
+      pool.poolRewardData[i].rewardPerSecond = _rewardPerSecond;
     }
 
     emit UpdatePool(_pid, _endTime, _vestingDuration);

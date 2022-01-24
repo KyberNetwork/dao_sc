@@ -11,16 +11,18 @@ interface IERC20Burnable {
 }
 
 /// @dev copy from kyber network repo
-contract MockTokenSmallDecimals is ERC20Burnable, Ownable {
+contract MockTokenWithDecimals is ERC20Burnable, Ownable {
   using SafeERC20 for IERC20;
 
   uint256 public constant INITIAL_SUPPLY = 10**(18 + 6);
+  uint8 private tokenDecimals;
 
-  constructor() ERC20('Kyber Network Crystal V2', 'KNCv2') {
+  constructor(uint8 _decimals) ERC20('Kyber Network Crystal V2', 'KNCv2') {
     _mint(msg.sender, INITIAL_SUPPLY);
+    tokenDecimals = _decimals;
   }
 
-  function decimals() public pure override returns (uint8) {
-    return 6;
+  function decimals() public override view returns (uint8) {
+    return tokenDecimals;
   }
 }
