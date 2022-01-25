@@ -114,9 +114,7 @@ contract('KyberFairLaunchV2', function (accounts) {
       tokenSymbol: symbol,
     };
     for (let i = 0; i < rewardTokens.length; i++) {
-      let rps = new BN(totalRewards[i])
-        .mul(new BN(multipliers[i]))
-        .div(endTime.sub(startTime));
+      let rps = new BN(totalRewards[i]).mul(new BN(multipliers[i])).div(endTime.sub(startTime));
       poolInfo[pid].rewardPerSeconds.push(rps);
       poolInfo[pid].accRewardPerShares.push(new BN(0));
     }
@@ -488,14 +486,11 @@ contract('KyberFairLaunchV2', function (accounts) {
       });
 
       // not yet started, no need to call update pool rewards
-      // poolInfo[pid] = updatePoolReward(poolInfo[pid], currentBlock);
       poolInfo[pid].endTime = endTime;
       poolInfo[pid].vestingDuration = vestDuration;
       poolInfo[pid].rewardPerSeconds = [];
       for (let i = 0; i < rewardTokens.length; i++) {
-        let rps = new BN(totalRewards[i])
-          .mul(new BN(multipliers[i]))
-          .div(endTime.sub(poolInfo[pid].startTime));
+        let rps = new BN(totalRewards[i]).mul(new BN(multipliers[i])).div(endTime.sub(poolInfo[pid].startTime));
         poolInfo[pid].rewardPerSeconds.push(rps);
       }
       await verifyPoolInfo(poolInfo[pid]);
@@ -518,9 +513,7 @@ contract('KyberFairLaunchV2', function (accounts) {
       poolInfo[pid] = updatePoolReward(poolInfo[pid], timeTo);
       poolInfo[pid].rewardPerSeconds = [];
       for (let i = 0; i < rewardTokens.length; i++) {
-        let rps = new BN(totalRewards[i])
-          .mul(new BN(multipliers[i]))
-          .div(endTime.sub(poolInfo[pid].startTime));
+        let rps = new BN(totalRewards[i]).mul(new BN(multipliers[i])).div(endTime.sub(poolInfo[pid].startTime));
         poolInfo[pid].rewardPerSeconds.push(rps);
       }
       await verifyPoolInfo(poolInfo[pid]);
@@ -535,9 +528,7 @@ contract('KyberFairLaunchV2', function (accounts) {
       poolInfo[pid] = updatePoolReward(poolInfo[pid], timeTo);
       poolInfo[pid].rewardPerSeconds = [];
       for (let i = 0; i < rewardTokens.length; i++) {
-        let rps = new BN(totalRewards[i])
-          .mul(new BN(multipliers[i]))
-          .div(endTime.sub(startTime));
+        let rps = new BN(totalRewards[i]).mul(new BN(multipliers[i])).div(endTime.sub(startTime));
         poolInfo[pid].rewardPerSeconds.push(rps);
       }
       await verifyPoolInfo(poolInfo[pid]);
@@ -1011,8 +1002,6 @@ contract('KyberFairLaunchV2', function (accounts) {
       amount = precisionUnits.div(new BN(10));
       await withdrawAndVerifyData(user1, pid, amount, false, currentBlockTime);
       let timeTo = poolInfo[pid].startTime.add(new BN(getSecondInMinute(1)));
-
-      //   await Helper.setNextBlockTimestamp(poolInfo[pid].startTime.add(new BN(getSecondInMinute(1))));
       await fairLaunch.setBlockTime(timeTo);
 
       for (let i = 0; i < rewardTokens.length; i++) {
@@ -1023,7 +1012,6 @@ contract('KyberFairLaunchV2', function (accounts) {
 
       await withdrawAndVerifyData(user1, pid, amount, false, timeTo);
       timeTo = poolInfo[pid].startTime.add(new BN(getSecondInMinute(3)));
-      //   await Helper.increaseNextBlockTimestamp(getSecondInMinute(2));
       await fairLaunch.setBlockTime(timeTo);
 
       // await Helper.increaseBlockNumber(2);
@@ -1201,7 +1189,7 @@ contract('KyberFairLaunchV2', function (accounts) {
       await fairLaunch.setBlockTime(timeTo);
 
       for (let i = 0; i < rewardTokens.length; i++) {
-        await transferToken(rewardTokens[i], accounts[0], fairLaunch.address, totalRewards[i].mul(new BN(10)));
+        await transferToken(rewardTokens[i], accounts[0], fairLaunch.address, totalRewards[i].mul(new BN(100)));
       }
 
       timeTo = startTime.add(new BN(getSecondInMinute(4)));
@@ -1372,13 +1360,8 @@ contract('KyberFairLaunchV2', function (accounts) {
       let user1Rewards = [];
       let user2Rewards = [];
       for (let i = 0; i < rewardTokens.length; i++) {
-        let rewardPerSecond = totalRewards[i]
-          .mul(new BN(multipliers[i]))
-          .div(new BN(duration));
-        let rewardPerShare = rewardPerSecond
-          .mul(new BN(duration))
-          .mul(REWARD_PER_SHARE_PRECISION)
-          .div(totalAmount);
+        let rewardPerSecond = totalRewards[i].mul(new BN(multipliers[i])).div(new BN(duration));
+        let rewardPerShare = rewardPerSecond.mul(new BN(duration)).mul(REWARD_PER_SHARE_PRECISION).div(totalAmount);
         user1Rewards.push(rewardPerShare.mul(amount1).div(REWARD_PER_SHARE_PRECISION));
         user2Rewards.push(rewardPerShare.mul(amount2).div(REWARD_PER_SHARE_PRECISION));
       }
@@ -1392,9 +1375,7 @@ contract('KyberFairLaunchV2', function (accounts) {
           rewardTokens[i],
           accounts[0],
           fairLaunch.address,
-          user1Rewards[i].div(new BN(multipliers[i])).add(
-            user2Rewards[i].div(new BN(multipliers[i]))
-          )
+          user1Rewards[i].div(new BN(multipliers[i])).add(user2Rewards[i].div(new BN(multipliers[i])))
         );
       }
 
@@ -1520,7 +1501,7 @@ contract('KyberFairLaunchV2', function (accounts) {
     });
   });
 
-  let numberRuns = 0;
+  let numberRuns = 20;
   const UserActions = {
     Deposit: 0,
     Withdraw: 1,
@@ -1781,8 +1762,10 @@ const harvestMultiplePoolsAndVerifyData = async (user, pids, diffVest, timestamp
   let tx = await fairLaunch.harvestMultiplePools(pids, {from: user});
 
   let totalClaimedAmounts = [];
+  let totalClaimedAmountsDiff = [];
   for (let i = 0; i < rewardTokens.length; i++) {
     totalClaimedAmounts.push(new BN(0));
+    totalClaimedAmountsDiff.push(new BN(0));
   }
   for (let i = 0; i < pids.length; i++) {
     let claimedAmounts = [];
@@ -1794,6 +1777,7 @@ const harvestMultiplePoolsAndVerifyData = async (user, pids, diffVest, timestamp
     );
     for (let j = 0; j < rewardTokens.length; j++) {
       totalClaimedAmounts[j].iadd(claimedAmounts[j]);
+      totalClaimedAmountsDiff[j].iadd(claimedAmounts[j].div(multipliers[j]));
     }
 
     await verifyPoolInfo(poolInfo[pid]);
@@ -1818,8 +1802,8 @@ const harvestMultiplePoolsAndVerifyData = async (user, pids, diffVest, timestamp
     }
   }
   for (let i = 0; i < rewardTokens.length; i++) {
-    totalClaimedAmounts[i] = totalClaimedAmounts[i].div(multipliers[i])
-    userClaimData[user][i].iadd(totalClaimedAmounts[i]);
+    totalClaimedAmounts[i] = totalClaimedAmounts[i].div(multipliers[i]);
+    userClaimData[user][i].iadd(diffVest ? totalClaimedAmountsDiff[i] : totalClaimedAmounts[i]);
   }
   for (let i = 0; i < rewardTokens.length; i++) {
     if (totalClaimedAmounts[i].gt(new BN(0)) && rewardTokens[i] != zeroAddress) {
@@ -1828,7 +1812,7 @@ const harvestMultiplePoolsAndVerifyData = async (user, pids, diffVest, timestamp
         await expectEvent.inTransaction(tx.tx, rewardTokens[i], 'Transfer', {
           from: fairLaunch.address,
           to: rewardLocker.address,
-          value: totalClaimedAmounts[i]
+          value: totalClaimedAmounts[i],
         });
       }
     }
@@ -1836,7 +1820,12 @@ const harvestMultiplePoolsAndVerifyData = async (user, pids, diffVest, timestamp
     Helper.assertEqual(userClaimData[user][i], await rewardLocker.lockedAmounts(user, rewardAddress));
   }
 
-  await verifyRewardData(user, poolRewardBalances, lockerRewardBalances, totalClaimedAmounts);
+  await verifyRewardData(
+    user,
+    poolRewardBalances,
+    lockerRewardBalances,
+    diffVest ? totalClaimedAmountsDiff : totalClaimedAmounts
+  );
 };
 
 const harvestAndVerifyData = async (user, pid, timestampNow) => {
@@ -2005,9 +1994,7 @@ function updateInfoOnDeposit(userData, poolData, amount, currentBlockTime, isHar
   poolData.totalStake = poolData.totalStake.add(amount);
   let claimedAmounts = [];
   for (let i = 0; i < rewardTokens.length; i++) {
-    claimedAmounts.push(
-      isHarvesting ? userData.unclaimedRewards[i].div(new BN(multipliers[i])) : new BN(0)
-    );
+    claimedAmounts.push(isHarvesting ? userData.unclaimedRewards[i].div(new BN(multipliers[i])) : new BN(0));
     if (isHarvesting) userData.unclaimedRewards[i] = new BN(0);
     userData.lastRewardPerShares[i] = poolData.accRewardPerShares[i];
   }
