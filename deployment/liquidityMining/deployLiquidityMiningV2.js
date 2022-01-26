@@ -64,7 +64,7 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining V2 contracts')
       // FOR TESTING LOCALLY
       // fairLaunchConfigs[i].rewardTokens = [rewardToken.address];
       // END
-      if (typeof(fairLaunchConfigs[i].address != 'undefined') {
+      if (typeof(fairLaunchConfigs[i].address != 'undefined')) {
         console.log(`FairLaunch ${i}: ${fairLaunchConfigs[i].address}`);
         continue;
       }
