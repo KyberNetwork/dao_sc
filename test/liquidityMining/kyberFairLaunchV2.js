@@ -1501,7 +1501,7 @@ contract('KyberFairLaunchV2', function (accounts) {
     });
   });
 
-  let numberRuns = 20;
+  let numberRuns = 0;
   const UserActions = {
     Deposit: 0,
     Withdraw: 1,
@@ -1606,10 +1606,12 @@ contract('KyberFairLaunchV2', function (accounts) {
               );
 
               if (new BN(currentBlockTime + 1).gt(poolInfo[pid].endTime)) {
+                let timeTo = new BN(await Helper.getCurrentBlockTime());
+                await fairLaunch.setBlockTime(timeTo);
                 console.log(`Loop ${i}: Expect update pool reverts`);
                 // already ended
                 await expectRevert(
-                  fairLaunch.updatePool(pid, endTime, vestDuration, totalRewards, tokenName, tokenSymbol, {
+                  fairLaunch.updatePool(pid, endTime, vestDuration, totalRewards, {
                     from: admin,
                   }),
                   'update: pool already ended'
@@ -1620,7 +1622,7 @@ contract('KyberFairLaunchV2', function (accounts) {
                 let timeTo = new BN(await Helper.getCurrentBlockTime());
                 await fairLaunch.setBlockTime(timeTo.add(new BN(getSecondInMinute(3))));
 
-                await fairLaunch.updatePool(pid, endTime, totalRewards, {from: admin});
+                await fairLaunch.updatePool(pid, endTime, vestDuration, totalRewards, {from: admin});
                 currentBlockTime = new BN(await Helper.getCurrentBlockTime());
                 poolInfo[pid] = updatePoolReward(poolInfo[pid], currentBlockTime);
                 poolInfo[pid].endTime = endTime;
@@ -1886,13 +1888,12 @@ const verifyContractData = async (
 
 const verifyPoolInfo = async (poolData) => {
   let onchainData = await fairLaunch.getPoolInfo(poolData.id);
-  // Helper.assertEqualArray(poolData.rewardPerSeconds, onchainData.rewardPerSeconds);
-  //   console.log("multipliers ",multipliers.toString());
-  Helper.assertEqual(poolData.rewardPerSeconds[0], new BN(onchainData.rewardPerSeconds[0]));
-  Helper.assertEqual(poolData.rewardPerSeconds[1], new BN(onchainData.rewardPerSeconds[1]));
-  //   Helper.assertEqualArray(poolData.accRewardPerShares, onchainData.accRewardPerShares);
-  Helper.assertEqual(poolData.accRewardPerShares[0], new BN(onchainData.accRewardPerShares[0]));
-  Helper.assertEqual(poolData.accRewardPerShares[1], new BN(onchainData.accRewardPerShares[1]));
+  Helper.assertEqualArray(poolData.rewardPerSeconds, onchainData.rewardPerSeconds);
+  //   Helper.assertEqual(poolData.rewardPerSeconds[0], new BN(onchainData.rewardPerSeconds[0]));
+  //   Helper.assertEqual(poolData.rewardPerSeconds[1], new BN(onchainData.rewardPerSeconds[1]));
+  Helper.assertEqualArray(poolData.accRewardPerShares, onchainData.accRewardPerShares);
+  //   Helper.assertEqual(poolData.accRewardPerShares[0], new BN(onchainData.accRewardPerShares[0]));
+  //   Helper.assertEqual(poolData.accRewardPerShares[1], new BN(onchainData.accRewardPerShares[1]));
 
   Helper.assertEqual(poolData.totalStake, onchainData.totalStake);
   Helper.assertEqual(poolData.stakeToken.address, onchainData.stakeToken);

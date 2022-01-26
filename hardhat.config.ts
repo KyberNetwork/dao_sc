@@ -23,10 +23,10 @@ import {accounts} from './test-wallets';
 const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
 
-    gasReporter: {
-      currency: 'USD',
-      gasPrice: 100,
-    },
+  gasReporter: {
+    currency: 'USD',
+    gasPrice: 100,
+  },
 
   networks: {
     develop: {

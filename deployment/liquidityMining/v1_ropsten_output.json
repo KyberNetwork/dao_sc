@@ -1,0 +1,22 @@
+{
+  "RewardLocker": "0xE9848fF294573b5Af555f7eA51A279c4C6d8A033",
+  "LockerDuration": 548,
+  "FairLaunches": [
+    {
+      "address": "0x8cbffB659FdeFd4cbfAC8e236722b2a9ffec08CD",
+      "rewardTokens": [
+        "0x7B2810576aa1cce68F2B118CeF1F36467c648F92",
+        "0x65Bd1F48f1dd07bb285a3715c588F75684128acE"
+      ],
+      "poolInfos": [
+        {
+          "stakeToken": "0xEDeb1ae41F105e92FFE4168aAdBC87D685cC4EF6",
+          "startBlock": 11845384,
+          "endBlock": 12234341,
+          "decimal": [18, 6],
+          "totalRewards": [1, 30]
+        }
+      ]
+    }
+  ]
+}

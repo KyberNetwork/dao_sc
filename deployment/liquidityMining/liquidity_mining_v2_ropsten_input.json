@@ -2,25 +2,47 @@
   "RewardLocker": "",
   "FairLaunches": [
     {
-      "rewardTokens": ["0x32fe6D2a56eE4C2e5614b0cF9Abd4424B798A8f5"],
+      "rewardTokens": [
+        "0x65Bd1F48f1dd07bb285a3715c588F75684128acE",
+        "0xc778417e063141139fce010982780140aa0cd5ab"
+      ],
       "poolInfo": [
         {
-          "stakeToken": "0xa996f6c28AeB2E0b4395D3227e2E0b5C07650c55",
-          "startTime": 1642525200,
-          "endTime": 1642784400,
-          "totalRewards": [300000],
-          "vestingDuration": 259200,
-          "tokenName": "KyberSwap Stake LP KNC-WETH",
-          "tokenSymbol": "LP KNC-WETH"
-        },
+          "stakeToken": "0x03aBe515bcDDA4c01F1E98666E2406d837B1b597",
+          "startTime": 1643101200,
+          "endTime": 1648198800,
+          "totalRewards": ["50000000", "1000000000000000000"],
+          "vestingDuration": 3600,
+          "tokenName": "KyberSwap Stake LP USDC-USDT",
+          "tokenSymbol": "LP USDC-USDT"
+        }
+      ]
+    },
+    {
+      "rewardTokens": ["0x65Bd1F48f1dd07bb285a3715c588F75684128acE"],
+      "poolInfo": [
         {
-          "stakeToken": "0x26b8d1680b8450dda51FA7d4753cDcA9766717bD",
-          "startTime": 1642525200,
-          "endTime": 1642784400,
-          "totalRewards": [400000],
-          "vestingDuration": 259200,
-          "tokenName": "KyberSwap Stake LP DAI-WETH",
-          "tokenSymbol": "LP DAI-WETH"
+          "stakeToken": "0xD2fCE8dAD0F9c45e05DF0BFda91df031cB021B1E",
+          "startTime": 1643104800,
+          "endTime": 1648202400,
+          "totalRewards": ["50000000"],
+          "vestingDuration": 14400,
+          "tokenName": "KyberSwap Stake LP USDT-WETH",
+          "tokenSymbol": "LP USDT-WETH"
+        }
+      ]
+    },
+    {
+      "rewardTokens": ["0x7B2810576aa1cce68F2B118CeF1F36467c648F92"],
+      "poolInfo": [
+        {
+          "stakeToken": "0x787e7339A52d7784a22146Da7209C702e1E38511",
+          "startTime": 1643106600,
+          "endTime": 1650882600,
+          "totalRewards": ["100000000000000000000"],
+          "vestingDuration": 7200,
+          "tokenName": "KyberSwap Stake LP KNC-COMP",
+          "tokenSymbol": "LP KNC-COMP"
         }
       ]
     }
