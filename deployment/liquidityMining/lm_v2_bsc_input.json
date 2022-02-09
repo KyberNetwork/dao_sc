@@ -1,0 +1,36 @@
+{
+  "RewardLockerV2" : "0xD93f7A2cbF4912158d6cCDa585c9D234a0d70652",
+  "FairLaunches": [
+    {
+      "address": "0xe444f3b2eA3F9FE1493F8a0F723023039fAFb0BA",
+      "rewardTokens": ["0xfe56d5892BDffC7BF58f2E84BE1b2C32D21C308b"],
+      "poolInfo": [
+        {
+          "stakeToken": "0xbc191D7757Be78FbE0997Ba59304A35cdE844dD8",
+          "startTime": 1644400800,
+          "endTime": 1649498400,
+          "totalRewards": ["10000000000000000000"],
+          "vestingDuration": 3600,
+          "tokenName": "KyberSwap Stake LP BNB-KNC",
+          "tokenSymbol": "LP BNB-KNC"
+        }
+      ]
+    },
+    {
+      "address": "0xf921E60bFA20fecCfCc24d5a7cDc9bf4E9A39C7c",
+      "rewardTokens": ["0xfe56d5892BDffC7BF58f2E84BE1b2C32D21C308b","0x55d398326f99059fF775485246999027B3197955"],
+      "poolInfo": [
+        {
+            "stakeToken": "0xf81e106C5B44ba9A993Fc1f456A4c8e54C47CF34",
+            "startTime": 1644404400,
+            "endTime": 1646823600,
+            "totalRewards": ["10000000000000000000", "5000000000000000000"],
+            "vestingDuration": 10800,
+            "tokenName": "KyberSwap Stake LP USDT-FIWA",
+            "tokenSymbol": "LP USDT-FIWA"
+          }
+      ]
+    }
+  ],
+  "outputFilename": "v2_bsc_main_output.json"
+}

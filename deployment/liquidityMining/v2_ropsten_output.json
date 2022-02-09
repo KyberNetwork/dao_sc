@@ -2,47 +2,18 @@
   "RewardLockerV2": "0xfDE165e6664D00EBC297c02566e4F9DD60c33ad5",
   "FairLaunches": [
     {
-      "address": "0x26Eb52A419C5492134BB9007795CdACBa20143DE",
+      "address": "0xBDe20F598AEe01732Be0011E2D2210e10de4e49d",
       "rewardTokens": [
-        "0x65Bd1F48f1dd07bb285a3715c588F75684128acE",
-        "0xc778417e063141139fce010982780140aa0cd5ab"
+        "0x8B4DDF9F13f382aff76D262F6C8C50E6d7961b94"
       ],
       "poolInfos": [
         {
-          "stakeToken": "0x03aBe515bcDDA4c01F1E98666E2406d837B1b597",
-          "startTime": 1643101200,
-          "endTime": 1648198800,
-          "totalRewards": ["50000000", "1000000000000000000"],
-          "vestingDuration": 3600,
-          "name": "KyberSwap Stake LP USDC-USDT",
-          "symbol": "LP USDC-USDT"
-        }
-      ]
-    },
-    {
-      "address": "0xbc191D7757Be78FbE0997Ba59304A35cdE844dD8",
-      "rewardTokens": ["0x65Bd1F48f1dd07bb285a3715c588F75684128acE"],
-      "poolInfos": [
-        {
-          "stakeToken": "0xD2fCE8dAD0F9c45e05DF0BFda91df031cB021B1E",
-          "startTime": 1643104800,
-          "endTime": 1648202400,
-          "totalRewards": ["50000000"],
-          "vestingDuration": 14400,
-          "name": "KyberSwap Stake LP USDT-WETH",
-          "symbol": "LP USDT-WETH"
-        }
-      ]
-    },
-    {
-      "address": "0x857a9984C6bcd5C1335dd08ef8D3D1E7DB873e04",
-      "rewardTokens": ["0x7B2810576aa1cce68F2B118CeF1F36467c648F92"],
-      "poolInfos": [
-        {
-          "stakeToken": "0x787e7339A52d7784a22146Da7209C702e1E38511",
-          "startTime": 1643106600,
-          "endTime": 1650882600,
-          "totalRewards": ["100000000000000000000"],
+          "stakeToken": "0xb183d371984a1E495a2cAc38Ce256B648919A9d3",
+          "startTime": 1643358600,
+          "endTime": 1651134600,
+          "totalRewards": [
+            "1000000000000000000000"
+          ],
           "vestingDuration": 7200,
           "name": "KyberSwap Stake LP KNC-COMP",
           "symbol": "LP KNC-COMP"

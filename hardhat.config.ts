@@ -106,6 +106,12 @@ if (INFURA_API_KEY != '' && PRIVATE_KEY != '') {
     timeout: 20000,
   };
 
+  config.networks!.bscmain = {
+    url: `https://bsc-dataseed.binance.org/`,
+    accounts: [PRIVATE_KEY],
+    timeout: 20000,
+  };
+
   config.networks!.polygon = {
     url: `https://rpc-mainnet.maticvigil.com/`,
     accounts: [PRIVATE_KEY],

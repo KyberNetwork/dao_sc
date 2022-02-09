@@ -714,6 +714,7 @@ async function generateAndClaimRewards(
     claimAmounts,
     increaseClaim
   );
+
   await rewardsDistributor.proposeRoot(cycle, rewardClaims.merkleRoot, contentHash, {from: admin});
 
   for (const [account, userClaim] of Object.entries(rewardClaims.userRewards)) {

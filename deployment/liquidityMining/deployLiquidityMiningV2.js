@@ -43,7 +43,8 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining V2 contracts')
 
     const KyberRewardLockerV2 = await ethers.getContractFactory('KyberRewardLockerV2');
     let rewardLocker;
-    if (typeof(lockerAddress) == 'undefined') {
+
+    if (lockerAddress == undefined) {
       console.log('deploy new ');
       rewardLocker = await KyberRewardLockerV2.deploy(deployerAddress, {gasPrice: gasPrice});
       await rewardLocker.deployed();
@@ -64,21 +65,22 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining V2 contracts')
       // FOR TESTING LOCALLY
       // fairLaunchConfigs[i].rewardTokens = [rewardToken.address];
       // END
-      if (typeof(fairLaunchConfigs[i].address != 'undefined')) {
+      if (fairLaunchConfigs[i].address != undefined) {
         console.log(`FairLaunch ${i}: ${fairLaunchConfigs[i].address}`);
         continue;
       }
       const KyberFairLaunch = await ethers.getContractFactory('KyberFairLaunchV2');
       let fairLaunch;
+      
       fairLaunch = await KyberFairLaunch.deploy(
-        deployerAddress,
-        fairLaunchConfigs[i].rewardTokens,
-        rewardLocker.address,
-        {gasPrice: gasPrice}
-      );
-      await fairLaunch.deployed();
-      fairLaunchConfigs[i].address = fairLaunch.address;
-      console.log(`FairLaunch ${i}: ${fairLaunch.address}`);
+          deployerAddress,
+          fairLaunchConfigs[i].rewardTokens,
+          rewardLocker.address,
+          {gasPrice: gasPrice}
+          );
+          await fairLaunch.deployed();
+          fairLaunchConfigs[i].address = fairLaunch.address;
+          console.log(`FairLaunch ${i}: ${fairLaunch.address}`);
     }
 
     outputData['FairLaunches'] = fairLaunchConfigs;
