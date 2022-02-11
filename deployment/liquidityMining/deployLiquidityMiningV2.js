@@ -163,7 +163,6 @@ function parseInput(jsonInput) {
           stakeToken: poolData['stakeToken'],
           startTime: poolData['startTime'],
           endTime: poolData['endTime'],
-          decimal: poolData['decimal'],
           totalRewards: poolData['totalRewards'],
           vestingDuration: poolData['vestingDuration'],
           name: poolData['tokenName'],
