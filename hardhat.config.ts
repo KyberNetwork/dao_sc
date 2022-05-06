@@ -112,6 +112,12 @@ if (INFURA_API_KEY != '' && PRIVATE_KEY != '') {
     timeout: 20000,
   };
 
+  config.networks!.bsct = {
+    url: `https://data-seed-prebsc-1-s1.binance.org:8545/`,
+    accounts: [PRIVATE_KEY],
+    timeout: 20000,
+  };
+
   config.networks!.polygon = {
     url: `https://rpc-mainnet.maticvigil.com/`,
     accounts: [PRIVATE_KEY],
@@ -128,6 +134,13 @@ if (INFURA_API_KEY != '' && PRIVATE_KEY != '') {
     url: `https://api.avax.network/ext/bc/C/rpc`,
     accounts: [PRIVATE_KEY],
     chainId: 43114,
+    timeout: 20000,
+  };
+
+  config.networks!.bttc = {
+    url: `https://rpc.bittorrentchain.io/`,
+    accounts: [PRIVATE_KEY],
+    chainId: 199,
     timeout: 20000,
   };
 }

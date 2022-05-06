@@ -1,0 +1,38 @@
+{
+  "RewardLockerV2": "0xE79bfc312328Ab75272785DBf5Bd871b253709A5",
+  "FairLaunches": [
+    {
+      "address": "0x8e9Bd30D15420bAe4B7EC0aC014B7ECeE864373C",
+      "rewardTokens": [
+        "0x8729438EB15e2C8B576fCc6AeCdA6A148776C0F5",
+        "0x39fC9e94Caeacb435842FADeDeCB783589F50f5f"
+      ],
+      "poolInfos": [
+        {
+          "stakeToken": "0xd185094b8f3df34d28d3f8740baf5664eb5b8636",
+          "startTime": 1649422800,
+          "endTime": 1651842000,
+          "totalRewards": [
+            "160000000000000000000000",
+            "13660000000000000000000"
+          ],
+          "vestingDuration": 0,
+          "name": "KyberSwap Stake LP SAVAX-USDT",
+          "symbol": "LP SAVAX-USD"
+        },
+        {
+          "stakeToken": "0xa6bb71128b8f27a8a54a2087ef6e95249723c038",
+          "startTime": 1649422800,
+          "endTime": 1651842000,
+          "totalRewards": [
+            "160000000000000000000000",
+            "13660000000000000000000"
+          ],
+          "vestingDuration": 0,
+          "name": "KyberSwap Stake LP SAVAX-USDC",
+          "symbol": "LP SAVAX-USDC"
+        }
+      ]
+    }
+  ]
+}

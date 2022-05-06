@@ -201,7 +201,6 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
 
     for (uint256 i = 0; i < _totalRewards.length; i++) {
       uint256 _rewardPerSecond = _totalRewards[i].mul(multipliers[i]).div(_endTime - _startTime);
-      require(_rewardPerSecond != 0, 'reward too small');
 
       poolInfo[poolLength].poolRewardData[i] = PoolRewardData({
         rewardPerSecond: _rewardPerSecond,
@@ -250,7 +249,6 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
 
     for (uint256 i = 0; i < _totalRewards.length; i++) {
       uint256 _rewardPerSecond = _totalRewards[i].mul(multipliers[i]).div(_endTime - _startTime);
-      require(_rewardPerSecond != 0, 'reward too small');
       pool.poolRewardData[i].rewardPerSecond = _rewardPerSecond;
     }
 
@@ -286,7 +284,6 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
       uint256 _rewardPerSecond = _totalRewards[i].mul(multipliers[i]).div(
         _endTime - pool.startTime
       );
-      require(_rewardPerSecond != 0, 'reward too small');
       pool.poolRewardData[i].rewardPerSecond = _rewardPerSecond;
     }
 
