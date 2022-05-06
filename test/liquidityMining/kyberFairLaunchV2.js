@@ -272,7 +272,7 @@ contract('KyberFairLaunchV2', function (accounts) {
       );
     });
 
-    it('correct data and events', async () => {
+    it('correct data and events 1', async () => {
       let poolLength = 0;
       Helper.assertEqual(poolLength, await fairLaunch.poolLength());
       for (let i = 0; i < 5; i++) {
@@ -285,6 +285,57 @@ contract('KyberFairLaunchV2', function (accounts) {
         let tokenName = 'KNC Generated Token';
         let tokenSymbol = 'KNCG';
         let totalRewards = generateTotalRewards();
+        let tx = await fairLaunch.addPool(
+          stakeToken,
+          startTime,
+          endTime,
+          vestDuration,
+          totalRewards,
+          tokenName,
+          tokenSymbol,
+          {from: admin}
+        );
+        expectEvent(tx, 'AddNewPool', {
+          stakeToken: stakeToken,
+          startTime: startTime,
+          endTime: endTime,
+          vestingDuration: vestDuration,
+        });
+        poolLength++;
+        Helper.assertEqual(poolLength, await fairLaunch.poolLength());
+        poolInfo[i] = {
+          id: i,
+          stakeToken: tokens[i],
+          startTime: startTime,
+          endTime: endTime,
+          vestingDuration: vestDuration,
+          lastRewardTime: startTime,
+          accRewardPerShares: [],
+          rewardPerSeconds: [],
+          totalStake: new BN(0),
+        };
+        for (let j = 0; j < rewardTokens.length; j++) {
+          let rps = new BN(totalRewards[j]).mul(new BN(multipliers[j])).div(duration);
+          poolInfo[i].rewardPerSeconds.push(rps);
+          poolInfo[i].accRewardPerShares.push(new BN(0));
+        }
+        await verifyPoolInfo(poolInfo[i]);
+      }
+    });
+
+    it('correct data and events with zero reward', async () => {
+      let poolLength = 0;
+      Helper.assertEqual(poolLength, await fairLaunch.poolLength());
+      for (let i = 0; i < 5; i++) {
+        let stakeToken = tokens[i].address;
+        currentBlockTime = await Helper.getCurrentBlockTime();
+        let startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(1)));
+        let duration = new BN(getSecondInMinute(10));
+        let endTime = startTime.add(duration);
+        let vestDuration = new BN(getSecondInMinute(60));
+        let tokenName = 'KNC Generated Token';
+        let tokenSymbol = 'KNCG';
+        let totalRewards = ["0", "0"];
         let tx = await fairLaunch.addPool(
           stakeToken,
           startTime,
@@ -477,6 +528,86 @@ contract('KyberFairLaunchV2', function (accounts) {
       // update pool before it starts
       endTime = startTime.add(new BN(getSecondInMinute(3)));
       totalRewards = generateTotalRewards();
+      vestDuration = new BN(getSecondInMinute(10));
+      let tx = await fairLaunch.updatePool(pid, endTime, vestDuration, totalRewards, {from: admin});
+      expectEvent(tx, 'UpdatePool', {
+        pid: pid,
+        endTime: endTime,
+        vestingDuration: vestDuration,
+      });
+
+      // not yet started, no need to call update pool rewards
+      poolInfo[pid].endTime = endTime;
+      poolInfo[pid].vestingDuration = vestDuration;
+      poolInfo[pid].rewardPerSeconds = [];
+      for (let i = 0; i < rewardTokens.length; i++) {
+        let rps = new BN(totalRewards[i]).mul(new BN(multipliers[i])).div(endTime.sub(poolInfo[pid].startTime));
+        poolInfo[pid].rewardPerSeconds.push(rps);
+      }
+      await verifyPoolInfo(poolInfo[pid]);
+
+      let timeTo = currentBlockTime;
+      let amount = precisionUnits.mul(new BN(2));
+      await depositAndVerifyData(user1, pid, amount, false, timeTo);
+      amount = precisionUnits.mul(new BN(2));
+      await depositAndVerifyData(user2, pid, amount, true, timeTo);
+
+      timeTo = poolInfo[pid].startTime;
+      await Helper.setNextBlockTimestamp(timeTo);
+      await fairLaunch.setBlockTime(timeTo);
+
+      await harvestAndVerifyData(user1, pid, timeTo);
+
+      // change reward per seconds
+      totalRewards = generateTotalRewards();
+      await fairLaunch.updatePool(pid, endTime, vestDuration, totalRewards, {from: admin});
+      poolInfo[pid] = updatePoolReward(poolInfo[pid], timeTo);
+      poolInfo[pid].rewardPerSeconds = [];
+      for (let i = 0; i < rewardTokens.length; i++) {
+        let rps = new BN(totalRewards[i]).mul(new BN(multipliers[i])).div(endTime.sub(poolInfo[pid].startTime));
+        poolInfo[pid].rewardPerSeconds.push(rps);
+      }
+      await verifyPoolInfo(poolInfo[pid]);
+      await harvestAndVerifyData(user1, pid, timeTo);
+      await harvestAndVerifyData(user2, pid, timeTo);
+      await withdrawAndVerifyData(user1, pid, amount.div(new BN(10)), false, timeTo);
+
+      // change reward per seconds
+      totalRewards = generateTotalRewards();
+      await fairLaunch.updatePool(pid, endTime, vestDuration, totalRewards, {from: admin});
+      //   currentBlockTime = await Helper.getCurrentBlockTime();
+      poolInfo[pid] = updatePoolReward(poolInfo[pid], timeTo);
+      poolInfo[pid].rewardPerSeconds = [];
+      for (let i = 0; i < rewardTokens.length; i++) {
+        let rps = new BN(totalRewards[i]).mul(new BN(multipliers[i])).div(endTime.sub(startTime));
+        poolInfo[pid].rewardPerSeconds.push(rps);
+      }
+      await verifyPoolInfo(poolInfo[pid]);
+
+      await depositAndVerifyData(user1, pid, amount, true, timeTo);
+      await depositAndVerifyData(user2, pid, amount, true, timeTo);
+    });
+
+    it('correct data and events with zero reward', async () => {
+      currentBlockTime = await Helper.getCurrentBlockTime();
+      let startTime = new BN(currentBlockTime).add(new BN(getSecondInMinute(1)));
+      let endTime = startTime.add(new BN(getSecondInMinute(2)));
+      let vestDuration = new BN(getSecondInMinute(60));
+      let tokenName = 'KNC Generated Token';
+      let tokenSymbol = 'KNCG';
+      let totalRewards = generateTotalRewards();
+
+      await fairLaunch.setBlockTime(currentBlockTime);
+      let pid = await addNewPool(startTime, endTime, vestDuration, totalRewards, tokenName, tokenSymbol);
+      await verifyPoolInfo(poolInfo[pid]);
+
+      for (let i = 0; i < rewardTokens.length; i++) {
+        await transferToken(rewardTokens[i], accounts[0], fairLaunch.address, precisionUnits.mul(new BN(200)));
+      }
+
+      // update pool before it starts
+      endTime = startTime.add(new BN(getSecondInMinute(3)));
+      totalRewards = ["0", "0"];
       vestDuration = new BN(getSecondInMinute(10));
       let tx = await fairLaunch.updatePool(pid, endTime, vestDuration, totalRewards, {from: admin});
       expectEvent(tx, 'UpdatePool', {
