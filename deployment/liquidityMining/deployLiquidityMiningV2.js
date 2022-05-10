@@ -56,10 +56,10 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining V2 contracts')
     console.log(`RewardLockerV2 address: ${rewardLocker.address}`);
     outputData['RewardLockerV2'] = rewardLocker.address;
 
-    // FOR TESTING LOCALLY
-    // let MockToken = await ethers.getContractFactory('MockToken');
-    // let rewardToken = await MockToken.deploy('R', 'R', new BN.from(1_000_000));
-    // END
+    // // FOR TESTING LOCALLY
+    // // let MockToken = await ethers.getContractFactory('MockToken');
+    // // let rewardToken = await MockToken.deploy('R', 'R', new BN.from(1_000_000));
+    // // END
 
     for (let i = 0; i < fairLaunchConfigs.length; i++) {
       // FOR TESTING LOCALLY
