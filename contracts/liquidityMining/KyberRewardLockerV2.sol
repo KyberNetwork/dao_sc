@@ -118,41 +118,60 @@ contract KyberRewardLockerV2 is IKyberRewardLockerV2, PermissionAdmin {
   ) public override payable onlyRewardsContract(token) {
     require(quantity > 0, '0 quantity');
 
-    if (token == IERC20Ext(0)) {
-      require(msg.value == quantity, 'Invalid msg.value');
-    } else {
-      // transfer token from reward contract to lock contract
-      token.safeTransferFrom(msg.sender, address(this), quantity);
-    }
-
     VestingSchedules storage schedules = accountVestingSchedules[account][token];
-    uint256 schedulesLength = schedules.length;
     uint256 endTime = startTime.add(vestingDuration);
+    uint256 schedulesLength = schedules.length;
 
-    // combine with the last schedule if they have the same start & end times
-    if (schedulesLength > 0) {
-      VestingSchedule storage lastSchedule = schedules.data[schedulesLength - 1];
-      if (lastSchedule.startTime == startTime && lastSchedule.endTime == endTime) {
-        lastSchedule.quantity = uint256(lastSchedule.quantity).add(quantity).toUint128();
-        accountEscrowedBalance[account][token] = accountEscrowedBalance[account][token].add(
-          quantity
-        );
-        emit VestingEntryQueued(schedulesLength - 1, token, account, quantity);
-        return;
+    if (vestingDuration == 0) {
+      if (token == IERC20Ext(0)) {
+        require(msg.value == quantity, 'Invalid msg.value');
+        (bool success, ) = account.call{value: quantity}('');
+        require(success, 'fail to transfer');
+      } else {
+        // transfer token from reward contract to receiver
+        token.safeTransferFrom(msg.sender, account, quantity);
       }
+      // append new schedule
+      schedules.data[schedulesLength] = VestingSchedule({
+        startTime: startTime.toUint64(),
+        endTime: endTime.toUint64(),
+        quantity: quantity.toUint128(),
+        vestedQuantity: quantity.toUint128()
+      });
+      accountVestedBalance[account][token] = accountVestedBalance[account][token].add(
+        quantity
+      );
+      emit Vested(token, account, quantity, schedulesLength);
+    } else {
+      if (token == IERC20Ext(0)) {
+        require(msg.value == quantity, 'Invalid msg.value');
+      } else {
+        // transfer token from reward contract to lock contract
+        token.safeTransferFrom(msg.sender, address(this), quantity);
+      }
+      // combine with the last schedule if they have the same start & end times
+      if (schedulesLength > 0) {
+        VestingSchedule storage lastSchedule = schedules.data[schedulesLength - 1];
+        if (lastSchedule.startTime == startTime && lastSchedule.endTime == endTime) {
+          lastSchedule.quantity = uint256(lastSchedule.quantity).add(quantity).toUint128();
+          accountEscrowedBalance[account][token] = accountEscrowedBalance[account][token].add(
+            quantity
+          );
+          emit VestingEntryQueued(schedulesLength - 1, token, account, quantity);
+          return;
+        }
+      }
+       // append new schedule
+      schedules.data[schedulesLength] = VestingSchedule({
+        startTime: startTime.toUint64(),
+        endTime: endTime.toUint64(),
+        quantity: quantity.toUint128(),
+        vestedQuantity: 0
+      });
+      // record total vesting balance of user
+      accountEscrowedBalance[account][token] = accountEscrowedBalance[account][token].add(quantity);
     }
-
-    // append new schedule
-    schedules.data[schedulesLength] = VestingSchedule({
-      startTime: startTime.toUint64(),
-      endTime: endTime.toUint64(),
-      quantity: quantity.toUint128(),
-      vestedQuantity: 0
-    });
     schedules.length = schedulesLength + 1;
-    // record total vesting balance of user
-    accountEscrowedBalance[account][token] = accountEscrowedBalance[account][token].add(quantity);
-
     emit VestingEntryCreated(token, account, startTime, endTime, quantity, schedulesLength);
   }
 
