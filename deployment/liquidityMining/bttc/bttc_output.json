@@ -1,0 +1,26 @@
+{
+  "RewardLockerV2": "0xE79bfc312328Ab75272785DBf5Bd871b253709A5",
+  "FairLaunches": [
+    {
+      "address": "0x8e9Bd30D15420bAe4B7EC0aC014B7ECeE864373C",
+      "rewardTokens": [
+        "0x0000000000000000000000000000000000000000",
+        "0x17F235FD5974318E4E2a5e37919a209f7c37A6d1"
+      ],
+      "poolInfos": [
+        {
+          "stakeToken": "0x6e35C1CCb7AB17cdea6250A293D172f646ea04cd",
+          "startTime": 1651838400,
+          "endTime": 1654516800,
+          "totalRewards": [
+            "16260338865000000000000000000",
+            "0"
+          ],
+          "vestingDuration": 0,
+          "name": "KyberSwap Stake LP USDD_t/USDT_t",
+          "symbol": "LP USDD_t/USDT_t"
+        }
+      ]
+    }
+  ]
+}
