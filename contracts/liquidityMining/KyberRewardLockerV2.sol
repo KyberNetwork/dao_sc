@@ -141,6 +141,7 @@ contract KyberRewardLockerV2 is IKyberRewardLockerV2, PermissionAdmin {
         // transfer token from reward contract to receiver
         token.safeTransferFrom(msg.sender, account, quantity);
       }
+      emit VestingEntryCreated(token, account, startTime, endTime, quantity, schedulesLength);
       emit Vested(token, account, quantity, schedulesLength);
     } else {
       if (token == IERC20Ext(0)) {
@@ -170,9 +171,9 @@ contract KyberRewardLockerV2 is IKyberRewardLockerV2, PermissionAdmin {
       });
       // record total vesting balance of user
       accountEscrowedBalance[account][token] = accountEscrowedBalance[account][token].add(quantity);
+      emit VestingEntryCreated(token, account, startTime, endTime, quantity, schedulesLength);
     }
     schedules.length = schedulesLength + 1;
-    emit VestingEntryCreated(token, account, startTime, endTime, quantity, schedulesLength);
   }
 
   /**
