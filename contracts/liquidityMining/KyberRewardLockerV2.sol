@@ -123,14 +123,6 @@ contract KyberRewardLockerV2 is IKyberRewardLockerV2, PermissionAdmin {
     uint256 schedulesLength = schedules.length;
 
     if (vestingDuration == 0) {
-      if (token == IERC20Ext(0)) {
-        require(msg.value == quantity, 'Invalid msg.value');
-        (bool success, ) = account.call{value: quantity}('');
-        require(success, 'fail to transfer');
-      } else {
-        // transfer token from reward contract to receiver
-        token.safeTransferFrom(msg.sender, account, quantity);
-      }
       // append new schedule
       schedules.data[schedulesLength] = VestingSchedule({
         startTime: startTime.toUint64(),
@@ -141,6 +133,14 @@ contract KyberRewardLockerV2 is IKyberRewardLockerV2, PermissionAdmin {
       accountVestedBalance[account][token] = accountVestedBalance[account][token].add(
         quantity
       );
+      if (token == IERC20Ext(0)) {
+        require(msg.value == quantity, 'Invalid msg.value');
+        (bool success, ) = account.call{value: quantity}('');
+        require(success, 'fail to transfer');
+      } else {
+        // transfer token from reward contract to receiver
+        token.safeTransferFrom(msg.sender, account, quantity);
+      }
       emit Vested(token, account, quantity, schedulesLength);
     } else {
       if (token == IERC20Ext(0)) {
@@ -161,7 +161,7 @@ contract KyberRewardLockerV2 is IKyberRewardLockerV2, PermissionAdmin {
           return;
         }
       }
-       // append new schedule
+      // append new schedule
       schedules.data[schedulesLength] = VestingSchedule({
         startTime: startTime.toUint64(),
         endTime: endTime.toUint64(),
