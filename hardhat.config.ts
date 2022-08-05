@@ -18,6 +18,8 @@ import './deployment/liquidityMining/deployLiquidityMiningV2.js';
 import './deployment/createBinaryProposal.js';
 import './deployment/simFullProposal.js';
 import './deployment/simProposalExecution.js';
+import './deployment/rewardLocker/deployRewardLockerV2';
+
 import {accounts} from './test-wallets';
 
 const config: HardhatUserConfig = {

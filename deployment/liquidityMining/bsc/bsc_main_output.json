@@ -1,0 +1,24 @@
+{
+  "RewardLockerV2": "0xD93f7A2cbF4912158d6cCDa585c9D234a0d70652",
+  "FairLaunches": [
+    {
+      "address": "0x3474b537da4358A08f916b1587dccdD9585376A4",
+      "rewardTokens": [
+        "0x301AF3Eff0c904Dc5DdD06FAa808f653474F7FcC"
+      ],
+      "poolInfos": [
+        {
+          "stakeToken": "0xa23b26fb74b1d11bf1112bc46607d6ffc6e6557a",
+          "startTime": 1654176600,
+          "endTime": 1664717400,
+          "totalRewards": [
+            "16666666000000000000000000"
+          ],
+          "vestingDuration": 1209600,
+          "name": "KyberSwap Stake LP UND-USDC",
+          "symbol": "LP UND-USDC"
+        }
+      ]
+    }
+  ]
+}
