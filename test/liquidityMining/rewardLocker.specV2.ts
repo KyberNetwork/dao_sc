@@ -12,9 +12,11 @@ import {
   MockRewardLockerV2,
   KyberNetworkTokenV2,
   MockTokenWithDecimals,
+  MockSimpleContract,
   MockRewardLockerV2__factory,
   KyberNetworkTokenV2__factory,
   MockTokenWithDecimals__factory,
+  MockSimpleContract__factory,
 } from '../../typechain';
 
 const MAX_ALLOWANCE = BN.from(2).pow(256).sub(1);
@@ -27,13 +29,16 @@ let KNC: KyberNetworkTokenV2__factory;
 let rewardLocker: MockRewardLockerV2;
 let rewardToken: KyberNetworkTokenV2;
 let rewardToken2: MockTokenWithDecimals;
+let simpleSC: MockSimpleContract;
 interface RewardLockerFixture {
   rewardLocker: MockRewardLockerV2;
   rewardToken: KyberNetworkTokenV2;
   rewardToken2: MockTokenWithDecimals;
+  simpleSC: MockSimpleContract;
 }
 
 async function setupFixture([admin, rewardContract]: Wallet[]): Promise<RewardLockerFixture> {
+  const simpleSCFactory = (await ethers.getContractFactory('MockSimpleContract')) as MockSimpleContract__factory;
   const rewardLockerFactory = (await ethers.getContractFactory('MockRewardLockerV2')) as MockRewardLockerV2__factory;
   const rewardTokenFactory = (await ethers.getContractFactory('KyberNetworkTokenV2')) as KyberNetworkTokenV2__factory;
   const rewardTokenFactory2 = (await ethers.getContractFactory(
@@ -43,6 +48,7 @@ async function setupFixture([admin, rewardContract]: Wallet[]): Promise<RewardLo
   let rewardToken = await rewardTokenFactory.connect(rewardContract).deploy();
   let rewardToken2 = await rewardTokenFactory2.connect(rewardContract).deploy(TOKEN_DECIMALS);
   let rewardLocker = await rewardLockerFactory.deploy(admin.address);
+  let simpleSC = await simpleSCFactory.deploy();
 
   for (const tk of [rewardToken, rewardToken2]) {
     await rewardLocker.connect(admin).addRewardsContract(tk.address, rewardContract.address);
@@ -57,10 +63,11 @@ async function setupFixture([admin, rewardContract]: Wallet[]): Promise<RewardLo
     rewardLocker,
     rewardToken,
     rewardToken2,
+    simpleSC
   };
 }
 
-describe('KyberRewardLocker', () => {
+describe('KyberRewardLockerV2', () => {
   const [admin, user1, rewardContract, rewardContract2] = waffle.provider.getWallets();
   const loadFixtures = createFixtureLoader([admin, rewardContract]);
 
@@ -103,11 +110,24 @@ describe('KyberRewardLocker', () => {
     });
   });
 
-  describe('lock and vest', async () => {
+  describe.only('lock and vest', async () => {
     beforeEach('setup', async () => {
-      ({rewardLocker, rewardToken, rewardToken2} = await loadFixtures(setupFixture));
+      ({rewardLocker, rewardToken, rewardToken2, simpleSC} = await loadFixtures(setupFixture));
     });
 
+    it.only('Check receiver is contract and not have fallback/receive function', async () => {
+      const vestingQuantity = BN.from(7).mul(PRECISION);
+      const vestingDuration = BN.from(0);
+
+      await expect(
+          rewardLocker
+          .connect(rewardContract)
+          .lock(NATIVE_TOKEN_ADDRESS, simpleSC.address, vestingQuantity, vestingDuration, {value: vestingQuantity})
+        )
+        .to.emit(rewardLocker, 'Log')
+        .withArgs('fail to transfer');
+    });
+    
     it('locks and vests with full time', async () => {
       const vestingQuantity = BN.from(7).mul(PRECISION);
       const currentBlockTime = BN.from(await getCurrentBlockTime());

@@ -40,6 +40,8 @@ contract KyberRewardLockerV2 is IKyberRewardLockerV2, PermissionAdmin {
   /* ========== EVENTS ========== */
   event RewardContractAdded(address indexed rewardContract, IERC20Ext indexed token, bool isAdded);
 
+  event Log(string message);
+
   /* ========== MODIFIERS ========== */
 
   modifier onlyRewardsContract(IERC20Ext token) {
@@ -135,8 +137,8 @@ contract KyberRewardLockerV2 is IKyberRewardLockerV2, PermissionAdmin {
       );
       if (token == IERC20Ext(0)) {
         require(msg.value == quantity, 'Invalid msg.value');
-        (bool success, ) = account.call{value: quantity}('');
-        require(success, 'fail to transfer');
+        (bool success,) = account.call{value:quantity}('');
+        if(!success) emit Log('fail to transfer');
       } else {
         // transfer token from reward contract to receiver
         token.safeTransferFrom(msg.sender, account, quantity);
