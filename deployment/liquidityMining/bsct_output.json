@@ -12,10 +12,7 @@
           "stakeToken": "0x94870a1fb1E2a9032616262B37F4147A5eb9639e",
           "startTime": 1649998800,
           "endTime": 1655139600,
-          "totalRewards": [
-            "100000000000000000000",
-            "5000000000000000000000"
-          ],
+          "totalRewards": ["100000000000000000000", "5000000000000000000000"],
           "vestingDuration": 0,
           "name": "KyberSwap Stake LP ST-ST",
           "symbol": "LP ST-ST"

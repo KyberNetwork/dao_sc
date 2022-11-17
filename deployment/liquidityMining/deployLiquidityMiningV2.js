@@ -71,16 +71,16 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining V2 contracts')
       }
       const KyberFairLaunch = await ethers.getContractFactory('KyberFairLaunchV2');
       let fairLaunch;
-      
+
       fairLaunch = await KyberFairLaunch.deploy(
-          deployerAddress,
-          fairLaunchConfigs[i].rewardTokens,
-          rewardLocker.address,
-          {gasPrice: gasPrice}
-          );
-          await fairLaunch.deployed();
-          fairLaunchConfigs[i].address = fairLaunch.address;
-          console.log(`FairLaunch ${i}: ${fairLaunch.address}`);
+        deployerAddress,
+        fairLaunchConfigs[i].rewardTokens,
+        rewardLocker.address,
+        {gasPrice: gasPrice}
+      );
+      await fairLaunch.deployed();
+      fairLaunchConfigs[i].address = fairLaunch.address;
+      console.log(`FairLaunch ${i}: ${fairLaunch.address}`);
     }
 
     outputData['FairLaunches'] = fairLaunchConfigs;
@@ -100,7 +100,7 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining V2 contracts')
       for (let j = 0; j < contractData.poolInfos.length; j++) {
         let poolData = contractData.poolInfos[j];
         let poolExist = await fairLaunch.poolExists(poolData.stakeToken);
-        
+
         if (poolExist == false) {
           await fairLaunch.addPool(
             poolData.stakeToken,

@@ -25,18 +25,18 @@ task('deployGov', 'deploy script')
     parseInput(configParams);
     const [deployer] = await hre.ethers.getSigners();
     let deployerAddress = await deployer.getAddress();
-    console.log("Deployed by ",deployerAddress );
+    console.log('Deployed by ', deployerAddress);
     const GAS_PRICE = 90000000000; // 80 gweis
 
     let GovSc = await hre.ethers.getContractFactory('KyberGovernance');
 
     let outputData = {};
     if (govSc == undefined) {
-      console.log("deploy new ");
+      console.log('deploy new ');
       govSc = await GovSc.deploy(adminAddress, daoOperator, [executorAddress], [], {gasPrice: GAS_PRICE});
       await govSc.deployed();
     } else {
-      console.log("use old voting");
+      console.log('use old voting');
       govSc = await GovSc.attach(govSc);
     }
 
@@ -56,15 +56,15 @@ task('deployGov', 'deploy script')
     process.exit(0);
   });
 
-  function parseInput(jsonInput) {
-    adminAddress = jsonInput['adminAddress'];
-    daoOperator = jsonInput['daoOperator'];
-    executorAddress = jsonInput['executorAddress'];
-    // votingPow = jsonInput['votingPow'];
-    outputFilename = jsonInput['outputFilename'];
-  }
-  
-  function exportAddresses(dictOutput) {
-    let json = JSON.stringify(dictOutput, null, 2);
-    fs.writeFileSync(path.join(__dirname, outputFilename), json);
-  }
+function parseInput(jsonInput) {
+  adminAddress = jsonInput['adminAddress'];
+  daoOperator = jsonInput['daoOperator'];
+  executorAddress = jsonInput['executorAddress'];
+  // votingPow = jsonInput['votingPow'];
+  outputFilename = jsonInput['outputFilename'];
+}
+
+function exportAddresses(dictOutput) {
+  let json = JSON.stringify(dictOutput, null, 2);
+  fs.writeFileSync(path.join(__dirname, outputFilename), json);
+}

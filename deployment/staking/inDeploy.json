@@ -1,5 +1,5 @@
 {
-  "adminAddress":"0x6b3a3D26d9271027715F8C80c9D2eeE999E2eBAf",
-  "kncAddress":"0xd19e5119Efc73FeA1e70f9fbbc105DaB89D914e4",
+  "adminAddress": "0x6b3a3D26d9271027715F8C80c9D2eeE999E2eBAf",
+  "kncAddress": "0xd19e5119Efc73FeA1e70f9fbbc105DaB89D914e4",
   "outputFilename": "outDeploy.json"
 }

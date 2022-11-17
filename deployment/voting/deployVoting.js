@@ -23,18 +23,18 @@ task('deployVoting', 'deploy script')
     parseInput(configParams);
     const [deployer] = await hre.ethers.getSigners();
     let deployerAddress = await deployer.getAddress();
-    console.log("Deployed by ",deployerAddress );
+    console.log('Deployed by ', deployerAddress);
     const GAS_PRICE = 80000000000; // 80 gweis
 
     let VotingSC = await hre.ethers.getContractFactory('EpochVotingPowerStrategy');
 
     let outputData = {};
     if (votingSc == undefined) {
-      console.log("deploy new ");
-      votingSc = await VotingSC.deploy(govAddress, stakingAddress,{gasPrice: GAS_PRICE});
+      console.log('deploy new ');
+      votingSc = await VotingSC.deploy(govAddress, stakingAddress, {gasPrice: GAS_PRICE});
       await votingSc.deployed();
     } else {
-      console.log("use old voting");
+      console.log('use old voting');
       votingSc = await VotingSC.attach(stakingSc);
     }
 
@@ -54,13 +54,13 @@ task('deployVoting', 'deploy script')
     process.exit(0);
   });
 
-  function parseInput(jsonInput) {
-    govAddress = jsonInput['govAddress'];
-    stakingAddress = jsonInput['stakingAddress'];
-    outputFilename = jsonInput['outputFilename'];
-  }
-  
-  function exportAddresses(dictOutput) {
-    let json = JSON.stringify(dictOutput, null, 2);
-    fs.writeFileSync(path.join(__dirname, outputFilename), json);
-  }
+function parseInput(jsonInput) {
+  govAddress = jsonInput['govAddress'];
+  stakingAddress = jsonInput['stakingAddress'];
+  outputFilename = jsonInput['outputFilename'];
+}
+
+function exportAddresses(dictOutput) {
+  let json = JSON.stringify(dictOutput, null, 2);
+  fs.writeFileSync(path.join(__dirname, outputFilename), json);
+}

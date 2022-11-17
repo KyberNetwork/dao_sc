@@ -3,17 +3,13 @@
   "FairLaunches": [
     {
       "address": "0xa107e6466Be74361840059a11e390200371a7538",
-      "rewardTokens": [
-        "0x8729438EB15e2C8B576fCc6AeCdA6A148776C0F5"
-      ],
+      "rewardTokens": ["0x8729438EB15e2C8B576fCc6AeCdA6A148776C0F5"],
       "poolInfos": [
         {
           "stakeToken": "0xC6BC80490A3D022ac888b26A5Ae4f1fad89506Bd",
           "startTime": 1647478800,
           "endTime": 1648688400,
-          "totalRewards": [
-            "2100000000000000000000000"
-          ],
+          "totalRewards": ["2100000000000000000000000"],
           "vestingDuration": 1209600,
           "name": "KyberSwap Stake LP sAVAX-AVAX",
           "symbol": "LP sAVAX-AVAX"
@@ -22,17 +18,13 @@
     },
     {
       "address": "0x89929Bc485cE72D2Af7b7283B40b921e9F4f80b3",
-      "rewardTokens": [
-        "0x39fC9e94Caeacb435842FADeDeCB783589F50f5f"
-      ],
+      "rewardTokens": ["0x39fC9e94Caeacb435842FADeDeCB783589F50f5f"],
       "poolInfos": [
         {
           "stakeToken": "0x6778d979E3B77310Cfb2ac753fb5B47C97Cba47A",
           "startTime": 1647478800,
           "endTime": 1649898000,
-          "totalRewards": [
-            "24832000000000000000000"
-          ],
+          "totalRewards": ["24832000000000000000000"],
           "vestingDuration": 1209600,
           "name": "KyberSwap Stake LP sAVAX-KNC",
           "symbol": "LP sAVAX-KNC"
@@ -41,9 +33,7 @@
           "stakeToken": "0x896e359edD6aE688a4eB259af4e208128D4c4e20",
           "startTime": 1647478800,
           "endTime": 1648688400,
-          "totalRewards": [
-            "10738000000000000000000"
-          ],
+          "totalRewards": ["10738000000000000000000"],
           "vestingDuration": 1209600,
           "name": "KyberSwap Stake LP QI-KNC",
           "symbol": "LP QI-KNC"

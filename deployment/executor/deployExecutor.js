@@ -21,32 +21,39 @@ task('deployExe', 'deploy script')
     parseInput(configParams);
     const [deployer] = await hre.ethers.getSigners();
     let deployerAddress = await deployer.getAddress();
-    console.log("Deployed by ",deployerAddress );
+    console.log('Deployed by ', deployerAddress);
     const GAS_PRICE = 90000000000; // 80 gweis
 
     let ExecutorSC = await hre.ethers.getContractFactory('DefaultExecutor');
 
     let outputData = {};
 
-    let delay = 60
-    let gracePeriod = 1200
-    let minimumDelay = 0
-    let maximumDelay = 604800
-    let minVoteDuration = 0
-    let maxVotingOptions = 8
-    let voteDifferential = 1
-    let minimumQuorum = 2
-
+    let delay = 60;
+    let gracePeriod = 1200;
+    let minimumDelay = 0;
+    let maximumDelay = 604800;
+    let minVoteDuration = 0;
+    let maxVotingOptions = 8;
+    let voteDifferential = 1;
+    let minimumQuorum = 2;
 
     if (exeSc == undefined) {
-      console.log("deploy new ");
+      console.log('deploy new ');
       exeSc = await ExecutorSC.deploy(
-        adminAddress, delay, gracePeriod, minimumDelay, maximumDelay,
-        minVoteDuration, maxVotingOptions, voteDifferential, minimumQuorum,
-        {gasPrice: GAS_PRICE});
+        adminAddress,
+        delay,
+        gracePeriod,
+        minimumDelay,
+        maximumDelay,
+        minVoteDuration,
+        maxVotingOptions,
+        voteDifferential,
+        minimumQuorum,
+        {gasPrice: GAS_PRICE}
+      );
       await exeSc.deployed();
     } else {
-      console.log("use old exeSc");
+      console.log('use old exeSc');
       exeSc = await ExecutorSC.attach(exeSc);
     }
 
@@ -57,8 +64,16 @@ task('deployExe', 'deploy script')
     try {
       console.log(`Verify exeSc at: ${exeSc}`);
       await verifyContract(hre, exeSc, [
-        adminAddress, delay, gracePeriod, minimumDelay, maximumDelay,
-        minVoteDuration, maxVotingOptions, voteDifferential, minimumQuorum]);
+        adminAddress,
+        delay,
+        gracePeriod,
+        minimumDelay,
+        maximumDelay,
+        minVoteDuration,
+        maxVotingOptions,
+        voteDifferential,
+        minimumQuorum,
+      ]);
     } catch (e) {
       console.log(`Error in verify exeSc, continue...`);
     }
@@ -68,12 +83,12 @@ task('deployExe', 'deploy script')
     process.exit(0);
   });
 
-  function parseInput(jsonInput) {
-    adminAddress = jsonInput['adminAddress'];
-    outputFilename = jsonInput['outputFilename'];
-  }
-  
-  function exportAddresses(dictOutput) {
-    let json = JSON.stringify(dictOutput, null, 2);
-    fs.writeFileSync(path.join(__dirname, outputFilename), json);
-  }
+function parseInput(jsonInput) {
+  adminAddress = jsonInput['adminAddress'];
+  outputFilename = jsonInput['outputFilename'];
+}
+
+function exportAddresses(dictOutput) {
+  let json = JSON.stringify(dictOutput, null, 2);
+  fs.writeFileSync(path.join(__dirname, outputFilename), json);
+}

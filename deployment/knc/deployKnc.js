@@ -24,21 +24,21 @@ task('deployKNC', 'deploy script')
     const [deployer] = await hre.ethers.getSigners();
     let deployerAddress = await deployer.getAddress();
 
-    console.log("Deployed by ",deployerAddress );
+    console.log('Deployed by ', deployerAddress);
 
     let Token = await hre.ethers.getContractFactory('KyberNetworkTokenV2');
     let NewKNC = await hre.ethers.getContractFactory('MockKyberTokenV2');
 
     const GAS_PRICE = 80000000000; // 80 gweis
     if (oldKnc == undefined) {
-      console.log("deploy new ");
+      console.log('deploy new ');
       oldKnc = await Token.deploy({gasPrice: GAS_PRICE});
       await oldKnc.deployed();
     } else {
-      console.log("use old knc");
+      console.log('use old knc');
       oldKnc = await Token.attach(oldKnc);
     }
-    
+
     let outputData = {};
     let newKnc = await upgrades.deployProxy(NewKNC, [oldKnc.address, adminAddress], {gasPrice: GAS_PRICE});
     await newKnc.deployed();
@@ -60,13 +60,13 @@ task('deployKNC', 'deploy script')
     process.exit(0);
   });
 
-  function parseInput(jsonInput) {
-    adminAddress = jsonInput['adminAddress'];
-    oldKnc = jsonInput['oldKnc'];
-    outputFilename = jsonInput['outputFilename'];
-  }
-  
-  function exportAddresses(dictOutput) {
-    let json = JSON.stringify(dictOutput, null, 2);
-    fs.writeFileSync(path.join(__dirname, outputFilename), json);
-  }
+function parseInput(jsonInput) {
+  adminAddress = jsonInput['adminAddress'];
+  oldKnc = jsonInput['oldKnc'];
+  outputFilename = jsonInput['outputFilename'];
+}
+
+function exportAddresses(dictOutput) {
+  let json = JSON.stringify(dictOutput, null, 2);
+  fs.writeFileSync(path.join(__dirname, outputFilename), json);
+}

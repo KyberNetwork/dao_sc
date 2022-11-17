@@ -3,17 +3,13 @@
   "FairLaunches": [
     {
       "address": "0xa107e6466Be74361840059a11e390200371a7538",
-      "rewardTokens": [
-        "0x0000000000000000000000000000000000000000"
-      ],
+      "rewardTokens": ["0x0000000000000000000000000000000000000000"],
       "poolInfos": [
         {
           "stakeToken": "0x349125f3ac8a049a8bef6bab38922d466aaeb23b",
           "startTime": 1650542400,
           "endTime": 1661083200,
-          "totalRewards": [
-            "65041355462000000000000000000"
-          ],
+          "totalRewards": ["65041355462000000000000000000"],
           "vestingDuration": 0,
           "name": "KyberSwap Stake LP USDT.t-USDT.b",
           "symbol": "LP USDT.t-USDT.b"
@@ -22,9 +18,7 @@
           "stakeToken": "0x7de4a7958e45bf5f7507c179eaa795249d9a9f14",
           "startTime": 1650542400,
           "endTime": 1661083200,
-          "totalRewards": [
-            "65041355462000000000000000000"
-          ],
+          "totalRewards": ["65041355462000000000000000000"],
           "vestingDuration": 0,
           "name": "KyberSwap Stake LP USDT.t/USDT.e",
           "symbol": "LP USDT.t/USDT.e"
@@ -33,9 +27,7 @@
           "stakeToken": "0x9d277f350a77d7280280a968f9a264e4be4819ca",
           "startTime": 1650542400,
           "endTime": 1661083200,
-          "totalRewards": [
-            "130082710923000000000000000000"
-          ],
+          "totalRewards": ["130082710923000000000000000000"],
           "vestingDuration": 0,
           "name": "KyberSwap Stake LP TRX/USDT.t",
           "symbol": "LP TRX/USDT.t"
@@ -44,9 +36,7 @@
           "stakeToken": "0xaa70a5b819b4ee01f7e521a6e465a9b84303543d",
           "startTime": 1650542400,
           "endTime": 1661083200,
-          "totalRewards": [
-            "130082710923000000000000000000"
-          ],
+          "totalRewards": ["130082710923000000000000000000"],
           "vestingDuration": 0,
           "name": "KyberSwap Stake LP WBTT/USDT.t",
           "symbol": "LP WBTT/USDT.t"
@@ -55,9 +45,7 @@
           "stakeToken": "0xf5da3f53dde6e1637e8824a02c006eecbdfff522",
           "startTime": 1650542400,
           "endTime": 1661083200,
-          "totalRewards": [
-            "86721807282000000000000000000"
-          ],
+          "totalRewards": ["86721807282000000000000000000"],
           "vestingDuration": 0,
           "name": "KyberSwap Stake LP WBTT/TRX",
           "symbol": "LP WBTT/TRX"
@@ -66,17 +54,13 @@
     },
     {
       "address": "0x89929Bc485cE72D2Af7b7283B40b921e9F4f80b3",
-      "rewardTokens": [
-        "0x18fA72e0EE4C580a129b0CE5bD0694d716C7443E"
-      ],
+      "rewardTokens": ["0x18fA72e0EE4C580a129b0CE5bD0694d716C7443E"],
       "poolInfos": [
         {
           "stakeToken": "0xebd53a94aac21b27e50db3c15b949a69b2e9512c",
           "startTime": 1650542400,
           "endTime": 1661083200,
-          "totalRewards": [
-            "18824000000000000000000"
-          ],
+          "totalRewards": ["18824000000000000000000"],
           "vestingDuration": 0,
           "name": "KyberSwap Stake LP KNC_e/ETH",
           "symbol": "LP KNC/ETH"
@@ -85,9 +69,7 @@
           "stakeToken": "0x69cb11316ec6d09d14c6e1e1717f57567981be5d",
           "startTime": 1650542400,
           "endTime": 1661083200,
-          "totalRewards": [
-            "9412000000000000000000"
-          ],
+          "totalRewards": ["9412000000000000000000"],
           "vestingDuration": 0,
           "name": "KyberSwap Stake LP KNC_b/USDT.b",
           "symbol": "LP KNC_b/USDT.b"

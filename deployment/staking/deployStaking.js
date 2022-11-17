@@ -25,7 +25,7 @@ task('deployStaking', 'deploy script')
     const [deployer] = await hre.ethers.getSigners();
     let deployerAddress = await deployer.getAddress();
 
-    console.log("Deployed by ",deployerAddress );
+    console.log('Deployed by ', deployerAddress);
 
     const EPOCH = 28800; // 8h
     const START_TIME = 1668664800; // 13h Nov 11, 22
@@ -35,11 +35,11 @@ task('deployStaking', 'deploy script')
 
     let outputData = {};
     if (stakingSc == undefined) {
-      console.log("deploy new ");
-      stakingSc = await StakingSC.deploy(adminAddress, kncAddress, EPOCH, START_TIME,{gasPrice: GAS_PRICE});
+      console.log('deploy new ');
+      stakingSc = await StakingSC.deploy(adminAddress, kncAddress, EPOCH, START_TIME, {gasPrice: GAS_PRICE});
       await stakingSc.deployed();
     } else {
-      console.log("use old staking");
+      console.log('use old staking');
       stakingSc = await StakingSC.attach(stakingSc);
     }
 
@@ -59,13 +59,13 @@ task('deployStaking', 'deploy script')
     process.exit(0);
   });
 
-  function parseInput(jsonInput) {
-    adminAddress = jsonInput['adminAddress'];
-    kncAddress = jsonInput['kncAddress'];
-    outputFilename = jsonInput['outputFilename'];
-  }
-  
-  function exportAddresses(dictOutput) {
-    let json = JSON.stringify(dictOutput, null, 2);
-    fs.writeFileSync(path.join(__dirname, outputFilename), json);
-  }
+function parseInput(jsonInput) {
+  adminAddress = jsonInput['adminAddress'];
+  kncAddress = jsonInput['kncAddress'];
+  outputFilename = jsonInput['outputFilename'];
+}
+
+function exportAddresses(dictOutput) {
+  let json = JSON.stringify(dictOutput, null, 2);
+  fs.writeFileSync(path.join(__dirname, outputFilename), json);
+}

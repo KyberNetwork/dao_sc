@@ -1,6 +1,6 @@
 {
-  "adminAddress":"0x6b3a3D26d9271027715F8C80c9D2eeE999E2eBAf",
-  "daoOperator":"0x6b3a3D26d9271027715F8C80c9D2eeE999E2eBAf",
-  "executorAddress":"0xd5333B496BF01FF0AD8852F374a940aAf50B4366",
+  "adminAddress": "0x6b3a3D26d9271027715F8C80c9D2eeE999E2eBAf",
+  "daoOperator": "0x6b3a3D26d9271027715F8C80c9D2eeE999E2eBAf",
+  "executorAddress": "0xd5333B496BF01FF0AD8852F374a940aAf50B4366",
   "outputFilename": "outDeploy.json"
 }
