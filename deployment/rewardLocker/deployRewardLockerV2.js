@@ -30,7 +30,9 @@ task('deployRewardLockerV2', 'deploy reward locker V2 contracts')
     console.log(`Deployer address: ${deployerAddress}`);
 
     let outputData = {};
-    gasPrice = new BN.from(10 ** 9 * taskArgs.gasprice);
+    // gasPrice = new BN.from(10 ** 9 * taskArgs.gasprice);
+    // gasPrice = new BN.from(10 ** 18 * taskArgs.gasprice);
+    gasPrice = new BN.from(taskArgs.gasprice);
     console.log(`Deploy gas price: ${gasPrice.toString()} (${taskArgs.gasprice} gweis)`);
 
     const KyberRewardLockerV2 = await ethers.getContractFactory('KyberRewardLockerV2');
