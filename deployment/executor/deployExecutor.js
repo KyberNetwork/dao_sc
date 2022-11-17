@@ -1,17 +1,11 @@
 require('@nomiclabs/hardhat-ethers');
 const fs = require('fs');
 const path = require('path');
+const Helper = require('../../helpers/hardhatHelper');
 
 let adminAddress;
 let exeSc;
 let outputFilename;
-
-async function verifyContract(hre, contractAddress, ctorArgs) {
-  await hre.run('verify:verify', {
-    address: contractAddress,
-    constructorArguments: ctorArgs,
-  });
-}
 
 task('deployExe', 'deploy script')
   .addParam('input', 'The input file')
@@ -22,10 +16,9 @@ task('deployExe', 'deploy script')
     const [deployer] = await hre.ethers.getSigners();
     let deployerAddress = await deployer.getAddress();
     console.log('Deployed by ', deployerAddress);
-    const GAS_PRICE = 90000000000; // 80 gweis
+    const GAS_PRICE = parseInt(process.env.GAS_PRICE);
 
     let ExecutorSC = await hre.ethers.getContractFactory('DefaultExecutor');
-
     let outputData = {};
 
     let delay = 60;
@@ -63,7 +56,7 @@ task('deployExe', 'deploy script')
 
     try {
       console.log(`Verify exeSc at: ${exeSc}`);
-      await verifyContract(hre, exeSc, [
+      await Helper.verifyContract(hre, exeSc, [
         adminAddress,
         delay,
         gracePeriod,
@@ -85,6 +78,10 @@ task('deployExe', 'deploy script')
 
 function parseInput(jsonInput) {
   adminAddress = jsonInput['adminAddress'];
+  if (adminAddress.length == 0) {
+    console.log('Empty address');
+    process.exit();
+  }
   outputFilename = jsonInput['outputFilename'];
 }
 

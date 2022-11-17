@@ -1,19 +1,12 @@
 require('@nomiclabs/hardhat-ethers');
 const fs = require('fs');
 const path = require('path');
+const Helper = require('../../helpers/hardhatHelper');
 
 let govAddress;
 let stakingAddress;
-
 let votingSc;
 let outputFilename;
-
-async function verifyContract(hre, contractAddress, ctorArgs) {
-  await hre.run('verify:verify', {
-    address: contractAddress,
-    constructorArguments: ctorArgs,
-  });
-}
 
 task('deployVoting', 'deploy script')
   .addParam('input', 'The input file')
@@ -24,7 +17,7 @@ task('deployVoting', 'deploy script')
     const [deployer] = await hre.ethers.getSigners();
     let deployerAddress = await deployer.getAddress();
     console.log('Deployed by ', deployerAddress);
-    const GAS_PRICE = 80000000000; // 80 gweis
+    const GAS_PRICE = process.env.GAS_PRICE;
 
     let VotingSC = await hre.ethers.getContractFactory('EpochVotingPowerStrategy');
 
@@ -44,7 +37,7 @@ task('deployVoting', 'deploy script')
 
     try {
       console.log(`Verify voting at: ${votingSc}`);
-      await verifyContract(hre, votingSc, [govAddress, stakingAddress]);
+      await Helper.verifyContract(hre, votingSc, [govAddress, stakingAddress]);
     } catch (e) {
       console.log(`Error in verify voting, continue...`);
     }
@@ -57,6 +50,10 @@ task('deployVoting', 'deploy script')
 function parseInput(jsonInput) {
   govAddress = jsonInput['govAddress'];
   stakingAddress = jsonInput['stakingAddress'];
+  if (govAddress.length == 0 || stakingAddress.length == 0) {
+    console.log('Empty address');
+    process.exit();
+  }
   outputFilename = jsonInput['outputFilename'];
 }
 

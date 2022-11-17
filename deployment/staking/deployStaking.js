@@ -1,19 +1,12 @@
 require('@nomiclabs/hardhat-ethers');
 const fs = require('fs');
 const path = require('path');
+const Helper = require('../../helpers/hardhatHelper');
 
 let adminAddress;
 let kncAddress;
-
 let stakingSc;
 let outputFilename;
-
-async function verifyContract(hre, contractAddress, ctorArgs) {
-  await hre.run('verify:verify', {
-    address: contractAddress,
-    constructorArguments: ctorArgs,
-  });
-}
 
 task('deployStaking', 'deploy script')
   .addParam('input', 'The input file')
@@ -29,7 +22,7 @@ task('deployStaking', 'deploy script')
 
     const EPOCH = 28800; // 8h
     const START_TIME = 1668664800; // 13h Nov 11, 22
-    const GAS_PRICE = 80000000000; // 80 gweis
+    const GAS_PRICE = parseInt(process.env.GAS_PRICE);
 
     let StakingSC = await hre.ethers.getContractFactory('KyberStaking');
 
@@ -49,7 +42,7 @@ task('deployStaking', 'deploy script')
 
     try {
       console.log(`Verify staking at: ${stakingSc}`);
-      await verifyContract(hre, stakingSc, [adminAddress, kncAddress, EPOCH, START_TIME]);
+      await Helper.verifyContract(hre, stakingSc, [adminAddress, kncAddress, EPOCH, START_TIME]);
     } catch (e) {
       console.log(`Error in verify staking, continue...`);
     }
@@ -62,6 +55,10 @@ task('deployStaking', 'deploy script')
 function parseInput(jsonInput) {
   adminAddress = jsonInput['adminAddress'];
   kncAddress = jsonInput['kncAddress'];
+  if (adminAddress.length == 0 || kncAddress.length == 0) {
+    console.log('Empty address');
+    process.exit();
+  }
   outputFilename = jsonInput['outputFilename'];
 }
 

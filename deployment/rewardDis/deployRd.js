@@ -1,17 +1,11 @@
 require('@nomiclabs/hardhat-ethers');
 const fs = require('fs');
 const path = require('path');
+const Helper = require('../../helpers/hardhatHelper');
 
 let adminAddress;
 let rdSC;
 let outputFilename;
-
-async function verifyContract(hre, contractAddress, ctorArgs) {
-  await hre.run('verify:verify', {
-    address: contractAddress,
-    constructorArguments: ctorArgs,
-  });
-}
 
 task('deployRd', 'deploy script')
   .addParam('input', 'The input file')
@@ -22,7 +16,7 @@ task('deployRd', 'deploy script')
     const [deployer] = await hre.ethers.getSigners();
     let deployerAddress = await deployer.getAddress();
     console.log('Deployed by ', deployerAddress);
-    const GAS_PRICE = 80000000000; // 80 gweis
+    const GAS_PRICE = parseInt(process.env.GAS_PRICE);
 
     let RDSC = await hre.ethers.getContractFactory('RewardsDistributor');
 
@@ -42,7 +36,7 @@ task('deployRd', 'deploy script')
 
     try {
       console.log(`Verify rd at: ${rdSC}`);
-      await verifyContract(hre, rdSC, [adminAddress]);
+      await Helper.verifyContract(hre, rdSC, [adminAddress]);
     } catch (e) {
       console.log(`Error in verify rd, continue...`);
     }
@@ -54,6 +48,10 @@ task('deployRd', 'deploy script')
 
 function parseInput(jsonInput) {
   adminAddress = jsonInput['adminAddress'];
+  if (adminAddress.length == 0) {
+    console.log('Empty address');
+    process.exit();
+  }
   outputFilename = jsonInput['outputFilename'];
 }
 

@@ -1,6 +1,7 @@
 require('@nomiclabs/hardhat-ethers');
 const fs = require('fs');
 const path = require('path');
+const Helper = require('../../helpers/hardhatHelper');
 
 let adminAddress;
 let daoOperator;
@@ -9,13 +10,6 @@ let votingPow;
 
 let govSc;
 let outputFilename;
-
-async function verifyContract(hre, contractAddress, ctorArgs) {
-  await hre.run('verify:verify', {
-    address: contractAddress,
-    constructorArguments: ctorArgs,
-  });
-}
 
 task('deployGov', 'deploy script')
   .addParam('input', 'The input file')
@@ -26,7 +20,7 @@ task('deployGov', 'deploy script')
     const [deployer] = await hre.ethers.getSigners();
     let deployerAddress = await deployer.getAddress();
     console.log('Deployed by ', deployerAddress);
-    const GAS_PRICE = 90000000000; // 80 gweis
+    const GAS_PRICE = parseInt(process.env.GAS_PRICE);
 
     let GovSc = await hre.ethers.getContractFactory('KyberGovernance');
 
@@ -46,7 +40,7 @@ task('deployGov', 'deploy script')
 
     try {
       console.log(`Verify Gov at: ${govSc}`);
-      await verifyContract(hre, govSc, [adminAddress, daoOperator, [executorAddress], [votingPow]]);
+      await Helper.verifyContract(hre, govSc, [adminAddress, daoOperator, [executorAddress], [votingPow]]);
     } catch (e) {
       console.log(`Error in verify gov, continue...`);
     }
@@ -61,6 +55,10 @@ function parseInput(jsonInput) {
   daoOperator = jsonInput['daoOperator'];
   executorAddress = jsonInput['executorAddress'];
   // votingPow = jsonInput['votingPow'];
+  if (adminAddress.length == 0 || daoOperator.length == 0 || executorAddress.length == 0) {
+    console.log('Empty address');
+    process.exit();
+  }
   outputFilename = jsonInput['outputFilename'];
 }
 

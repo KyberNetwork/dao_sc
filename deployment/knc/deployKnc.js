@@ -1,18 +1,12 @@
 require('@nomiclabs/hardhat-ethers');
 const fs = require('fs');
 const path = require('path');
+const Helper = require('../../helpers/hardhatHelper');
 
 let adminAddress;
 let kncAddress;
 let oldKnc;
 let outputFilename;
-
-async function verifyContract(hre, contractAddress, ctorArgs) {
-  await hre.run('verify:verify', {
-    address: contractAddress,
-    constructorArguments: ctorArgs,
-  });
-}
 
 task('deployKNC', 'deploy script')
   .addParam('input', 'The input file')
@@ -29,7 +23,7 @@ task('deployKNC', 'deploy script')
     let Token = await hre.ethers.getContractFactory('KyberNetworkTokenV2');
     let NewKNC = await hre.ethers.getContractFactory('MockKyberTokenV2');
 
-    const GAS_PRICE = 80000000000; // 80 gweis
+    const GAS_PRICE = parseInt(process.env.GAS_PRICE);
     if (oldKnc == undefined) {
       console.log('deploy new ');
       oldKnc = await Token.deploy({gasPrice: GAS_PRICE});
@@ -50,7 +44,7 @@ task('deployKNC', 'deploy script')
 
     try {
       console.log(`Verify knc at: ${kncAddress}`);
-      await verifyContract(hre, kncAddress, [oldKnc.address, adminAddress]);
+      await Helper.verifyContract(hre, kncAddress, [oldKnc.address, adminAddress]);
     } catch (e) {
       console.log(`Error in verify knc, continue...`);
     }
@@ -63,6 +57,10 @@ task('deployKNC', 'deploy script')
 function parseInput(jsonInput) {
   adminAddress = jsonInput['adminAddress'];
   oldKnc = jsonInput['oldKnc'];
+  if (adminAddress.length == 0 || oldKnc.length == 0) {
+    console.log('Empty address');
+    process.exit();
+  }
   outputFilename = jsonInput['outputFilename'];
 }
 
