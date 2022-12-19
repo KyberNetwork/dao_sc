@@ -12,10 +12,7 @@
           "stakeToken": "0x6e35C1CCb7AB17cdea6250A293D172f646ea04cd",
           "startTime": 1651838400,
           "endTime": 1654516800,
-          "totalRewards": [
-            "16260338865000000000000000000",
-            "0"
-          ],
+          "totalRewards": ["16260338865000000000000000000", "0"],
           "vestingDuration": 0,
           "name": "KyberSwap Stake LP USDD_t/USDT_t",
           "symbol": "LP USDD_t/USDT_t"

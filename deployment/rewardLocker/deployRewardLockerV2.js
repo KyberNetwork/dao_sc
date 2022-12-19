@@ -1,15 +1,7 @@
 require('@nomiclabs/hardhat-ethers');
 const fs = require('fs');
 const path = require('path');
-
-let gasPrice;
-
-async function verifyContract(hre, contractAddress, ctorArgs) {
-  await hre.run('verify:verify', {
-    address: contractAddress,
-    constructorArguments: ctorArgs,
-  });
-}
+const Helper = require('../../helpers/hardhatHelper');
 
 let deployerAddress;
 let admin;
@@ -24,21 +16,19 @@ task('deployRewardLockerV2', 'deploy reward locker V2 contracts')
     const configParams = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     parseInput(configParams);
 
-    const BN = ethers.BigNumber;
     const [deployer] = await ethers.getSigners();
     deployerAddress = await deployer.getAddress();
     console.log(`Deployer address: ${deployerAddress}`);
 
     let outputData = {};
-    gasPrice = new BN.from(10 ** 9 * taskArgs.gasprice);
-    console.log(`Deploy gas price: ${gasPrice.toString()} (${taskArgs.gasprice} gweis)`);
+    const GAS_PRICE = parseInt(process.env.GAS_PRICE);
 
     const KyberRewardLockerV2 = await ethers.getContractFactory('KyberRewardLockerV2');
     let rewardLocker;
 
     if (lockerAddress == undefined) {
       console.log('deploy new ');
-      rewardLocker = await KyberRewardLockerV2.deploy(admin, {gasPrice: gasPrice});
+      rewardLocker = await KyberRewardLockerV2.deploy(admin, {gasPrice: GAS_PRICE});
       await rewardLocker.deployed();
       lockerAddress = rewardLocker.address;
     } else {
@@ -50,7 +40,7 @@ task('deployRewardLockerV2', 'deploy reward locker V2 contracts')
 
     try {
       console.log(`Verify reward locker at: ${rewardLocker.address}`);
-      await verifyContract(hre, rewardLocker.address, [admin]);
+      await Helper.verifyContract(hre, rewardLocker.address, [admin]);
     } catch (e) {
       console.log(`Error in verify reward locker, continue...`);
     }
@@ -63,6 +53,10 @@ task('deployRewardLockerV2', 'deploy reward locker V2 contracts')
 function parseInput(jsonInput) {
   lockerAddress = jsonInput['lockerAddress'];
   admin = jsonInput['admin'];
+  if (lockerAddress.length == 0 || admin.length == 0) {
+    console.log('Empty address');
+    process.exit();
+  }
   outputFilename = jsonInput['outputFilename'];
 }
 

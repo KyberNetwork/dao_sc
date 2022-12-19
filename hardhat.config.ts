@@ -19,6 +19,12 @@ import './deployment/createBinaryProposal.js';
 import './deployment/simFullProposal.js';
 import './deployment/simProposalExecution.js';
 import './deployment/rewardLocker/deployRewardLockerV2';
+import './deployment/knc/deployKnc';
+import './deployment/staking/deployStaking';
+import './deployment/voting/deployVoting';
+import './deployment/rewardDis/deployRd';
+import './deployment/gov/deployGov';
+import './deployment/executor/deployExecutor';
 
 import {accounts} from './test-wallets';
 
@@ -143,6 +149,26 @@ if (INFURA_API_KEY != '' && PRIVATE_KEY != '') {
     url: `https://rpc.bittorrentchain.io/`,
     accounts: [PRIVATE_KEY],
     chainId: 199,
+    timeout: 20000,
+  };
+
+  config.networks!.optimism = {
+    url: `https://opt-mainnet.g.alchemy.com/v2/I8tlSifRLcrS9Q0gXUqpdUGVH_olTrHE`,
+    accounts: [PRIVATE_KEY],
+    chainId: 10,
+    timeout: 20000,
+  };
+
+  config.networks!.arbitrum = {
+    url: `https://arb1.arbitrum.io/rpc`,
+    accounts: [PRIVATE_KEY],
+    chainId: 42161,
+    timeout: 20000,
+  };
+
+  config.networks!.goerli = {
+    url: `https://goerli.infura.io/v3/${INFURA_API_KEY}`,
+    accounts: [PRIVATE_KEY],
     timeout: 20000,
   };
 }
