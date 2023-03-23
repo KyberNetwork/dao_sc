@@ -73,6 +73,8 @@ Treasury: `0x0E590bB5F02A0c38888bFFb45DeE050b8fB60Bda`
 Reward Distributor: `0x5EC0DcF4f6F55f28550c70B854082993fdc0D3B2`  
 Reward Pool: `0xD2D0a0557E5B78E29542d440eC968F9253Daa2e2`  
 FeeHandler: `0x9Fb131eFbac23b735d7764AB12F9e52cC68401CA`
+DAO Multisig - Treasury: `0x91c9D4373B077eF8082F468C7c97f2c499e36F5b`
+- The DAO Multisig - Treasury is deployed on: Ethereum, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, Fantom, BitTorrent, Cronos.
 
 ### Ropsten
 
