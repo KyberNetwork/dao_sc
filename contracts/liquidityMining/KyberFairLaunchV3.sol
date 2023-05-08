@@ -14,7 +14,6 @@ import {GeneratedToken} from './GeneratedToken.sol';
 /// Create a new token for each pool
 /// Allow stakers to stake LP tokens and receive reward tokens
 /// Allow extend or renew a pool to continue/restart the LM program
-/// When harvesting, rewards will be transferred to a RewardLocker
 /// Support multiple reward tokens, reward tokens must be distinct and immutable
 contract KyberFairLaunchV3 is IKyberFairLaunchV3, PermissionAdmin, ReentrancyGuard {
   using SafeMath for uint256;
@@ -88,11 +87,7 @@ contract KyberFairLaunchV3 is IKyberFairLaunchV3, PermissionAdmin, ReentrancyGua
     uint32 startTime,
     uint32 endTime
   );
-  event RenewPool(
-    uint256 indexed pid,
-    uint32 indexed startTime,
-    uint32 indexed endTime
-  );
+  event RenewPool(uint256 indexed pid, uint32 indexed startTime, uint32 indexed endTime);
   event UpdatePool(uint256 indexed pid, uint32 indexed endTime);
   event Deposit(
     address indexed user,
@@ -120,10 +115,7 @@ contract KyberFairLaunchV3 is IKyberFairLaunchV3, PermissionAdmin, ReentrancyGua
     uint256 amount
   );
 
-  constructor(
-    address _admin,
-    address[] memory _rewardTokens
-  ) PermissionAdmin(_admin) {
+  constructor(address _admin, address[] memory _rewardTokens) PermissionAdmin(_admin) {
     rewardTokens = _rewardTokens;
     multipliers = new uint256[](_rewardTokens.length);
     for (uint256 i = 0; i < _rewardTokens.length; i++) {
@@ -605,5 +597,4 @@ contract KyberFairLaunchV3 is IKyberFairLaunchV3, PermissionAdmin, ReentrancyGua
   function _getBlockTime() internal virtual view returns (uint32) {
     return uint32(block.timestamp);
   }
-
 }
