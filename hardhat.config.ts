@@ -25,10 +25,19 @@ import './deployment/voting/deployVoting';
 import './deployment/rewardDis/deployRd';
 import './deployment/gov/deployGov';
 import './deployment/executor/deployExecutor';
+import './deployment/zkSync/deployZk';
 
 import {accounts} from './test-wallets';
 
-const config: HardhatUserConfig = {
+interface ZkConfig {
+  zksolc: {
+    version: string,
+    compilerSource: string,
+    settings: {},
+  },
+}
+
+const config: HardhatUserConfig & ZkConfig = {
   defaultNetwork: 'hardhat',
 
   gasReporter: {
@@ -45,6 +54,9 @@ const config: HardhatUserConfig = {
     hardhat: {
       accounts: accounts,
     },
+    zkSyncTest: {
+      url: "https://testnet.era.zksync.dev",
+    }
   },
 
   solidity: {
@@ -73,6 +85,12 @@ const config: HardhatUserConfig = {
   typechain: {
     target: 'ethers-v5',
   },
+
+  zksolc: {
+    version: "1.3.10",
+    compilerSource: "binary",
+    settings: {},
+  }
 };
 
 const INFURA_API_KEY: string = process.env.INFURA_API_KEY || '';
@@ -90,24 +108,6 @@ if (ETH_NODE_URL != '' && FORK_BLOCK != '') {
 }
 
 if (INFURA_API_KEY != '' && PRIVATE_KEY != '') {
-  config.networks!.kovan = {
-    url: `https://kovan.infura.io/v3/${INFURA_API_KEY}`,
-    accounts: [PRIVATE_KEY],
-    timeout: 20000,
-  };
-
-  config.networks!.rinkeby = {
-    url: `https://rinkeby.infura.io/v3/${INFURA_API_KEY}`,
-    accounts: [PRIVATE_KEY],
-    timeout: 20000,
-  };
-
-  config.networks!.ropsten = {
-    url: `https://ropsten.infura.io/v3/${INFURA_API_KEY}`,
-    accounts: [PRIVATE_KEY],
-    timeout: 20000,
-  };
-
   config.networks!.mainnet = {
     url: `https://mainnet.infura.io/v3/${INFURA_API_KEY}`,
     accounts: [PRIVATE_KEY],
