@@ -40,8 +40,8 @@ Controls upgradeability of the new KNC token contract, and any change in key par
 - grace period: 7 days
 - minimum voting duration: 7 days
 - maximum voting options: 8
-- vote differential: 4%
-- quorum: 15%
+- vote differential: 15%
+- quorum: 20%
 
 ### KyberVotingPowerStrategy
 
